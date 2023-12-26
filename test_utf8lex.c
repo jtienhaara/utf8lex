@@ -43,7 +43,6 @@ utf8lex_error_t test_utf8lex(
   utf8lex_class_pattern_t number_pattern;
   error = utf8lex_class_pattern_init(&number_pattern,
                                      UTF8LEX_GROUP_NUM,  // cat
-                                     UTF8LEX_UNIT_GRAPHEME,  // unit
                                      1,  // min
                                      -1);  // max
   if (error != UTF8LEX_OK)
@@ -188,7 +187,8 @@ utf8lex_error_t test_utf8lex(
   utf8lex_buffer_t buffer;
   error = utf8lex_buffer_init(&buffer,
                               NULL,  // prev
-                              &str);
+                              &str,
+                              true);  // is_eof
   if (error != UTF8LEX_OK)
   {
     printf("  test_utf8lex: FAILED\n");
@@ -208,7 +208,7 @@ utf8lex_error_t test_utf8lex(
   printf("    test_utf8lex: Begin lexing...\n");
   while (error == UTF8LEX_OK)  // Breaks on UTF8LEX_EOF.
   {
-    printf("      test_utf8lex: Lex\n");
+    printf("      test_utf8lex: Lex (byte/char/grapheme/line)\n");
     utf8lex_token_t token;
     error = utf8lex_lex(&NUMBER,  // first_token_type
                         state,  // state
@@ -217,6 +217,16 @@ utf8lex_error_t test_utf8lex(
     {
       // Nothing more to lex.
       break;
+    }
+    else if (error == UTF8LEX_MORE)
+    {
+      // !!!   more_bytes = ...;
+      // !!!   more_length = strlen(more_bytes);
+      // !!!   ...malloc() new utf8lex_string_t "more_string"
+      // !!!     and utf8lex_buffer_t "more_buffer"...
+      // !!!     utf8lex_buffer_add(state.buffer, more_buffer);
+      printf("  test_utf8lex: MORE -> FAILED\n");
+      return error;
     }
     else if (error != UTF8LEX_OK)
     {
@@ -244,19 +254,19 @@ utf8lex_error_t test_utf8lex(
     utf8lex_token_copy_string(&token,
                               token_bytes,
                               (size_t) 256);
-    printf("        test_utf8lex: %s (%s) \"%s\"\n",
+    printf("        test_utf8lex: %s (%s) \"%s\" @(%d/%d/%d/%d)[%d/%d/%d/%d]\n",
            token.token_type->name,
            pattern_type_name,
-           token_bytes);
-
-    // !!! if (error == UTF8LEX_MORE) {
-    // !!!   more_bytes = ...;
-    // !!!   more_length = strlen(more_bytes);
-    // !!!   ...malloc() new utf8lex_string_t "more_string"
-    // !!!     and utf8lex_buffer_t "more_buffer"...
-    // !!!     utf8lex_buffer_add(state.buffer, more_buffer);
-    // !!! }
-    // !!! ...Do things with token...
+           token_bytes,
+           token.loc[UTF8LEX_UNIT_BYTE].start,
+           token.loc[UTF8LEX_UNIT_CHAR].start,
+           token.loc[UTF8LEX_UNIT_GRAPHEME].start,
+           token.loc[UTF8LEX_UNIT_LINE].start,
+           token.loc[UTF8LEX_UNIT_BYTE].length,
+           token.loc[UTF8LEX_UNIT_CHAR].length,
+           token.loc[UTF8LEX_UNIT_GRAPHEME].length,
+           token.loc[UTF8LEX_UNIT_LINE].length
+           );
   }
 
   printf("    test_utf8lex: End lexing\n");
@@ -276,9 +286,11 @@ int main(
   if (error == UTF8LEX_OK)
   {
     printf("SUCCESS lexing\n");
+    fflush(stdout);
+    fflush(stderr);
     return 0;
   }
-  else if (error != UTF8LEX_OK)
+  else
   {
     char error_bytes[256];
     utf8lex_string_t error_string;
@@ -317,8 +329,11 @@ int main(
               (int) error,
               error_string.bytes,
               bad_string);
+      fflush(stderr);
     }
 
+    fflush(stdout);
+    fflush(stderr);
     return (int) error;
   }
 }

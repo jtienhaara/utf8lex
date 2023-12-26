@@ -18,18 +18,21 @@
 #ifndef UTF8LEX_H_INCLUDED
 #define UTF8LEX_H_INCLUDED
 
-#include <inttypes.h>
+#include <inttypes.h>  // For uint32_t.
+#include <stdbool.h>  // For bool, true, false.
 
 // 8-bit character units for pcre2:
 #define PCRE2_CODE_UNIT_WIDTH 8
 #include <pcre2.h>
+
+// Maximum number of bytes in one UTF-8 character:
+#define UTF8LEX_MAX_BYTES_PER_CHAR 6
 
 typedef struct _STRUCT_utf8lex_buffer           utf8lex_buffer_t;
 typedef uint32_t                                utf8lex_cat_t;
 typedef struct _STRUCT_utf8lex_category         utf8lex_category_t;
 typedef struct _STRUCT_utf8lex_class_pattern    utf8lex_class_pattern_t;
 typedef enum _ENUM_utf8lex_error                utf8lex_error_t;
-typedef struct _STRUCT_utf8lex_grapheme         utf8lex_grapheme_t;
 typedef struct _STRUCT_utf8lex_location         utf8lex_location_t;
 typedef enum _ENUM_utf8lex_pattern_type         utf8lex_pattern_type_t;
 typedef struct _STRUCT_utf8lex_regex_pattern    utf8lex_regex_pattern_t;
@@ -73,13 +76,13 @@ enum _ENUM_utf8lex_error
   UTF8LEX_ERROR_REGEX,  // Matching against a regular expression failed.
   UTF8LEX_ERROR_UNIT,  // Invalid unit must be NONE < unit < MAX.
   UTF8LEX_ERROR_INFINITE_LOOP,  // Aborted, possible infinite loop detected.
-  UTF8LEX_ERROR_BAD_LENGTH,  // Negative length.
+  UTF8LEX_ERROR_BAD_LENGTH,  // Negative length, < start, too close to end.
   UTF8LEX_ERROR_BAD_OFFSET,  // Negative offset, or too close to end of string.
   UTF8LEX_ERROR_BAD_START,  // Negative start, or too close to end of string.
-  UTF8LEX_ERROR_BAD_END,  // Negative end, or < start, or too close to end.
   UTF8LEX_ERROR_BAD_MIN,  // Min must be 1 or greater.
   UTF8LEX_ERROR_BAD_MAX,  // Max must be >= min, or -1 for no limit.
   UTF8LEX_ERROR_BAD_REGEX,  // Could not compile regex pattern.
+  UTF8LEX_ERROR_BAD_UTF8,  // Could not process the UTF-8 text.
   UTF8LEX_ERROR_BAD_ERROR,  // Invalid error NONE <= e <= MAX.
 
   UTF8LEX_ERROR_MAX
@@ -190,25 +193,6 @@ extern utf8lex_error_t utf8lex_find_category(
         utf8lex_category_t **found
         );
 
-struct _STRUCT_utf8lex_grapheme
-{
-  utf8lex_string_t *str;
-  off_t offset;
-  size_t length_bytes;
-  utf8lex_cat_t cat;  // Must be 1 category for a grapheme (no A | B).
-};
-
-extern utf8lex_error_t utf8lex_grapheme_init(
-        utf8lex_grapheme_t *self,
-        utf8lex_string_t *str,
-        off_t offset,
-        size_t length_bytes,
-        utf8lex_cat_t cat
-        );
-extern utf8lex_error_t utf8lex_grapheme_clear(
-        utf8lex_grapheme_t *self
-        );
-
 enum _ENUM_utf8lex_unit
 {
   UTF8LEX_UNIT_NONE = -1,
@@ -227,13 +211,13 @@ enum _ENUM_utf8lex_unit
 struct _STRUCT_utf8lex_location
 {
   int start;  // First byte / char / grapheme / and so on of a token.
-  int end;  // Last byte / char / grapheme / and so on of a token.
+  int length;  // # of bytes / chars / graphemes / and so on of a token.
 };
 
 extern utf8lex_error_t utf8lex_location_init(
         utf8lex_location_t *self,
         int start,
-        int end
+        int length
         );
 extern utf8lex_error_t utf8lex_location_clear(
         utf8lex_location_t *self
@@ -253,7 +237,6 @@ enum _ENUM_utf8lex_pattern_type
 struct _STRUCT_utf8lex_class_pattern
 {
   utf8lex_cat_t cat;  // The category, such as UTF8LEX_GROUP_LETTER.
-  utf8lex_unit_t unit;  // Size of class: UTF8LEX_UNIT_BYTE, _CHAR or _GRAPHEME.
   int min;  // Minimum consecutive occurrences of the class (1 or more).
   int max;  // Maximum consecutive occurrences of the class (-1 for no limit).
 };
@@ -261,7 +244,6 @@ struct _STRUCT_utf8lex_class_pattern
 extern utf8lex_error_t utf8lex_class_pattern_init(
         utf8lex_class_pattern_t *self,
         utf8lex_cat_t cat,  // The category, such as UTF8LEX_GROUP_LETTER.
-        utf8lex_unit_t unit,  // UTF8LEX_UNIT_BYTE, _CHAR or _GRAPHEME.
         int min,  // Minimum consecutive occurrences of the class (1 or more).
         int max  // Maximum consecutive occurrences (-1 = no limit).
         );
@@ -320,15 +302,17 @@ struct _STRUCT_utf8lex_token
 {
   utf8lex_token_type_t *token_type;
 
+  int start_byte;  // Bytes offset into str where token starts.
+  int length_bytes;  // # bytes in token.
   utf8lex_string_t *str;
-  utf8lex_location_t loc[UTF8LEX_UNIT_MAX];
+
+  utf8lex_location_t loc[UTF8LEX_UNIT_MAX];  // Absolute location of token.
 };
 
 extern utf8lex_error_t utf8lex_token_init(
         utf8lex_token_t *self,
         utf8lex_token_type_t *token_type,
-        utf8lex_string_t *str,
-        utf8lex_state_t *state  // For location in bytes, chars, etc.
+        utf8lex_state_t *state  // For buffer and absolute location.
         );
 extern utf8lex_error_t utf8lex_token_clear(
         utf8lex_token_t *self
@@ -348,13 +332,16 @@ struct _STRUCT_utf8lex_buffer
   utf8lex_buffer_t *next;
   utf8lex_buffer_t *prev;
 
+  utf8lex_location_t loc[UTF8LEX_UNIT_MAX];
   utf8lex_string_t *str;
+  bool is_eof;  // No more bytes to read?  (If so, do not return UTF8LEX_MORE).
 };
 
 extern utf8lex_error_t utf8lex_buffer_init(
         utf8lex_buffer_t *self,
         utf8lex_buffer_t *prev,
-        utf8lex_string_t *str
+        utf8lex_string_t *str,
+        bool is_eof
         );
 extern utf8lex_error_t utf8lex_buffer_clear(
         utf8lex_buffer_t *self
