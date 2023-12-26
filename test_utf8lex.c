@@ -27,13 +27,6 @@ utf8lex_error_t test_utf8lex(
         )
 {
   utf8lex_error_t error = UTF8LEX_OK;
-  utf8lex_token_type_t NUMBER;
-  utf8lex_token_type_t ID;
-  utf8lex_token_type_t EQUALS3;
-  utf8lex_token_type_t EQUALS;
-  utf8lex_token_type_t PLUS;
-  utf8lex_token_type_t MINUS;
-  utf8lex_token_type_t SPACE;
   printf("  test_utf8lex: begin test...\n");
 
   //
@@ -46,12 +39,25 @@ utf8lex_error_t test_utf8lex(
   //
   //     ALL lexical classes MUST appear before ANY regular expressions.
   //
+  printf("    test_utf8lex: Create number class pattern\n");
+  utf8lex_class_pattern_t number_pattern;
+  error = utf8lex_class_pattern_init(&number_pattern,
+                                     UTF8LEX_GROUP_NUM,  // cat
+                                     UTF8LEX_UNIT_GRAPHEME,  // unit
+                                     1,  // min
+                                     -1);  // max
+  if (error != UTF8LEX_OK)
+  {
+    printf("  test_utf8lex: FAILED\n");
+    return error;
+  }
   printf("    test_utf8lex: Create token_type NUMBER\n");
+  utf8lex_token_type_t NUMBER;
   error = utf8lex_token_type_init(&NUMBER, NULL, "NUMBER",
                                   UTF8LEX_PATTERN_TYPE_CLASS,
-                                  UTF8LEX_GROUP_NUM,  // cat_pattern
+                                  &number_pattern,  // class_pattern
                                   NULL, // "[\\p{N}]+",  // regex_pattern
-                                  NULL,  // str_pattern
+                                  NULL,  // string_pattern
                                   "// Empty code");
   if (error != UTF8LEX_OK)
   {
@@ -59,12 +65,22 @@ utf8lex_error_t test_utf8lex(
     return error;
   }
 
+  printf("    test_utf8lex: Create id regex pattern\n");
+  utf8lex_regex_pattern_t id_pattern;
+  error = utf8lex_regex_pattern_init(&id_pattern,
+                                     "[_\\p{L}][_\\p{L}\\p{N}]*");
+  if (error != UTF8LEX_OK)
+  {
+    printf("  test_utf8lex: FAILED\n");
+    return error;
+  }
   printf("    test_utf8lex: Create token_type ID\n");
+  utf8lex_token_type_t ID;
   error = utf8lex_token_type_init(&ID, &NUMBER, "ID",
                                   UTF8LEX_PATTERN_TYPE_REGEX,
-                                  UTF8LEX_CAT_NONE,  // cat_pattern
-                                  "[_\\p{L}][_\\p{L}\\p{N}]*",  // regex_pattern
-                                  NULL,  // str_pattern
+                                  NULL,  // class_pattern
+                                  &id_pattern,  // regex_pattern
+                                  NULL,  // string_pattern
                                   "// Empty code");
   if (error != UTF8LEX_OK)
   {
@@ -73,11 +89,12 @@ utf8lex_error_t test_utf8lex(
   }
 
   printf("    test_utf8lex: Create token_type EQUALS3\n");
+  utf8lex_token_type_t EQUALS3;
   error = utf8lex_token_type_init(&EQUALS3, &ID, "EQUALS3",
                                   UTF8LEX_PATTERN_TYPE_STRING,
-                                  UTF8LEX_CAT_NONE,  // cat_pattern
+                                  NULL,  // class_pattern
                                   NULL,  // regex_pattern
-                                  "===",  // str_pattern
+                                  "===",  // string_pattern
                                   "// Empty code");
   if (error != UTF8LEX_OK)
   {
@@ -86,11 +103,12 @@ utf8lex_error_t test_utf8lex(
   }
 
   printf("    test_utf8lex: Create token_type EQUALS\n");
+  utf8lex_token_type_t EQUALS;
   error = utf8lex_token_type_init(&EQUALS, &EQUALS3, "EQUALS",
                                   UTF8LEX_PATTERN_TYPE_STRING,
-                                  UTF8LEX_CAT_NONE,  // cat_pattern
+                                  NULL,  // class_pattern
                                   NULL,  // regex_pattern
-                                  "=",  // str_pattern
+                                  "=",  // string_pattern
                                   "// Empty code");
   if (error != UTF8LEX_OK)
   {
@@ -99,11 +117,12 @@ utf8lex_error_t test_utf8lex(
   }
 
   printf("    test_utf8lex: Create token_type PLUS\n");
+  utf8lex_token_type_t PLUS;
   error = utf8lex_token_type_init(&PLUS, &EQUALS, "PLUS",
                                   UTF8LEX_PATTERN_TYPE_STRING,
-                                  UTF8LEX_CAT_NONE,  // cat_pattern
+                                  NULL,  // class_pattern
                                   NULL,  // regex_pattern
-                                  "+",  // str_pattern
+                                  "+",  // string_pattern
                                   "// Empty code");
   if (error != UTF8LEX_OK)
   {
@@ -112,11 +131,12 @@ utf8lex_error_t test_utf8lex(
   }
 
   printf("    test_utf8lex: Create token_type MINUS\n");
+  utf8lex_token_type_t MINUS;
   error = utf8lex_token_type_init(&MINUS, &PLUS, "MINUS",
                                   UTF8LEX_PATTERN_TYPE_STRING,
-                                  UTF8LEX_CAT_NONE,  // cat_pattern
+                                  NULL,  // class_pattern
                                   NULL,  // regex_pattern
-                                  "-",  // str_pattern
+                                  "-",  // string_pattern
                                   "// Empty code");
   if (error != UTF8LEX_OK)
   {
@@ -124,12 +144,22 @@ utf8lex_error_t test_utf8lex(
     return error;
   }
 
+  printf("    test_utf8lex: Create space regex pattern\n");
+  utf8lex_regex_pattern_t space_pattern;
+  error = utf8lex_regex_pattern_init(&space_pattern,
+                                     "[\\s]+");
+  if (error != UTF8LEX_OK)
+  {
+    printf("  test_utf8lex: FAILED\n");
+    return error;
+  }
   printf("    test_utf8lex: Create token_type SPACE\n");
+  utf8lex_token_type_t SPACE;
   error = utf8lex_token_type_init(&SPACE, &MINUS, "SPACE",
                                   UTF8LEX_PATTERN_TYPE_REGEX,
-                                  UTF8LEX_CAT_NONE, // UTF8LEX_GROUP_WHITESPACE,  // cat_pattern
-                                  "[\\s]+",  // regex_pattern
-                                  NULL,  // str_pattern
+                                  NULL,  // class_pattern
+                                  &space_pattern,  // regex_pattern
+                                  NULL,  // string_pattern
                                   "// Empty code");
   if (error != UTF8LEX_OK)
   {

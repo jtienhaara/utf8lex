@@ -27,10 +27,12 @@
 typedef struct _STRUCT_utf8lex_buffer           utf8lex_buffer_t;
 typedef uint32_t                                utf8lex_cat_t;
 typedef struct _STRUCT_utf8lex_category         utf8lex_category_t;
+typedef struct _STRUCT_utf8lex_class_pattern    utf8lex_class_pattern_t;
 typedef enum _ENUM_utf8lex_error                utf8lex_error_t;
 typedef struct _STRUCT_utf8lex_grapheme         utf8lex_grapheme_t;
 typedef struct _STRUCT_utf8lex_location         utf8lex_location_t;
 typedef enum _ENUM_utf8lex_pattern_type         utf8lex_pattern_type_t;
+typedef struct _STRUCT_utf8lex_regex_pattern    utf8lex_regex_pattern_t;
 typedef struct _STRUCT_ut8lex_state             utf8lex_state_t;
 typedef struct _STRUCT_utf8lex_string           utf8lex_string_t;
 typedef struct _STRUCT_utf8lex_token            utf8lex_token_t;
@@ -69,11 +71,14 @@ enum _ENUM_utf8lex_error
   UTF8LEX_ERROR_CAT,  // Invalid cat (category id) NONE < cat < MAX / not found.
   UTF8LEX_ERROR_PATTERN_TYPE,  // Invalid pattern type NONE < p.t. < MAX.
   UTF8LEX_ERROR_REGEX,  // Matching against a regular expression failed.
+  UTF8LEX_ERROR_UNIT,  // Invalid unit must be NONE < unit < MAX.
   UTF8LEX_ERROR_INFINITE_LOOP,  // Aborted, possible infinite loop detected.
   UTF8LEX_ERROR_BAD_LENGTH,  // Negative length.
   UTF8LEX_ERROR_BAD_OFFSET,  // Negative offset, or too close to end of string.
   UTF8LEX_ERROR_BAD_START,  // Negative start, or too close to end of string.
   UTF8LEX_ERROR_BAD_END,  // Negative end, or < start, or too close to end.
+  UTF8LEX_ERROR_BAD_MIN,  // Min must be 1 or greater.
+  UTF8LEX_ERROR_BAD_MAX,  // Max must be >= min, or -1 for no limit.
   UTF8LEX_ERROR_BAD_REGEX,  // Could not compile regex pattern.
   UTF8LEX_ERROR_BAD_ERROR,  // Invalid error NONE <= e <= MAX.
 
@@ -204,50 +209,6 @@ extern utf8lex_error_t utf8lex_grapheme_clear(
         utf8lex_grapheme_t *self
         );
 
-enum _ENUM_utf8lex_pattern_type
-{
-  UTF8LEX_PATTERN_TYPE_NONE = 0,
-
-  UTF8LEX_PATTERN_TYPE_CLASS,
-  UTF8LEX_PATTERN_TYPE_REGEX,
-  UTF8LEX_PATTERN_TYPE_STRING,
-
-  UTF8LEX_PATTERN_TYPE_MAX
-};
-
-struct _STRUCT_utf8lex_token_type
-{
-  utf8lex_token_type_t *prev;
-  utf8lex_token_type_t *next;
-
-  uint32_t id;
-  unsigned char *name;
-  utf8lex_pattern_type_t pattern_type;
-  union
-  {
-    utf8lex_cat_t cat;
-    pcre2_code *regex;
-    unsigned char *str;
-  } pattern;
-  unsigned char *code;
-};
-
-// PCRE2 regex pattern language:
-//     https://pcre2project.github.io/pcre2/doc/html/pcre2pattern.html
-extern utf8lex_error_t utf8lex_token_type_init(
-        utf8lex_token_type_t *self,
-        utf8lex_token_type_t *prev,
-        unsigned char *name,
-        utf8lex_pattern_type_t pattern_type,
-        utf8lex_cat_t cat_pattern,
-        unsigned char *regex_pattern,
-        unsigned char *str_pattern,
-        unsigned char *code
-        );
-extern utf8lex_error_t utf8lex_token_type_clear(
-        utf8lex_token_type_t *self
-        );
-
 enum _ENUM_utf8lex_unit
 {
   UTF8LEX_UNIT_NONE = -1,
@@ -276,6 +237,83 @@ extern utf8lex_error_t utf8lex_location_init(
         );
 extern utf8lex_error_t utf8lex_location_clear(
         utf8lex_location_t *self
+        );
+
+enum _ENUM_utf8lex_pattern_type
+{
+  UTF8LEX_PATTERN_TYPE_NONE = 0,
+
+  UTF8LEX_PATTERN_TYPE_CLASS,
+  UTF8LEX_PATTERN_TYPE_REGEX,
+  UTF8LEX_PATTERN_TYPE_STRING,
+
+  UTF8LEX_PATTERN_TYPE_MAX
+};
+
+struct _STRUCT_utf8lex_class_pattern
+{
+  utf8lex_cat_t cat;  // The category, such as UTF8LEX_GROUP_LETTER.
+  utf8lex_unit_t unit;  // Size of class: UTF8LEX_UNIT_BYTE, _CHAR or _GRAPHEME.
+  int min;  // Minimum consecutive occurrences of the class (1 or more).
+  int max;  // Maximum consecutive occurrences of the class (-1 for no limit).
+};
+
+extern utf8lex_error_t utf8lex_class_pattern_init(
+        utf8lex_class_pattern_t *self,
+        utf8lex_cat_t cat,  // The category, such as UTF8LEX_GROUP_LETTER.
+        utf8lex_unit_t unit,  // UTF8LEX_UNIT_BYTE, _CHAR or _GRAPHEME.
+        int min,  // Minimum consecutive occurrences of the class (1 or more).
+        int max  // Maximum consecutive occurrences (-1 = no limit).
+        );
+extern utf8lex_error_t utf8lex_class_pattern_clear(
+        utf8lex_class_pattern_t *self
+        );
+
+struct _STRUCT_utf8lex_regex_pattern
+{
+  unsigned char *pattern;
+  pcre2_code *regex;
+};
+
+extern utf8lex_error_t utf8lex_regex_pattern_init(
+        utf8lex_regex_pattern_t *self,
+        unsigned char *pattern
+        );
+extern utf8lex_error_t utf8lex_regex_pattern_clear(
+        utf8lex_regex_pattern_t *self
+        );
+
+struct _STRUCT_utf8lex_token_type
+{
+  utf8lex_token_type_t *prev;
+  utf8lex_token_type_t *next;
+
+  uint32_t id;
+  unsigned char *name;
+  utf8lex_pattern_type_t pattern_type;
+  union
+  {
+    utf8lex_class_pattern_t *cls;
+    utf8lex_regex_pattern_t *regex;
+    unsigned char *str;
+  } pattern;
+  unsigned char *code;
+};
+
+// PCRE2 regex pattern language:
+//     https://pcre2project.github.io/pcre2/doc/html/pcre2pattern.html
+extern utf8lex_error_t utf8lex_token_type_init(
+        utf8lex_token_type_t *self,
+        utf8lex_token_type_t *prev,
+        unsigned char *name,
+        utf8lex_pattern_type_t pattern_type,
+        utf8lex_class_pattern_t *class_pattern,
+        utf8lex_regex_pattern_t *regex_pattern,
+        unsigned char *string_pattern,
+        unsigned char *code
+        );
+extern utf8lex_error_t utf8lex_token_type_clear(
+        utf8lex_token_type_t *self
         );
 
 struct _STRUCT_utf8lex_token

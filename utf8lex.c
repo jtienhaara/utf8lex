@@ -462,6 +462,131 @@ utf8lex_error_t utf8lex_grapheme_clear(
 }
 
 // ---------------------------------------------------------------------
+//                       utf8lex_class_pattern_t
+// ---------------------------------------------------------------------
+
+utf8lex_error_t utf8lex_class_pattern_init(
+        utf8lex_class_pattern_t *self,
+        utf8lex_cat_t cat,  // The category, such as UTF8LEX_GROUP_LETTER.
+        utf8lex_unit_t unit,  // UTF8LEX_UNIT_BYTE, _CHAR or _GRAPHEME.
+        int min,  // Minimum consecutive occurrences of the class (1 or more).
+        int max  // Maximum consecutive occurrences (-1 = no limit).
+        )
+{
+  if (self == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+  else if (cat <= UTF8LEX_CAT_NONE
+           || cat >= UTF8LEX_CAT_MAX)
+  {
+    return UTF8LEX_ERROR_CAT;
+  }
+  else if (unit <= UTF8LEX_UNIT_NONE
+           || unit >= UTF8LEX_UNIT_MAX)
+  {
+    return UTF8LEX_ERROR_UNIT;
+  }
+  else if (min <= 0)
+  {
+    return UTF8LEX_ERROR_BAD_MIN;
+  }
+  else if (max != -1
+           && max < min)
+  {
+    return UTF8LEX_ERROR_BAD_MAX;
+  }
+
+  self->cat = cat;
+  self->unit = unit;
+  self->min = min;
+  self->max = max;
+
+  return UTF8LEX_OK;
+}
+
+utf8lex_error_t utf8lex_class_pattern_clear(
+        utf8lex_class_pattern_t *self
+        )
+{
+  if (self == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  self->cat = UTF8LEX_CAT_NONE;
+  self->unit = UTF8LEX_UNIT_NONE;
+  self->min = 0;
+  self->max = 0;
+
+  return UTF8LEX_OK;
+}
+
+// ---------------------------------------------------------------------
+//                       utf8lex_regex_pattern_t
+// ---------------------------------------------------------------------
+
+utf8lex_error_t utf8lex_regex_pattern_init(
+        utf8lex_regex_pattern_t *self,
+        unsigned char *pattern
+        )
+{
+  if (self == NULL
+      || pattern == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  // Compile the regex_pattern string into a pcre2code
+  // regular expression:
+  // https://pcre2project.github.io/pcre2/doc/html/pcre2api.html#SEC20
+  int pcre2_error;  // We don't actually use this for now.
+  PCRE2_SIZE pcre2_offset;  // We don't actually use this for now.
+  self->regex = pcre2_compile(
+                              pattern,  // the regular expression pattern
+                              PCRE2_ZERO_TERMINATED,  // '\0' at end.
+                              0,  // default options.
+                              &pcre2_error,  // for error code.
+                              &pcre2_offset,  // for error offset.
+                              NULL);  // no compile context.
+  if (pcre2_error < 0)
+  {
+    PCRE2_UCHAR pcre2_error_string[256];
+    pcre2_get_error_message(pcre2_error,
+                            pcre2_error_string,
+                            (PCRE2_SIZE) 256);
+    printf("!!! pcre2 error: %s\n", pcre2_error_string);
+    utf8lex_regex_pattern_clear(self);
+
+    return UTF8LEX_ERROR_BAD_REGEX;
+  }
+
+  self->pattern = pattern;
+
+  return UTF8LEX_OK;
+}
+
+utf8lex_error_t utf8lex_regex_pattern_clear(
+        utf8lex_regex_pattern_t *self
+        )
+{
+  if (self == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  if (self->regex != NULL)
+  {
+    pcre2_code_free(self->regex);
+  }
+
+  self->pattern = NULL;
+  self->regex = NULL;
+
+  return UTF8LEX_OK;
+}
+
+// ---------------------------------------------------------------------
 //                        utf8lex_token_type_t
 // ---------------------------------------------------------------------
 
@@ -470,9 +595,9 @@ utf8lex_error_t utf8lex_token_type_init(
         utf8lex_token_type_t *prev,
         unsigned char *name,
         utf8lex_pattern_type_t pattern_type,
-        utf8lex_cat_t cat_pattern,
-        unsigned char *regex_pattern,
-        unsigned char *str_pattern,
+        utf8lex_class_pattern_t *class_pattern,
+        utf8lex_regex_pattern_t *regex_pattern,
+        unsigned char *string_pattern,
         unsigned char *code
         )
 {
@@ -496,12 +621,11 @@ utf8lex_error_t utf8lex_token_type_init(
   switch (pattern_type)
   {
   case UTF8LEX_PATTERN_TYPE_CLASS:
-    if (cat_pattern <= UTF8LEX_CAT_NONE
-        || cat_pattern >= UTF8LEX_CAT_MAX)
+    if (class_pattern == NULL)
     {
-      return UTF8LEX_ERROR_CAT;
+      return UTF8LEX_ERROR_NULL_POINTER;
     }
-    self->pattern.cat = cat_pattern;
+    self->pattern.cls = class_pattern;
     break;
 
   case UTF8LEX_PATTERN_TYPE_REGEX:
@@ -509,36 +633,15 @@ utf8lex_error_t utf8lex_token_type_init(
     {
       return UTF8LEX_ERROR_NULL_POINTER;
     }
-
-    // Compile the regex_pattern string into a pcre2code
-    // regular expression:
-    // https://pcre2project.github.io/pcre2/doc/html/pcre2api.html#SEC20
-    int pcre2_error;  // We don't actually use this for now.
-    PCRE2_SIZE pcre2_offset;  // We don't actually use this for now.
-    self->pattern.regex = pcre2_compile(
-                                        regex_pattern,  // the pattern
-                                        PCRE2_ZERO_TERMINATED,  // '\0' at end.
-                                        0,  // default options.
-                                        &pcre2_error,  // for error code.
-                                        &pcre2_offset,  // for error offset.
-                                        NULL);  // no compile context.
-    if (pcre2_error < 0)
-    {
-      PCRE2_UCHAR pcre2_error_string[256];
-      pcre2_get_error_message(pcre2_error,
-                              pcre2_error_string,
-                              (PCRE2_SIZE) 256);
-      printf("!!! pcre2 error: %s\n", pcre2_error_string);
-      return UTF8LEX_ERROR_BAD_REGEX;
-    }
+    self->pattern.regex = regex_pattern;
     break;
 
   case UTF8LEX_PATTERN_TYPE_STRING:
-    if (str_pattern == NULL)
+    if (string_pattern == NULL)
     {
       return UTF8LEX_ERROR_NULL_POINTER;
     }
-    self->pattern.str = str_pattern;
+    self->pattern.str = string_pattern;
     break;
 
   default:
@@ -583,10 +686,15 @@ utf8lex_error_t utf8lex_token_type_clear(
     self->next->prev = self->prev;
   }
 
-  if (self->pattern_type == UTF8LEX_PATTERN_TYPE_REGEX
+  if (self->pattern_type == UTF8LEX_PATTERN_TYPE_CLASS
+      && self->pattern.cls != NULL)
+  {
+    utf8lex_class_pattern_clear(self->pattern.cls);
+  }
+  else if (self->pattern_type == UTF8LEX_PATTERN_TYPE_REGEX
       && self->pattern.regex != NULL)
   {
-    pcre2_code_free(self->pattern.regex);
+    utf8lex_regex_pattern_clear(self->pattern.regex);
   }
 
   self->next = NULL;
@@ -594,7 +702,7 @@ utf8lex_error_t utf8lex_token_type_clear(
   self->id = (uint32_t) 0;
   self->name = NULL;
   self->pattern_type = UTF8LEX_PATTERN_TYPE_NONE;
-  self->pattern.cat = UTF8LEX_CAT_NONE;
+  self->pattern.cls = NULL;
   self->pattern.regex = NULL;
   self->pattern.str = NULL;
   self->code = NULL;
@@ -928,6 +1036,7 @@ utf8lex_error_t utf8lex_lex_class(
         )
 {
   if (token_type == NULL
+      || token_type->pattern.cls == NULL
       || state == NULL
       || state->buffer == NULL
       || state->buffer->str == NULL
@@ -941,132 +1050,164 @@ utf8lex_error_t utf8lex_lex_class(
   }
 
   off_t offset = (off_t) state->loc[UTF8LEX_UNIT_BYTE].start;
+  size_t total_bytes_read = (size_t) 0;
 
-  utf8proc_int32_t codepoint;
-  utf8proc_ssize_t num_bytes_read = utf8proc_iterate(
-      (utf8proc_uint8_t *) (state->buffer->str->bytes + offset),
-      (utf8proc_ssize_t) state->buffer->str->max_length_bytes,
-      &codepoint);
-
-  if (num_bytes_read <= (utf8proc_ssize_t) 0)
+  for (int u = 0;
+       (token_type->pattern.cls->max == -1 || u < token_type->pattern.cls->max);
+       u ++)
   {
-    return UTF8LEX_NO_MATCH;
-  }
+    utf8proc_int32_t codepoint;
+    utf8proc_ssize_t num_bytes_read = utf8proc_iterate(
+        (utf8proc_uint8_t *) (state->buffer->str->bytes + offset),
+        (utf8proc_ssize_t) state->buffer->str->max_length_bytes,
+        &codepoint);
 
-  utf8proc_category_t utf8proc_cat = utf8proc_category(codepoint);
+    if (num_bytes_read <= (utf8proc_ssize_t) 0)
+    {
+      if (u < token_type->pattern.cls->min)
+      {
+        return UTF8LEX_NO_MATCH;
+      }
+      else
+      {
+        // Finished reading at least (min) chars / graphemes / etc.  Done.
+        break;
+      }
+    }
 
-  utf8lex_error_t error = UTF8LEX_NO_MATCH;
-  switch (utf8proc_cat)
-  {
-  case UTF8PROC_CATEGORY_CN:
-    if (token_type->pattern.cat & UTF8LEX_CAT_OTHER_NA) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_LU:
-    if (token_type->pattern.cat & UTF8LEX_CAT_LETTER_UPPER) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_LL:
-    if (token_type->pattern.cat & UTF8LEX_CAT_LETTER_LOWER) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_LT:
-    if (token_type->pattern.cat & UTF8LEX_CAT_LETTER_TITLE) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_LM:
-    if (token_type->pattern.cat & UTF8LEX_CAT_LETTER_MODIFIER) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_LO:
-    if (token_type->pattern.cat & UTF8LEX_CAT_LETTER_OTHER) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_MN:
-    if (token_type->pattern.cat & UTF8LEX_CAT_MARK_NON_SPACING) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_MC:
-    if (token_type->pattern.cat & UTF8LEX_CAT_MARK_SPACING_COMBINING) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_ME:
-    if (token_type->pattern.cat & UTF8LEX_CAT_MARK_ENCLOSING) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_ND:
-    if (token_type->pattern.cat & UTF8LEX_CAT_NUM_DECIMAL) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_NL:
-    if (token_type->pattern.cat & UTF8LEX_CAT_NUM_LETTER) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_NO:
-    if (token_type->pattern.cat & UTF8LEX_CAT_NUM_OTHER) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_PC:
-    if (token_type->pattern.cat & UTF8LEX_CAT_PUNCT_CONNECTOR) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_PD:
-    if (token_type->pattern.cat & UTF8LEX_CAT_PUNCT_DASH) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_PS:
-    if (token_type->pattern.cat & UTF8LEX_CAT_PUNCT_OPEN) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_PE:
-    if (token_type->pattern.cat & UTF8LEX_CAT_PUNCT_CLOSE) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_PI:
-    if (token_type->pattern.cat & UTF8LEX_CAT_PUNCT_QUOTE_OPEN) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_PF:
-    if (token_type->pattern.cat & UTF8LEX_CAT_PUNCT_QUOTE_CLOSE) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_PO:
-    if (token_type->pattern.cat & UTF8LEX_CAT_PUNCT_OTHER) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_SM:
-    if (token_type->pattern.cat & UTF8LEX_CAT_SYM_MATH) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_SC:
-    if (token_type->pattern.cat & UTF8LEX_CAT_SYM_CURRENCY) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_SK:
-    if (token_type->pattern.cat & UTF8LEX_CAT_SYM_MODIFIER) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_SO:
-    if (token_type->pattern.cat & UTF8LEX_CAT_SYM_OTHER) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_ZS:
-    if (token_type->pattern.cat & UTF8LEX_CAT_SEP_SPACE) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_ZL:
-    if (token_type->pattern.cat & UTF8LEX_CAT_SEP_LINE) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_ZP:
-    if (token_type->pattern.cat & UTF8LEX_CAT_SEP_PARAGRAPH) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_CC:
-    if (token_type->pattern.cat & UTF8LEX_CAT_OTHER_CONTROL) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_CF:
-    if (token_type->pattern.cat & UTF8LEX_CAT_OTHER_FORMAT) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_CS:
-    if (token_type->pattern.cat & UTF8LEX_CAT_OTHER_SURROGATE) { error = UTF8LEX_OK; }
-    break;
-  case UTF8PROC_CATEGORY_CO:
-    if (token_type->pattern.cat & UTF8LEX_CAT_OTHER_PRIVATE) { error = UTF8LEX_OK; }
-    break;
+    utf8proc_category_t utf8proc_cat = utf8proc_category(codepoint);
 
-  default:
-    error = UTF8LEX_ERROR_CAT;  // No idea what category this is!
-    break;
-  }
+    utf8lex_error_t error = UTF8LEX_NO_MATCH;
+    switch (utf8proc_cat)
+    {
+    case UTF8PROC_CATEGORY_CN:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_OTHER_NA) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_LU:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_LETTER_UPPER) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_LL:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_LETTER_LOWER) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_LT:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_LETTER_TITLE) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_LM:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_LETTER_MODIFIER) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_LO:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_LETTER_OTHER) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_MN:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_MARK_NON_SPACING) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_MC:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_MARK_SPACING_COMBINING) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_ME:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_MARK_ENCLOSING) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_ND:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_NUM_DECIMAL) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_NL:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_NUM_LETTER) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_NO:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_NUM_OTHER) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_PC:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_PUNCT_CONNECTOR) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_PD:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_PUNCT_DASH) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_PS:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_PUNCT_OPEN) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_PE:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_PUNCT_CLOSE) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_PI:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_PUNCT_QUOTE_OPEN) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_PF:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_PUNCT_QUOTE_CLOSE) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_PO:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_PUNCT_OTHER) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_SM:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_SYM_MATH) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_SC:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_SYM_CURRENCY) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_SK:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_SYM_MODIFIER) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_SO:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_SYM_OTHER) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_ZS:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_SEP_SPACE) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_ZL:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_SEP_LINE) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_ZP:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_SEP_PARAGRAPH) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_CC:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_OTHER_CONTROL) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_CF:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_OTHER_FORMAT) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_CS:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_OTHER_SURROGATE) { error = UTF8LEX_OK; }
+      break;
+    case UTF8PROC_CATEGORY_CO:
+      if (token_type->pattern.cls->cat & UTF8LEX_CAT_OTHER_PRIVATE) { error = UTF8LEX_OK; }
+      break;
 
-  if (error != UTF8LEX_OK)
-  {
-    return error;
+    default:
+      error = UTF8LEX_ERROR_CAT;  // No idea what category this is!
+      break;
+    }
+
+    if (error == UTF8LEX_NO_MATCH)
+    {
+      if (u < token_type->pattern.cls->min)
+      {
+        return UTF8LEX_NO_MATCH;
+      }
+      else
+      {
+        // Finished reading at least (min) chars / graphemes / etc.  Done.
+        break;
+      }
+    }
+    else if (error != UTF8LEX_OK)
+    {
+      return error;
+    }
+
+    // We found another char / grapheme of the expected class.
+    // Increase the offset and keep looking for more until we hit the max.
+    offset += (off_t) num_bytes_read;
+    total_bytes_read += (size_t) num_bytes_read;
   }
 
   // Found what we're looking for.
   state->loc[UTF8LEX_UNIT_BYTE].end = state->loc[UTF8LEX_UNIT_BYTE].start
-    + (int) num_bytes_read - 1;
+    + (int) total_bytes_read - 1;
 
-  error = utf8lex_token_init(token,
-                             token_type,
-                             state->buffer->str,
-                             state);  // For location in bytes, chars, etc.
+  utf8lex_error_t error = utf8lex_token_init(
+      token,
+      token_type,
+      state->buffer->str,
+      state);  // For location in bytes, chars, etc.
   if (error != UTF8LEX_OK)
   {
     return error;
@@ -1146,7 +1287,7 @@ utf8lex_error_t utf8lex_lex_regex(
   //     this match is not valid, so pcre2_match() searches further
   //     into the string for occurrences of "a" or "b". 
   int pcre2_error = pcre2_match(
-      token_type->pattern.regex,  // The pcre2_code (compiled regex pattern).
+      token_type->pattern.regex->regex,  // The pcre2_code (compiled regex).
       (PCRE2_SPTR) state->buffer->str->bytes,  // subject
       (PCRE2_SIZE) state->buffer->str->length_bytes,  // length
       (PCRE2_SIZE) offset,  // startoffset
