@@ -28,6 +28,7 @@
 // Maximum number of bytes in one UTF-8 character:
 #define UTF8LEX_MAX_BYTES_PER_CHAR 6
 
+typedef struct _STRUCT_utf8lex_abstract_pattern utf8lex_abstract_pattern_t;
 typedef struct _STRUCT_utf8lex_buffer           utf8lex_buffer_t;
 typedef uint32_t                                utf8lex_cat_t;
 typedef struct _STRUCT_utf8lex_category         utf8lex_category_t;
@@ -35,7 +36,7 @@ typedef struct _STRUCT_utf8lex_class_pattern    utf8lex_class_pattern_t;
 typedef enum _ENUM_utf8lex_error                utf8lex_error_t;
 typedef struct _STRUCT_utf8lex_literal_pattern  utf8lex_literal_pattern_t;
 typedef struct _STRUCT_utf8lex_location         utf8lex_location_t;
-typedef enum _ENUM_utf8lex_pattern_type         utf8lex_pattern_type_t;
+typedef struct _STRUCT_utf8lex_pattern_type     utf8lex_pattern_type_t;
 typedef struct _STRUCT_utf8lex_regex_pattern    utf8lex_regex_pattern_t;
 typedef struct _STRUCT_ut8lex_state             utf8lex_state_t;
 typedef struct _STRUCT_utf8lex_string           utf8lex_string_t;
@@ -58,7 +59,7 @@ typedef enum _ENUM_utf8lex_unit                 utf8lex_unit_t;
 extern utf8lex_error_t utf8lex_lex(
         utf8lex_token_type_t * first_token_type,
         utf8lex_state_t *state,
-        utf8lex_token_t *token
+        utf8lex_token_t *token_pointer
         );
 
 
@@ -73,7 +74,7 @@ enum _ENUM_utf8lex_error
   UTF8LEX_ERROR_NULL_POINTER,
   UTF8LEX_ERROR_CHAIN_INSERT,  // Can't insert links into the chain, only append
   UTF8LEX_ERROR_CAT,  // Invalid cat (category id) NONE < cat < MAX / not found.
-  UTF8LEX_ERROR_PATTERN_TYPE,  // Invalid pattern type NONE < p.t. < MAX.
+  UTF8LEX_ERROR_PATTERN_TYPE,  // pattern_type mismatch (eg class, regex).
   UTF8LEX_ERROR_EMPTY_LITERAL,  // Literals cannot be "".
   UTF8LEX_ERROR_REGEX,  // Matching against a regular expression failed.
   UTF8LEX_ERROR_UNIT,  // Invalid unit must be NONE < unit < MAX.
@@ -246,19 +247,61 @@ extern utf8lex_error_t utf8lex_location_clear(
         utf8lex_location_t *self
         );
 
-enum _ENUM_utf8lex_pattern_type
+struct _STRUCT_utf8lex_pattern_type
 {
-  UTF8LEX_PATTERN_TYPE_NONE = 0,
+  char *name;  // Such as "CLASS", "LITERAL" or "REGEX".
 
-  UTF8LEX_PATTERN_TYPE_CLASS,
-  UTF8LEX_PATTERN_TYPE_LITERAL,
-  UTF8LEX_PATTERN_TYPE_REGEX,
+  // During lexing, utf8lex_lex() will invoke this pattern_type's
+  // lex() function to determine 1) whether the text in the lexing
+  // buffer matches this pattern_type and, if so, then also
+  // 2) initialize the specified token_pointer
+  // (optionally updating the buffer and state lengths in the process).
+  //
+  // The token_type containers the pattern to use for lexing;
+  // token_type->pattern is of type utf8lex_abstract_pattern_t *,
+  // so utf8lex_lex() calls token_type->pattern->pattern_type->lex(...).
+  //
+  // The builtin class, literal and regex pattern types
+  // provide this functionality; other pattern types can be added,
+  // if desired.
+  utf8lex_error_t (*lex)(
+          utf8lex_token_type_t *token_type,
+          utf8lex_state_t *state,
+          utf8lex_token_t *token_pointer
+          );
 
-  UTF8LEX_PATTERN_TYPE_MAX
+  // When a token_type is cleared, its pattern_type will free any
+  // memory used by its pattern (such as a compiled regular expression).
+  utf8lex_error_t (*clear)(
+          utf8lex_abstract_pattern_t *pattern
+          );
+};
+
+// A token pattern that matches a sequence of N characters
+// of a specific utf8lex_cat_t class, such as UTF8LEX_GROUP_WHITESPACE:
+extern utf8lex_pattern_type_t *UTF8LEX_PATTERN_TYPE_CLASS;
+
+// A token pattern that matches a literal string,
+// such as "int" or "==" or "proc" and so on:
+extern utf8lex_pattern_type_t *UTF8LEX_PATTERN_TYPE_LITERAL;
+
+// A token pattern that matches a regular expression,
+// such as "^[0-9]+" or "[\\p{N}]+" or "[_\\p{L}][_\\p{L}\\p{N}]*" or "[\\s]+"
+// and so on:
+extern utf8lex_pattern_type_t *UTF8LEX_PATTERN_TYPE_REGEX;
+
+struct _STRUCT_utf8lex_abstract_pattern
+{
+  // The pattern_type must always be the first field in every
+  // utf8lex_abstract_pattern_t implementation (e.g. class, literal, regex).
+  utf8lex_pattern_type_t *pattern_type;
 };
 
 struct _STRUCT_utf8lex_class_pattern
 {
+  // utf8lex_abstract_pattern_t field(s):
+  utf8lex_pattern_type_t *pattern_type;
+
   utf8lex_cat_t cat;  // The category, such as UTF8LEX_GROUP_LETTER.
   int min;  // Minimum consecutive occurrences of the class (1 or more).
   int max;  // Maximum consecutive occurrences of the class (-1 for no limit).
@@ -271,11 +314,14 @@ extern utf8lex_error_t utf8lex_class_pattern_init(
         int max  // Maximum consecutive occurrences (-1 = no limit).
         );
 extern utf8lex_error_t utf8lex_class_pattern_clear(
-        utf8lex_class_pattern_t *self
+        utf8lex_abstract_pattern_t *self  // Must be utf8lex_class_pattern_t *
         );
 
 struct _STRUCT_utf8lex_literal_pattern
 {
+  // utf8lex_abstract_pattern_t field(s):
+  utf8lex_pattern_type_t *pattern_type;
+
   unsigned char *str;
   int length[UTF8LEX_UNIT_MAX];  // Literal # of bytes, chars, graphemes, ...
 };
@@ -285,21 +331,26 @@ extern utf8lex_error_t utf8lex_literal_pattern_init(
         unsigned char *str
         );
 extern utf8lex_error_t utf8lex_literal_pattern_clear(
-        utf8lex_literal_pattern_t *self
+        utf8lex_abstract_pattern_t *self  // Must be utf8lex_literal_pattern_t *
         );
 
 struct _STRUCT_utf8lex_regex_pattern
 {
+  // utf8lex_abstract_pattern_t field(s):
+  utf8lex_pattern_type_t *pattern_type;
+
   unsigned char *pattern;
   pcre2_code *regex;
 };
 
+// PCRE2 regex pattern language:
+//     https://pcre2project.github.io/pcre2/doc/html/pcre2pattern.html
 extern utf8lex_error_t utf8lex_regex_pattern_init(
         utf8lex_regex_pattern_t *self,
         unsigned char *pattern
         );
 extern utf8lex_error_t utf8lex_regex_pattern_clear(
-        utf8lex_regex_pattern_t *self
+        utf8lex_abstract_pattern_t *self  // Must be utf8lex_regex_pattern_t *
         );
 
 struct _STRUCT_utf8lex_token_type
@@ -309,26 +360,15 @@ struct _STRUCT_utf8lex_token_type
 
   uint32_t id;
   unsigned char *name;
-  utf8lex_pattern_type_t pattern_type;
-  union
-  {
-    utf8lex_class_pattern_t *cls;
-    utf8lex_literal_pattern_t *literal;
-    utf8lex_regex_pattern_t *regex;
-  } pattern;
+  utf8lex_abstract_pattern_t *pattern;  // Such as class, literal, regex.
   unsigned char *code;
 };
 
-// PCRE2 regex pattern language:
-//     https://pcre2project.github.io/pcre2/doc/html/pcre2pattern.html
 extern utf8lex_error_t utf8lex_token_type_init(
         utf8lex_token_type_t *self,
         utf8lex_token_type_t *prev,
         unsigned char *name,
-        utf8lex_pattern_type_t pattern_type,
-        utf8lex_class_pattern_t *class_pattern,
-        utf8lex_literal_pattern_t *literal_pattern,
-        utf8lex_regex_pattern_t *regex_pattern,
+        utf8lex_abstract_pattern_t *pattern,  // Such as class, literal, regex.
         unsigned char *code
         );
 extern utf8lex_error_t utf8lex_token_type_clear(

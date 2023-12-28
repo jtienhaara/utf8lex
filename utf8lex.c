@@ -194,7 +194,7 @@ utf8lex_error_t utf8lex_state_string(
   size_t num_bytes_written = snprintf(
       str->bytes,
       str->max_length_bytes,
-      "(bytes@%d[%d], chars@%d[%d], graphemes@%d[%d], words@%d[%d], lines@%d[%d], paragraphs@%d[%d], sections@%d[%d])",
+      "(bytes@%d[%d], chars@%d[%d], graphemes@%d[%d], lines@%d[%d])",
       state->loc[UTF8LEX_UNIT_BYTE].start,
       state->loc[UTF8LEX_UNIT_BYTE].length,
       state->loc[UTF8LEX_UNIT_CHAR].start,
@@ -237,6 +237,10 @@ utf8lex_error_t utf8lex_error_string(
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
                                  "UTF8LEX_OK");
     break;
+  case UTF8LEX_EOF:
+    num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
+                                 "UTF8LEX_EOF");
+    break;
 
   case UTF8LEX_MORE:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
@@ -263,13 +267,21 @@ utf8lex_error_t utf8lex_error_string(
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
                                  "UTF8LEX_ERROR_PATTERN_TYPE");
     break;
-  case UTF8LEX_ERROR_INFINITE_LOOP:
+  case UTF8LEX_ERROR_EMPTY_LITERAL:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
-                                 "UTF8LEX_ERROR_INFINITE_LOOP");
+                                 "UTF8LEX_ERROR_EMPTY_LITERAL");
     break;
   case UTF8LEX_ERROR_REGEX:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
                                  "UTF8LEX_ERROR_REGEX");
+    break;
+  case UTF8LEX_ERROR_UNIT:
+    num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
+                                 "UTF8LEX_ERROR_UNIT");
+    break;
+  case UTF8LEX_ERROR_INFINITE_LOOP:
+    num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
+                                 "UTF8LEX_ERROR_INFINITE_LOOP");
     break;
   case UTF8LEX_ERROR_BAD_LENGTH:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
@@ -283,9 +295,21 @@ utf8lex_error_t utf8lex_error_string(
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
                                  "UTF8LEX_ERROR_BAD_START");
     break;
+  case UTF8LEX_ERROR_BAD_MIN:
+    num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
+                                 "UTF8LEX_ERROR_BAD_MIN");
+    break;
+  case UTF8LEX_ERROR_BAD_MAX:
+    num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
+                                 "UTF8LEX_ERROR_BAD_MAX");
+    break;
   case UTF8LEX_ERROR_BAD_REGEX:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
                                  "UTF8LEX_ERROR_BAD_REGEX");
+    break;
+  case UTF8LEX_ERROR_BAD_UTF8:
+    num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
+                                 "UTF8LEX_ERROR_BAD_UTF8");
     break;
   case UTF8LEX_ERROR_BAD_ERROR:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
@@ -298,6 +322,8 @@ utf8lex_error_t utf8lex_error_string(
     break;
 
   default:
+    num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
+                                 "unknown error %d", (int) error);
     return UTF8LEX_ERROR_BAD_ERROR;
   }
 
@@ -451,6 +477,7 @@ utf8lex_error_t utf8lex_class_pattern_init(
     return UTF8LEX_ERROR_BAD_MAX;
   }
 
+  self->pattern_type = UTF8LEX_PATTERN_TYPE_CLASS;
   self->cat = cat;
   self->min = min;
   self->max = max;
@@ -459,7 +486,7 @@ utf8lex_error_t utf8lex_class_pattern_init(
 }
 
 utf8lex_error_t utf8lex_class_pattern_clear(
-        utf8lex_class_pattern_t *self
+        utf8lex_abstract_pattern_t *self  // Must be utf8lex_class_pattern_t *
         )
 {
   if (self == NULL)
@@ -467,9 +494,13 @@ utf8lex_error_t utf8lex_class_pattern_clear(
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
-  self->cat = UTF8LEX_CAT_NONE;
-  self->min = 0;
-  self->max = 0;
+  utf8lex_class_pattern_t *class_pattern =
+    (utf8lex_class_pattern_t *) self;
+
+  class_pattern->pattern_type = NULL;
+  class_pattern->cat = UTF8LEX_CAT_NONE;
+  class_pattern->min = 0;
+  class_pattern->max = 0;
 
   return UTF8LEX_OK;
 }
@@ -496,6 +527,7 @@ utf8lex_error_t utf8lex_literal_pattern_init(
     return UTF8LEX_ERROR_EMPTY_LITERAL;
   }
 
+  self->pattern_type = UTF8LEX_PATTERN_TYPE_LITERAL;
   self->str = str;
   self->length[UTF8LEX_UNIT_BYTE] = (int) num_bytes;
 
@@ -588,7 +620,7 @@ utf8lex_error_t utf8lex_literal_pattern_init(
 }
 
 utf8lex_error_t utf8lex_literal_pattern_clear(
-        utf8lex_literal_pattern_t *self
+        utf8lex_abstract_pattern_t *self  // Must be utf8lex_literal_pattern_t *
         )
 {
   if (self == NULL)
@@ -596,12 +628,16 @@ utf8lex_error_t utf8lex_literal_pattern_clear(
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
-  self->str = NULL;
+  utf8lex_literal_pattern_t *literal_pattern =
+    (utf8lex_literal_pattern_t *) self;
+
+  literal_pattern->pattern_type = NULL;
+  literal_pattern->str = NULL;
   for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
        unit < UTF8LEX_UNIT_MAX;
        unit ++)
   {
-    self->length[unit] = -1;
+    literal_pattern->length[unit] = -1;
   }
 
   return UTF8LEX_OK;
@@ -642,18 +678,19 @@ utf8lex_error_t utf8lex_regex_pattern_init(
                             pcre2_error_string,
                             (PCRE2_SIZE) 256);
     printf("!!! pcre2 error: %s\n", pcre2_error_string);
-    utf8lex_regex_pattern_clear(self);
+    utf8lex_regex_pattern_clear((utf8lex_abstract_pattern_t *) self);
 
     return UTF8LEX_ERROR_BAD_REGEX;
   }
 
+  self->pattern_type = UTF8LEX_PATTERN_TYPE_REGEX;
   self->pattern = pattern;
 
   return UTF8LEX_OK;
 }
 
 utf8lex_error_t utf8lex_regex_pattern_clear(
-        utf8lex_regex_pattern_t *self
+        utf8lex_abstract_pattern_t *self  // Must be utf8lex_regex_pattern_t *
         )
 {
   if (self == NULL)
@@ -661,13 +698,17 @@ utf8lex_error_t utf8lex_regex_pattern_clear(
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
-  if (self->regex != NULL)
+  utf8lex_regex_pattern_t *regex_pattern =
+    (utf8lex_regex_pattern_t *) self;
+
+  if (regex_pattern->regex != NULL)
   {
-    pcre2_code_free(self->regex);
+    pcre2_code_free(regex_pattern->regex);
   }
 
-  self->pattern = NULL;
-  self->regex = NULL;
+  regex_pattern->pattern_type = NULL;
+  regex_pattern->pattern = NULL;
+  regex_pattern->regex = NULL;
 
   return UTF8LEX_OK;
 }
@@ -681,15 +722,15 @@ utf8lex_error_t utf8lex_token_type_init(
         utf8lex_token_type_t *self,
         utf8lex_token_type_t *prev,
         unsigned char *name,
-        utf8lex_pattern_type_t pattern_type,
-        utf8lex_class_pattern_t *class_pattern,
-        utf8lex_literal_pattern_t *literal_pattern,
-        utf8lex_regex_pattern_t *regex_pattern,
+        utf8lex_abstract_pattern_t *pattern,
         unsigned char *code
         )
 {
   if (self == NULL
       || name == NULL
+      || pattern == NULL
+      || pattern->pattern_type == NULL
+      || pattern->pattern_type->lex == NULL
       || code == NULL)
   {
     return UTF8LEX_ERROR_NULL_POINTER;
@@ -699,47 +740,12 @@ utf8lex_error_t utf8lex_token_type_init(
   {
     return UTF8LEX_ERROR_CHAIN_INSERT;
   }
-  else if (pattern_type <= UTF8LEX_PATTERN_TYPE_NONE
-           || pattern_type >= UTF8LEX_PATTERN_TYPE_MAX)
-  {
-    return UTF8LEX_ERROR_PATTERN_TYPE;
-  }
-
-  switch (pattern_type)
-  {
-  case UTF8LEX_PATTERN_TYPE_CLASS:
-    if (class_pattern == NULL)
-    {
-      return UTF8LEX_ERROR_NULL_POINTER;
-    }
-    self->pattern.cls = class_pattern;
-    break;
-
-  case UTF8LEX_PATTERN_TYPE_LITERAL:
-    if (literal_pattern == NULL)
-    {
-      return UTF8LEX_ERROR_NULL_POINTER;
-    }
-    self->pattern.literal = literal_pattern;
-    break;
-
-  case UTF8LEX_PATTERN_TYPE_REGEX:
-    if (regex_pattern == NULL)
-    {
-      return UTF8LEX_ERROR_NULL_POINTER;
-    }
-    self->pattern.regex = regex_pattern;
-    break;
-
-  default:
-    return UTF8LEX_ERROR_PATTERN_TYPE;
-  }
 
   self->next = NULL;
   self->prev = prev;
   // id is set below, in the if/else statements.
   self->name = name;
-  self->pattern_type = pattern_type;
+  self->pattern = pattern;
   self->code = code;
   if (self->prev != NULL)
   {
@@ -773,25 +779,18 @@ utf8lex_error_t utf8lex_token_type_clear(
     self->next->prev = self->prev;
   }
 
-  if (self->pattern_type == UTF8LEX_PATTERN_TYPE_CLASS
-      && self->pattern.cls != NULL)
+  if (self->pattern != NULL
+      && self->pattern->pattern_type != NULL
+      && self->pattern->pattern_type->clear != NULL)
   {
-    utf8lex_class_pattern_clear(self->pattern.cls);
-  }
-  else if (self->pattern_type == UTF8LEX_PATTERN_TYPE_REGEX
-      && self->pattern.regex != NULL)
-  {
-    utf8lex_regex_pattern_clear(self->pattern.regex);
+    self->pattern->pattern_type->clear(self->pattern);
   }
 
   self->next = NULL;
   self->prev = NULL;
   self->id = (uint32_t) 0;
   self->name = NULL;
-  self->pattern_type = UTF8LEX_PATTERN_TYPE_NONE;
-  self->pattern.cls = NULL;
-  self->pattern.literal = NULL;
-  self->pattern.regex = NULL;
+  self->pattern = NULL;
   self->code = NULL;
 
   return UTF8LEX_OK;
@@ -1613,22 +1612,23 @@ utf8lex_error_t utf8lex_read_grapheme(
   return UTF8LEX_OK;
 }
 
-utf8lex_error_t utf8lex_lex_class(
+static utf8lex_error_t utf8lex_lex_class(
         utf8lex_token_type_t *token_type,
         utf8lex_state_t *state,
-        utf8lex_token_t *token
+        utf8lex_token_t *token_pointer
         )
 {
   if (token_type == NULL
-      || token_type->pattern.cls == NULL
+      || token_type->pattern == NULL
+      || token_type->pattern->pattern_type == NULL
       || state == NULL
       || state->buffer == NULL
       || state->buffer->str == NULL
-      || token == NULL)
+      || token_pointer == NULL)
   {
     return UTF8LEX_ERROR_NULL_POINTER;
   }
-  else if (token_type->pattern_type != UTF8LEX_PATTERN_TYPE_CLASS)
+  else if (token_type->pattern->pattern_type != UTF8LEX_PATTERN_TYPE_CLASS)
   {
     return UTF8LEX_ERROR_PATTERN_TYPE;
   }
@@ -1642,8 +1642,10 @@ utf8lex_error_t utf8lex_lex_class(
     length[unit] = (size_t) 0;
   }
 
+  utf8lex_class_pattern_t *class_pattern =
+    (utf8lex_class_pattern_t *) token_type->pattern;
   for (int ug = 0;
-       token_type->pattern.cls->max == -1 || ug < token_type->pattern.cls->max;
+       class_pattern->max == -1 || ug < class_pattern->max;
        ug ++)
   {
     // Read in one UTF-8 grapheme cluster:
@@ -1665,7 +1667,7 @@ utf8lex_error_t utf8lex_lex_class(
     }
     else if (error != UTF8LEX_OK)
     {
-      if (ug < token_type->pattern.cls->min)
+      if (ug < class_pattern->min)
       {
         return error;
       }
@@ -1677,12 +1679,12 @@ utf8lex_error_t utf8lex_lex_class(
       }
     }
 
-    if (token_type->pattern.cls->cat & cat)
+    if (class_pattern->cat & cat)
     {
       // A/the category we're looking for.
       error = UTF8LEX_OK;
     }
-    else if (ug < token_type->pattern.cls->min)
+    else if (ug < class_pattern->min)
     {
       // Not the category we're looking for, and we haven't found
       // at least (min) graphemes matching this category, so fail
@@ -1719,7 +1721,7 @@ utf8lex_error_t utf8lex_lex_class(
   }
 
   utf8lex_error_t error = utf8lex_token_init(
-      token,
+      token_pointer,
       token_type,
       state);  // For buffer and absolute location.
   if (error != UTF8LEX_OK)
@@ -1731,22 +1733,23 @@ utf8lex_error_t utf8lex_lex_class(
 }
 
 
-utf8lex_error_t utf8lex_lex_literal(
+static utf8lex_error_t utf8lex_lex_literal(
         utf8lex_token_type_t *token_type,
         utf8lex_state_t *state,
-        utf8lex_token_t *token
+        utf8lex_token_t *token_pointer
         )
 {
   if (token_type == NULL
-      || token_type->pattern.literal == NULL
+      || token_type->pattern == NULL
+      || token_type->pattern->pattern_type == NULL
       || state == NULL
       || state->buffer == NULL
       || state->buffer->str == NULL
-      || token == NULL)
+      || token_pointer == NULL)
   {
     return UTF8LEX_ERROR_NULL_POINTER;
   }
-  else if (token_type->pattern_type != UTF8LEX_PATTERN_TYPE_LITERAL)
+  else if (token_type->pattern->pattern_type != UTF8LEX_PATTERN_TYPE_LITERAL)
   {
     return UTF8LEX_ERROR_PATTERN_TYPE;
   }
@@ -1754,7 +1757,8 @@ utf8lex_error_t utf8lex_lex_literal(
   off_t offset = (off_t) state->buffer->loc[UTF8LEX_UNIT_BYTE].start;
   size_t remaining_bytes = state->buffer->str->length_bytes - (size_t) offset;
 
-  utf8lex_literal_pattern_t *literal = token_type->pattern.literal;
+  utf8lex_literal_pattern_t *literal =
+    (utf8lex_literal_pattern_t *) token_type->pattern;
   size_t token_length_bytes = literal->length[UTF8LEX_UNIT_BYTE];
 
   for (off_t c = (off_t) 0;
@@ -1795,7 +1799,7 @@ utf8lex_error_t utf8lex_lex_literal(
   }
 
   utf8lex_error_t error = utf8lex_token_init(
-      token,
+      token_pointer,
       token_type,
       state);  // For buffer and absolute location.
   if (error != UTF8LEX_OK)
@@ -1807,22 +1811,23 @@ utf8lex_error_t utf8lex_lex_literal(
 }
 
 
-utf8lex_error_t utf8lex_lex_regex(
+static utf8lex_error_t utf8lex_lex_regex(
         utf8lex_token_type_t *token_type,
         utf8lex_state_t *state,
-        utf8lex_token_t *token
+        utf8lex_token_t *token_pointer
         )
 {
   if (token_type == NULL
-      || token_type->pattern.regex == NULL
+      || token_type->pattern == NULL
+      || token_type->pattern->pattern_type == NULL
       || state == NULL
       || state->buffer == NULL
       || state->buffer->str == NULL
-      || token == NULL)
+      || token_pointer == NULL)
   {
     return UTF8LEX_ERROR_NULL_POINTER;
   }
-  else if (token_type->pattern_type != UTF8LEX_PATTERN_TYPE_REGEX)
+  else if (token_type->pattern->pattern_type != UTF8LEX_PATTERN_TYPE_REGEX)
   {
     return UTF8LEX_ERROR_PATTERN_TYPE;
   }
@@ -1842,6 +1847,9 @@ utf8lex_error_t utf8lex_lex_regex(
   {
     return UTF8LEX_ERROR_REGEX;
   }
+
+  utf8lex_regex_pattern_t *regex_pattern =
+    (utf8lex_regex_pattern_t *) token_type->pattern;
 
   // Match options:
   // https://pcre2project.github.io/pcre2/doc/html/pcre2api.html#matchoptions
@@ -1877,7 +1885,7 @@ utf8lex_error_t utf8lex_lex_regex(
   //     this match is not valid, so pcre2_match() searches further
   //     into the string for occurrences of "a" or "b". 
   int pcre2_error = pcre2_match(
-      token_type->pattern.regex->regex,  // The pcre2_code (compiled regex).
+      regex_pattern->regex,  // The pcre2_code (compiled regex).
       (PCRE2_SPTR) state->buffer->str->bytes,  // subject
       (PCRE2_SIZE) state->buffer->str->length_bytes,  // length
       (PCRE2_SIZE) offset,  // startoffset
@@ -2007,7 +2015,7 @@ utf8lex_error_t utf8lex_lex_regex(
   }
 
   utf8lex_error_t error = utf8lex_token_init(
-      token,
+      token_pointer,
       token_type,
       state);  // For buffer and absolute location.
   if (error != UTF8LEX_OK)
@@ -2019,15 +2027,50 @@ utf8lex_error_t utf8lex_lex_regex(
 }
 
 
+// A token pattern that matches a sequence of N characters
+// of a specific utf8lex_cat_t class, such as UTF8LEX_GROUP_WHITESPACE:
+static utf8lex_pattern_type_t UTF8LEX_PATTERN_TYPE_CLASS_INTERNAL =
+  {
+    .name = "CLASS",
+    .lex = utf8lex_lex_class,
+    .clear = utf8lex_class_pattern_clear
+  };
+utf8lex_pattern_type_t *UTF8LEX_PATTERN_TYPE_CLASS =
+  &UTF8LEX_PATTERN_TYPE_CLASS_INTERNAL;
+
+// A token pattern that matches a literal string,
+// such as "int" or "==" or "proc" and so on:
+static utf8lex_pattern_type_t UTF8LEX_PATTERN_TYPE_LITERAL_INTERNAL =
+  {
+    .name = "LITERAL",
+    .lex = utf8lex_lex_literal,
+    .clear = utf8lex_literal_pattern_clear
+  };
+utf8lex_pattern_type_t *UTF8LEX_PATTERN_TYPE_LITERAL =
+  &UTF8LEX_PATTERN_TYPE_LITERAL_INTERNAL;
+
+// A token pattern that matches a regular expression,
+// such as "^[0-9]+" or "[\\p{N}]+" or "[_\\p{L}][_\\p{L}\\p{N}]*" or "[\\s]+"
+// and so on:
+static utf8lex_pattern_type_t UTF8LEX_PATTERN_TYPE_REGEX_INTERNAL =
+  {
+    .name = "REGEX",
+    .lex = utf8lex_lex_regex,
+    .clear = utf8lex_regex_pattern_clear
+  };
+utf8lex_pattern_type_t *UTF8LEX_PATTERN_TYPE_REGEX =
+  &UTF8LEX_PATTERN_TYPE_REGEX_INTERNAL;
+
+
 utf8lex_error_t utf8lex_lex(
         utf8lex_token_type_t *first_token_type,
         utf8lex_state_t *state,
-        utf8lex_token_t *token
+        utf8lex_token_t *token_pointer
         )
 {
   if (first_token_type == NULL
       || state == NULL
-      || token == NULL)
+      || token_pointer == NULL)
   {
     return UTF8LEX_ERROR_NULL_POINTER;
   }
@@ -2071,28 +2114,22 @@ utf8lex_error_t utf8lex_lex(
        token_type = token_type->next)
   {
     utf8lex_error_t error;
-    switch (token_type->pattern_type)
+    if (token_type->pattern == NULL
+        || token_type->pattern->pattern_type == NULL
+        || token_type->pattern->pattern_type->lex == NULL)
     {
-    case UTF8LEX_PATTERN_TYPE_CLASS:
-      error = utf8lex_lex_class(token_type,
-                                state,
-                                token);
+      error = UTF8LEX_ERROR_NULL_POINTER;
       break;
-
-    case UTF8LEX_PATTERN_TYPE_LITERAL:
-      error = utf8lex_lex_literal(token_type,
-                                 state,
-                                 token);
-      break;
-
-    case UTF8LEX_PATTERN_TYPE_REGEX:
-      error = utf8lex_lex_regex(token_type,
-                                state,
-                                token);
-      break;
-
-    default:
     }
+
+    // Call the pattern_type's lexer.  On successful tokenization,
+    // it will set the absolute offset and lengths of the token
+    // (and optionally update the lengths stored in the buffer
+    // and absolute state).
+    error = token_type->pattern->pattern_type->lex(
+        token_type,
+        state,
+        token_pointer);
 
     if (error == UTF8LEX_NO_MATCH)
     {
@@ -2129,7 +2166,7 @@ utf8lex_error_t utf8lex_lex(
        unit < UTF8LEX_UNIT_MAX;
        unit ++)
   {
-    int length_units = token->loc[unit].length;
+    int length_units = token_pointer->loc[unit].length;
 
     // Update buffer locations past end of this token:
     state->buffer->loc[unit].start += length_units;
