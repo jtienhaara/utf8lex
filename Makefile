@@ -35,44 +35,32 @@ container:
 	    --rm \
 	    --volume `pwd`:/utf8lex:rw \
 	    utf8lex:latest \
-	    make all
+	    bash -c 'make clean && make all'
 
 .PHONY: build
 build:
-	gcc $(CC_ARGS) -c utf8lex.c -o utf8lex.o
+	cd src \
+	    && make build
+
+clean:
+	cd src \
+	    && make clean
+	cd tests/unit \
+	    && make clean
+	cd tests/integration \
+	    && make clean
 
 .PHONY: test
 test: build unit_tests integration_tests
 
-# !!! -L/usr/lib/x86_64-linux-gnu --> no good architecture-dependent
 .PHONY: unit_tests
 unit_tests: build
-	gcc $(CC_ARGS) -c test_utf8lex_cat.c -o test_utf8lex_cat.o
-	gcc $(LINK_ARGS) \
-	    utf8lex.o \
-	    test_utf8lex_cat.o \
-	    -L/usr/lib/x86_64-linux-gnu \
-	    -lpcre2-8 \
-	    -lutf8proc \
-	    -o test_utf8lex_cat
-	./test_utf8lex_cat
+	cd tests/unit \
+	    && make build \
+	    && make run
 
-# !!! -L/usr/lib/x86_64-linux-gnu --> no good architecture-dependent
 .PHONY: integration_tests
 integration_tests: build
-	gcc $(CC_ARGS) -c test_utf8lex.c -o test_utf8lex.o
-	gcc $(LINK_ARGS) \
-	    utf8lex.o \
-	    test_utf8lex.o \
-	    -L/usr/lib/x86_64-linux-gnu \
-	    -lpcre2-8 \
-	    -lutf8proc \
-	    -o test_utf8lex
-	@for TEST_FILE in test_utf8lex_*.txt; \
-	do \
-	    echo ""; \
-	    echo "$$TEST_FILE:"; \
-	    cat "$$TEST_FILE" \
-	        | ./test_utf8lex \
-	        || exit 1; \
-	done
+	cd tests/integration \
+	    && make build \
+	    && make run
