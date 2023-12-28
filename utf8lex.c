@@ -62,7 +62,32 @@ const utf8lex_cat_t UTF8LEX_CAT_OTHER_CONTROL = 0x04000000;
 const utf8lex_cat_t UTF8LEX_CAT_OTHER_FORMAT = 0x08000000;
 const utf8lex_cat_t UTF8LEX_CAT_OTHER_SURROGATE = 0x10000000;
 const utf8lex_cat_t UTF8LEX_CAT_OTHER_PRIVATE = 0x20000000;
-const utf8lex_cat_t UTF8LEX_CAT_MAX = 0x40000000;
+
+//
+// Separator rules specified by Unicode that are NOT obeyed
+// by utf8proc (except when using its malloc()-based functions,
+// and specifying options such as UTF8PROC_NLF2LS).
+//
+// From:
+//     Unicode 15.1.0
+//     https://www.unicode.org/reports/tr14/tr14-51.html#BK
+//     https://www.unicode.org/reports/tr14/tr14-51.html#CR
+//     https://www.unicode.org/reports/tr14/tr14-51.html#LF
+//     https://www.unicode.org/reports/tr14/tr14-51.html#NL
+//   Also for more details on history (such as VT / vertical tab), see:
+//     https://www.unicode.org/standard/reports/tr13/tr13-5.html#Definitions
+//
+// 000A    LINE FEED (LF)
+// 000B    LINE TABULATION (VT)
+// 000C    FORM FEED (FF)
+// 000D    CARRIAGE RETURN (CR) (unless followed by 000A LF)
+// 0085    NEXT LINE (NEL)
+// 2028    LINE SEPARATOR
+// 2029    PARAGRAPH SEPARATOR
+//
+const utf8lex_cat_t UTF8LEX_EXT_SEP_LINE = 0x40000000;
+
+const utf8lex_cat_t UTF8LEX_CAT_MAX = 0x80000000;
 
 //
 // Combined categories, OR'ed together base categories e.g. letter
@@ -104,7 +129,8 @@ const utf8lex_cat_t UTF8LEX_GROUP_SYM =
 const utf8lex_cat_t UTF8LEX_GROUP_WHITESPACE =
   UTF8LEX_CAT_SEP_SPACE
   | UTF8LEX_CAT_SEP_LINE
-  | UTF8LEX_CAT_SEP_PARAGRAPH;
+  | UTF8LEX_CAT_SEP_PARAGRAPH
+  | UTF8LEX_EXT_SEP_LINE;
 
 
 // ---------------------------------------------------------------------
@@ -175,14 +201,8 @@ utf8lex_error_t utf8lex_state_string(
       state->loc[UTF8LEX_UNIT_CHAR].length,
       state->loc[UTF8LEX_UNIT_GRAPHEME].start,
       state->loc[UTF8LEX_UNIT_GRAPHEME].length,
-      state->loc[UTF8LEX_UNIT_WORD].start,
-      state->loc[UTF8LEX_UNIT_WORD].length,
       state->loc[UTF8LEX_UNIT_LINE].start,
-      state->loc[UTF8LEX_UNIT_LINE].length,
-      state->loc[UTF8LEX_UNIT_PARAGRAPH].start,
-      state->loc[UTF8LEX_UNIT_PARAGRAPH].length,
-      state->loc[UTF8LEX_UNIT_SECTION].start,
-      state->loc[UTF8LEX_UNIT_SECTION].length);
+      state->loc[UTF8LEX_UNIT_LINE].length);
 
   if (num_bytes_written >= str->max_length_bytes)
   {
@@ -360,11 +380,11 @@ utf8lex_error_t utf8lex_category_clear(
 utf8lex_error_t utf8lex_find_category(
         utf8lex_category_t *category_chain,
         utf8lex_cat_t cat,
-        utf8lex_category_t **found
+        utf8lex_category_t **found_pointer
         )
 {
   if (category_chain == NULL
-      || found == NULL)
+      || found_pointer == NULL)
   {
     return UTF8LEX_ERROR_NULL_POINTER;
   }
@@ -380,7 +400,7 @@ utf8lex_error_t utf8lex_find_category(
   {
     if (category->cat == cat)
     {
-      *found = category;
+      *found_pointer = category;
       return UTF8LEX_OK;
     }
 
@@ -393,11 +413,11 @@ utf8lex_error_t utf8lex_find_category(
 
   if (category != NULL)
   {
-    *found = NULL;
+    *found_pointer = NULL;
     return UTF8LEX_ERROR_INFINITE_LOOP;
   }
 
-  *found = NULL;
+  *found_pointer = NULL;
   return UTF8LEX_ERROR_CAT;
 }
 
@@ -519,14 +539,14 @@ utf8lex_error_t utf8lex_literal_pattern_init(
        ug ++)
   {
     // Read in one UTF-8 grapheme cluster per loop iteration:
-    size_t num_bytes_read = (size_t) 0;
-    size_t num_chars_read = (size_t) 0;
+    off_t grapheme_offset = offset;
+    size_t grapheme_length[UTF8LEX_UNIT_MAX];  // Uninitialized is fine.
     int32_t codepoint = (int32_t) -1;
     utf8lex_cat_t cat = UTF8LEX_CAT_NONE;
     utf8lex_error_t error = utf8lex_read_grapheme(
         &state,  // state, including absolute locations.
-        &offset,  // start byte, relative to start of the buffer string.
-        length,  // size_t[] # bytes, chars, etc read.
+        &grapheme_offset,  // start byte, relative to start of buffer string.
+        grapheme_length,  // size_t[] # bytes, chars, etc read.
         &codepoint,  // codepoint
         &cat  //cat
         );
@@ -540,6 +560,13 @@ utf8lex_error_t utf8lex_literal_pattern_init(
 
     // We found another grapheme inside the literal string.
     // Keep looking for more graphemes inside the literal string.
+    offset = grapheme_offset;
+    for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
+         unit < UTF8LEX_UNIT_MAX;
+         unit ++)
+    {
+      length[unit] += grapheme_length[unit];
+    }
   }
 
   // Check to make sure strlen and utf8proc agree on # bytes.  (They should.)
@@ -1135,179 +1162,285 @@ utf8lex_error_t utf8lex_state_clear(
 //                            utf8lex_lex()
 // ---------------------------------------------------------------------
 
-utf8lex_error_t utf8lex_cat_from_utf8proc_category(
+static utf8lex_error_t utf8lex_cat_from_utf8proc_category(
         utf8proc_category_t utf8proc_cat,
-        utf8lex_cat_t *cat
+        utf8lex_cat_t *cat_pointer
         )
 {
+  if (cat_pointer == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
   utf8lex_error_t error = UTF8LEX_NO_MATCH;
   switch (utf8proc_cat)
   {
   case UTF8PROC_CATEGORY_CN:
-    *cat = UTF8LEX_CAT_OTHER_NA;
+    *cat_pointer = UTF8LEX_CAT_OTHER_NA;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_LU:
-    *cat = UTF8LEX_CAT_LETTER_UPPER;
+    *cat_pointer = UTF8LEX_CAT_LETTER_UPPER;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_LL:
-    *cat = UTF8LEX_CAT_LETTER_LOWER;
+    *cat_pointer = UTF8LEX_CAT_LETTER_LOWER;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_LT:
-    *cat = UTF8LEX_CAT_LETTER_TITLE;
+    *cat_pointer = UTF8LEX_CAT_LETTER_TITLE;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_LM:
-    *cat = UTF8LEX_CAT_LETTER_MODIFIER;
+    *cat_pointer = UTF8LEX_CAT_LETTER_MODIFIER;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_LO:
-    *cat = UTF8LEX_CAT_LETTER_OTHER;
+    *cat_pointer = UTF8LEX_CAT_LETTER_OTHER;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_MN:
-    *cat = UTF8LEX_CAT_MARK_NON_SPACING;
+    *cat_pointer = UTF8LEX_CAT_MARK_NON_SPACING;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_MC:
-    *cat = UTF8LEX_CAT_MARK_SPACING_COMBINING;
+    *cat_pointer = UTF8LEX_CAT_MARK_SPACING_COMBINING;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_ME:
-    *cat = UTF8LEX_CAT_MARK_ENCLOSING;
+    *cat_pointer = UTF8LEX_CAT_MARK_ENCLOSING;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_ND:
-    *cat = UTF8LEX_CAT_NUM_DECIMAL;
+    *cat_pointer = UTF8LEX_CAT_NUM_DECIMAL;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_NL:
-    *cat = UTF8LEX_CAT_NUM_LETTER;
+    *cat_pointer = UTF8LEX_CAT_NUM_LETTER;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_NO:
-    *cat = UTF8LEX_CAT_NUM_OTHER;
+    *cat_pointer = UTF8LEX_CAT_NUM_OTHER;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_PC:
-    *cat = UTF8LEX_CAT_PUNCT_CONNECTOR;
+    *cat_pointer = UTF8LEX_CAT_PUNCT_CONNECTOR;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_PD:
-    *cat = UTF8LEX_CAT_PUNCT_DASH;
+    *cat_pointer = UTF8LEX_CAT_PUNCT_DASH;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_PS:
-    *cat = UTF8LEX_CAT_PUNCT_OPEN;
+    *cat_pointer = UTF8LEX_CAT_PUNCT_OPEN;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_PE:
-    *cat = UTF8LEX_CAT_PUNCT_CLOSE;
+    *cat_pointer = UTF8LEX_CAT_PUNCT_CLOSE;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_PI:
-    *cat = UTF8LEX_CAT_PUNCT_QUOTE_OPEN;
+    *cat_pointer = UTF8LEX_CAT_PUNCT_QUOTE_OPEN;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_PF:
-    *cat = UTF8LEX_CAT_PUNCT_QUOTE_CLOSE;
+    *cat_pointer = UTF8LEX_CAT_PUNCT_QUOTE_CLOSE;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_PO:
-    *cat = UTF8LEX_CAT_PUNCT_OTHER;
+    *cat_pointer = UTF8LEX_CAT_PUNCT_OTHER;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_SM:
-    *cat = UTF8LEX_CAT_SYM_MATH;
+    *cat_pointer = UTF8LEX_CAT_SYM_MATH;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_SC:
-    *cat = UTF8LEX_CAT_SYM_CURRENCY;
+    *cat_pointer = UTF8LEX_CAT_SYM_CURRENCY;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_SK:
-    *cat = UTF8LEX_CAT_SYM_MODIFIER;
+    *cat_pointer = UTF8LEX_CAT_SYM_MODIFIER;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_SO:
-    *cat = UTF8LEX_CAT_SYM_OTHER;
+    *cat_pointer = UTF8LEX_CAT_SYM_OTHER;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_ZS:
-    *cat = UTF8LEX_CAT_SEP_SPACE;
+    *cat_pointer = UTF8LEX_CAT_SEP_SPACE;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_ZL:
-    *cat = UTF8LEX_CAT_SEP_LINE;
+    *cat_pointer = UTF8LEX_CAT_SEP_LINE;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_ZP:
-    *cat = UTF8LEX_CAT_SEP_PARAGRAPH;
+    *cat_pointer = UTF8LEX_CAT_SEP_PARAGRAPH;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_CC:
-    *cat = UTF8LEX_CAT_OTHER_CONTROL;
+    *cat_pointer = UTF8LEX_CAT_OTHER_CONTROL;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_CF:
-    *cat = UTF8LEX_CAT_OTHER_FORMAT;
+    *cat_pointer = UTF8LEX_CAT_OTHER_FORMAT;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_CS:
-    *cat = UTF8LEX_CAT_OTHER_SURROGATE;
+    *cat_pointer = UTF8LEX_CAT_OTHER_SURROGATE;
     error = UTF8LEX_OK;
     break;
   case UTF8PROC_CATEGORY_CO:
-    *cat = UTF8LEX_CAT_OTHER_PRIVATE;
+    *cat_pointer = UTF8LEX_CAT_OTHER_PRIVATE;
     error = UTF8LEX_OK;
     break;
 
   default:
     error = UTF8LEX_ERROR_CAT;  // No idea what category this is!
-    *cat = UTF8LEX_CAT_NONE;
+    *cat_pointer = UTF8LEX_CAT_NONE;
     break;
   }
 
   return error;
 }
 
-// Reads to the end of a grapheme, sets the first codepoint of the
-// grapheme, and the number of bytes read.
-// The state is used only for the string buffer to read from,
-// not for its location info.
-// The offset, lengths, codepoint and cat are all updated upon
-// successfully reading one complete grapheme cluster.
-utf8lex_error_t utf8lex_read_grapheme(
-        utf8lex_state_t *state,
-        off_t *offset,  // Mutable.
-        size_t length[UTF8LEX_UNIT_MAX],  // Mutable.
-        int32_t *codepoint,  // Mutable.
-        utf8lex_cat_t *cat  // Mutable.
+// Or in the EXT category/ies (if any), according to utf8lex
+// rules (for example, for line separators - utf8proc does not
+// have a special category for CRLF etc
+static utf8lex_error_t utf8lex_cat_ext(
+        int32_t codepoint,
+        utf8lex_cat_t *cat_pointer
         )
 {
-  if (state == NULL
-      || offset == NULL
-      || length == NULL
-      || codepoint == NULL
-      || cat == NULL)
+  if (cat_pointer == NULL)
   {
     return UTF8LEX_ERROR_NULL_POINTER;
   }
-  else if (*offset < (off_t) 0
-           || *offset >= state->buffer->str->length_bytes)
+
+  //
+  // Separator rules specified by Unicode that are NOT obeyed
+  // by utf8proc (except when using its malloc()-based functions,
+  // and specifying options such as UTF8PROC_NLF2LS).
+  //
+  // From:
+  //     Unicode 15.1.0
+  //     https://www.unicode.org/reports/tr14/tr14-51.html#BK
+  //     https://www.unicode.org/reports/tr14/tr14-51.html#CR
+  //     https://www.unicode.org/reports/tr14/tr14-51.html#LF
+  //     https://www.unicode.org/reports/tr14/tr14-51.html#NL
+  //   Also for more details on history (such as VT / vertical tab), see:
+  //     https://www.unicode.org/standard/reports/tr13/tr13-5.html#Definitions
+  //
+  // 000A    LINE FEED (LF)
+  // 000B    LINE TABULATION (VT)
+  // 000C    FORM FEED (FF)
+  // 000D    CARRIAGE RETURN (CR) (unless followed by 000A LF)
+  // 0085    NEXT LINE (NEL)
+  // 2028    LINE SEPARATOR
+  // 2029    PARAGRAPH SEPARATOR
+  //
+  switch (codepoint)
+  {
+  case 0x000A:  // LINE FEED (LF)
+  case 0x000B:  // LINE TABULATION (VT)
+  case 0x000C:  // FORM FEED (FF)
+  case 0x000D:  // CARRIAGE RETURN (CR) (unless followed by 000A LF)
+  case 0x0085:  // NEXT LINE (NEL)
+  case 0x2028:  // LINE SEPARATOR
+  case 0x2029:  // PARAGRAPH SEPARATOR
+    *cat_pointer |= UTF8LEX_EXT_SEP_LINE;
+    break;
+  // default: do nothing.
+  }
+
+  return UTF8LEX_OK;
+}
+
+// Determines the category/ies of the specified Unicode 32 bit codepoint.
+// Pass in a reference to the utf8lex_cat_t; on success, the specified
+// utf8lex_cat_t pointer will be overwritten.
+utf8lex_error_t utf8lex_cat_codepoint(
+        int32_t codepoint,
+        utf8lex_cat_t *cat_pointer
+        )
+{
+  if (cat_pointer == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  // Figure out the utf8lex_cat_t equivalent of the utf8proc_category_t:
+  utf8proc_category_t utf8proc_cat =
+    utf8proc_category((utf8proc_int32_t) codepoint);
+  utf8lex_cat_t utf8lex_cat = UTF8LEX_CAT_NONE;
+  utf8lex_error_t error =
+    utf8lex_cat_from_utf8proc_category(utf8proc_cat, &utf8lex_cat);
+  if (error != UTF8LEX_OK)
+  {
+    // Couldn't figure out the first UTF-8 character's category.
+    // Maybe a utf8lex bug?
+    return error;
+  }
+
+  // Now or in the EXT category/ies (if any), according to utf8lex
+  // rules (for example, for line separators - utf8proc does not
+  // have a special category for CRLF etc
+  error = utf8lex_cat_ext(codepoint,
+                          &utf8lex_cat);
+  if (error != UTF8LEX_OK)
+  {
+    // Couldn't figure out the first UTF-8 character's category.
+    // Maybe a utf8lex bug?
+    return error;
+  }
+
+  *cat_pointer = utf8lex_cat;
+
+  return UTF8LEX_OK;
+}
+
+// Reads to the end of a grapheme, sets the first codepoint of the
+// grapheme, and the number of bytes read.
+// Note that CR, LF (U+000D, U+000A), often equivalent to '\r\n')
+// is treated as a special grapheme cluster (however LF, CR is NOT for now),
+// since the 2 characters, combined in sequence, usually represent
+// one single line separator.
+// The state is used only for the string buffer to read from,
+// not for its location info.
+// The offset, lengths, codepoint and cat are all set upon
+// successfully reading one complete grapheme cluster.
+utf8lex_error_t utf8lex_read_grapheme(
+        utf8lex_state_t *state,
+        off_t *offset_pointer,  // Mutable.
+        size_t lengths_pointer[UTF8LEX_UNIT_MAX],  // Mutable.
+        int32_t *codepoint_pointer,  // Mutable.
+        utf8lex_cat_t *cat_pointer  // Mutable.
+        )
+{
+  if (state == NULL
+      || offset_pointer == NULL
+      || lengths_pointer == NULL
+      || codepoint_pointer == NULL
+      || cat_pointer == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+  else if (*offset_pointer < (off_t) 0
+           || *offset_pointer >= state->buffer->str->length_bytes)
   {
     return UTF8LEX_ERROR_BAD_START;
   }
 
   utf8lex_error_t error = UTF8LEX_ERROR_BAD_ERROR;
-  off_t curr_offset = *offset;
+  off_t curr_offset = *offset_pointer;
   utf8proc_int32_t first_codepoint = (utf8proc_int32_t) -1;
+  utf8lex_cat_t first_cat = UTF8LEX_CAT_NONE;
   utf8proc_int32_t prev_codepoint = (utf8proc_int32_t) -1;
   utf8proc_int32_t utf8proc_state = (utf8proc_int32_t) 0;;
   size_t total_bytes_read = (size_t) 0;
   size_t total_chars_read = (size_t) 0;
+  size_t total_lines_read = (size_t) 0;
   for (int u8c = 0; ; u8c ++)
   {
     unsigned char *str_pointer = (unsigned char *)
@@ -1355,6 +1488,7 @@ utf8lex_error_t utf8lex_read_grapheme(
         (utf8proc_uint8_t *) str_pointer,
         (utf8proc_ssize_t) max_bytes,
         &utf8proc_codepoint);
+    int num_lines_read = 0;
 
     if (utf8proc_num_bytes_read == UTF8PROC_ERROR_INVALIDUTF8
         && (state->buffer->str->length_bytes - (size_t) curr_offset)
@@ -1405,6 +1539,13 @@ utf8lex_error_t utf8lex_read_grapheme(
     {
       first_codepoint = utf8proc_codepoint;
     }
+    else if (prev_codepoint == 0x000D  // Special case: CR, LF
+             && utf8proc_codepoint == 0x000A)
+    {
+      // Not a grapheme break; these 2 characters in sequence
+      // represent a special grapheme, 1 separator.
+      num_lines_read = -1;
+    }
     else  // Not the first UTF-8 character we've read in the grapheme.
     {
       // Check for grapheme break.  Keep reading until we find one.
@@ -1419,12 +1560,35 @@ utf8lex_error_t utf8lex_read_grapheme(
       }
     }
 
+    // Check the category of character, so that we can determine
+    // whether to increment # lines:
+    utf8lex_cat_t cat = UTF8LEX_CAT_NONE;
+    error = utf8lex_cat_codepoint((int32_t) utf8proc_codepoint,
+                                  &cat);
+    if (error != UTF8LEX_OK)
+    {
+      // Maybe a utf8lex bug?
+      return error;
+    }
+    if (u8c == 0)
+    {
+      first_cat = cat;
+    }
+    if ((cat & UTF8LEX_CAT_SEP_LINE)
+        || (cat & UTF8LEX_CAT_SEP_PARAGRAPH)
+        || (cat & UTF8LEX_EXT_SEP_LINE))
+    {
+      num_lines_read ++;
+    }
+
     curr_offset += (off_t) utf8proc_num_bytes_read;
     total_bytes_read += (size_t) utf8proc_num_bytes_read;
     total_chars_read += (size_t) 1;
+    total_lines_read += (size_t) num_lines_read;
 
     // Keep reading more bytes until we find a grapheme boundary
     // (or run out of bytes).
+    prev_codepoint = utf8proc_codepoint;
   }
 
   if (error != UTF8LEX_OK)
@@ -1433,25 +1597,18 @@ utf8lex_error_t utf8lex_read_grapheme(
     return error;
   }
 
-  // We read in a full grapheme cluster.
-  // Figure out the utf8lex_cat_t equivalent of the utf8proc_category_t:
-  utf8proc_category_t utf8proc_cat = utf8proc_category(first_codepoint);
-  utf8lex_cat_t utf8lex_cat = UTF8LEX_CAT_NONE;
-  error = utf8lex_cat_from_utf8proc_category(utf8proc_cat, &utf8lex_cat);
-  if (error != UTF8LEX_OK)
-  {
-    // Couldn't figure out the first UTF-8 character's category.
-    // Maybe a utf8lex bug?
-    return error;
-  }
-
   // Success.
-  *offset += (off_t) total_bytes_read;
-  length[UTF8LEX_UNIT_BYTE] += (size_t) total_bytes_read;
-  length[UTF8LEX_UNIT_CHAR] += (size_t) total_chars_read;
-  length[UTF8LEX_UNIT_GRAPHEME] += (size_t) 1;
-  *codepoint = first_codepoint;
-  *cat = utf8lex_cat;
+  *offset_pointer += (off_t) total_bytes_read;
+  lengths_pointer[UTF8LEX_UNIT_BYTE] = (size_t) total_bytes_read;
+  lengths_pointer[UTF8LEX_UNIT_CHAR] = (size_t) total_chars_read;
+  lengths_pointer[UTF8LEX_UNIT_GRAPHEME] = (size_t) 1;
+  lengths_pointer[UTF8LEX_UNIT_LINE] = (size_t) total_lines_read;
+  *codepoint_pointer = first_codepoint;
+  // We only set the category/ies according to the first codepoint
+  // of the grapheme cluster.  The remainder of the characters
+  // in the grapheme cluster will be diacritics and so on,
+  // so we ignore them for categorizationg purposes.
+  *cat_pointer = first_cat;
 
   return UTF8LEX_OK;
 }
@@ -1490,12 +1647,14 @@ utf8lex_error_t utf8lex_lex_class(
        ug ++)
   {
     // Read in one UTF-8 grapheme cluster:
+    off_t grapheme_offset = offset;
+    size_t grapheme_length[UTF8LEX_UNIT_MAX];  // Uninitialized is fine.
     int32_t codepoint = (int32_t) -1;
     utf8lex_cat_t cat = UTF8LEX_CAT_NONE;
     utf8lex_error_t error = utf8lex_read_grapheme(
         state,  // state, including absolute locations.
-        &offset,  // start byte, relative to start of the buffer string.
-        length,  // size_t[] # bytes, chars, etc read.
+        &grapheme_offset,  // start byte, relative to start of buffer string.
+        grapheme_length,  // size_t[] # bytes, chars, etc read.
         &codepoint,  // codepoint
         &cat  //cat
         );
@@ -1540,6 +1699,13 @@ utf8lex_error_t utf8lex_lex_class(
     // We found another grapheme of the expected class.
     // Keep looking for more matches for this token,
     // until we hit the max.
+    offset = grapheme_offset;
+    for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
+         unit < UTF8LEX_UNIT_MAX;
+         unit ++)
+    {
+      length[unit] += grapheme_length[unit];
+    }
   }
 
   // Found what we're looking for.
@@ -1793,14 +1959,14 @@ utf8lex_error_t utf8lex_lex_regex(
        ug ++)
   {
     // Read in one UTF-8 grapheme cluster per loop iteration:
-    size_t num_bytes_read = (size_t) 0;
-    size_t num_chars_read = (size_t) 0;
+    off_t grapheme_offset = offset;
+    size_t grapheme_length[UTF8LEX_UNIT_MAX];  // Uninitialized is fine.
     int32_t codepoint = (int32_t) -1;
     utf8lex_cat_t cat = UTF8LEX_CAT_NONE;
     utf8lex_error_t error = utf8lex_read_grapheme(
         state,  // state, including absolute locations.
-        &offset,  // start byte, relative to start of the buffer string.
-        length,  // size_t[] # bytes, chars, etc read.
+        &grapheme_offset,  // start byte, relative to start of buffer string.
+        grapheme_length,  // size_t[] # bytes, chars, etc read.
         &codepoint,  // codepoint
         &cat  //cat
         );
@@ -1814,6 +1980,13 @@ utf8lex_error_t utf8lex_lex_regex(
 
     // We found another grapheme inside the regex match.
     // Keep looking for more graphemes inside the regex match.
+    offset = grapheme_offset;
+    for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
+         unit < UTF8LEX_UNIT_MAX;
+         unit ++)
+    {
+      length[unit] += grapheme_length[unit];
+    }
   }
 
   // Check to make sure pcre2 and utf8proc agree on # bytes.  (They should.)

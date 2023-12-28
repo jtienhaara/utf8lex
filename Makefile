@@ -32,6 +32,7 @@ container:
 	    --file build.Dockerfile \
 	    --tag utf8lex:latest
 	docker run \
+	    --rm \
 	    --volume `pwd`:/utf8lex:rw \
 	    utf8lex:latest \
 	    make all

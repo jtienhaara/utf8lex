@@ -156,6 +156,30 @@ extern const utf8lex_cat_t UTF8LEX_CAT_OTHER_SURROGATE;  // UTF8PROC_CATEGORY_CS
 extern const utf8lex_cat_t UTF8LEX_CAT_OTHER_PRIVATE;  // UTF8PROC_CATEGORY_CO
 
 //
+// Separator rules specified by Unicode that are NOT obeyed
+// by utf8proc (except when using its malloc()-based functions,
+// and specifying options such as UTF8PROC_NLF2LS).
+//
+// From:
+//     Unicode 15.1.0
+//     https://www.unicode.org/reports/tr14/tr14-51.html#BK
+//     https://www.unicode.org/reports/tr14/tr14-51.html#CR
+//     https://www.unicode.org/reports/tr14/tr14-51.html#LF
+//     https://www.unicode.org/reports/tr14/tr14-51.html#NL
+//   Also for more details on history (such as VT / vertical tab), see:
+//     https://www.unicode.org/standard/reports/tr13/tr13-5.html#Definitions
+//
+// 000A    LINE FEED (LF)
+// 000B    LINE TABULATION (VT)
+// 000C    FORM FEED (FF)
+// 000D    CARRIAGE RETURN (CR) (unless followed by 000A LF)
+// 0085    NEXT LINE (NEL)
+// 2028    LINE SEPARATOR
+// 2029    PARAGRAPH SEPARATOR
+//
+extern const utf8lex_cat_t UTF8LEX_EXT_SEP_LINE;  // Unicode line separators
+
+//
 // Combined categories, OR'ed together base categories e.g. letter
 // can be upper, lower or title case, etc.:
 //
@@ -167,7 +191,7 @@ extern const utf8lex_cat_t UTF8LEX_GROUP_PUNCT;  // Punctuation
 extern const utf8lex_cat_t UTF8LEX_GROUP_SYM;  // Symbols
 // Warning: Unicode considers \n, \r, \t, etc to be control characters!
 //     https://www.unicode.org/charts/PDF/U0000.pdf
-extern const utf8lex_cat_t UTF8LEX_GROUP_WHITESPACE; // Separators
+extern const utf8lex_cat_t UTF8LEX_GROUP_WHITESPACE;  // CAT_SEPs + EXT_SEPs
 extern const utf8lex_cat_t UTF8LEX_CAT_MAX;
 
 struct _STRUCT_utf8lex_category
@@ -192,7 +216,7 @@ extern utf8lex_error_t utf8lex_category_clear(
 extern utf8lex_error_t utf8lex_find_category(
         utf8lex_category_t *category_chain,
         utf8lex_cat_t cat,
-        utf8lex_category_t **found
+        utf8lex_category_t **found_pointer
         );
 
 enum _ENUM_utf8lex_unit
@@ -202,10 +226,7 @@ enum _ENUM_utf8lex_unit
   UTF8LEX_UNIT_BYTE = 0,
   UTF8LEX_UNIT_CHAR,
   UTF8LEX_UNIT_GRAPHEME,
-  UTF8LEX_UNIT_WORD,
   UTF8LEX_UNIT_LINE,
-  UTF8LEX_UNIT_PARAGRAPH,
-  UTF8LEX_UNIT_SECTION,
 
   UTF8LEX_UNIT_MAX
 };
@@ -382,18 +403,30 @@ extern utf8lex_error_t utf8lex_state_clear(
         utf8lex_state_t *self
         );
 
+// Determines the category/ies of the specified Unicode 32 bit codepoint.
+// Pass in a reference to the utf8lex_cat_t; on success, the specified
+// utf8lex_cat_t pointer will be overwritten.
+extern utf8lex_error_t utf8lex_cat_codepoint(
+        int32_t codepoint,
+        utf8lex_cat_t *cat_pointer  // Mutable.
+        );
+
 // Reads to the end of a grapheme, sets the first codepoint of the
 // grapheme, and the number of bytes read.
+// Note that CR, LF (U+000D, U+000A), often equivalent to '\r\n')
+// is treated as a special grapheme cluster (however LF, CR is NOT for now),
+// since the 2 characters, combined in sequence, usually represent
+// one single line separator.
 // The state is used only for the string buffer to read from,
 // not for its location info.
-// The offset, lengths, codepoint and cat are all updated upon
+// The offset, lengths, codepoint and cat are all set upon
 // successfully reading one complete grapheme cluster.
 extern utf8lex_error_t utf8lex_read_grapheme(
         utf8lex_state_t *state,
-        off_t *offset,  // Mutable.
-        size_t length[UTF8LEX_UNIT_MAX],  // Mutable.
-        int32_t *codepoint,  // Mutable.
-        utf8lex_cat_t *cat  // Mutable.
+        off_t *offset_pointer,  // Mutable.
+        size_t lengths_pointer[UTF8LEX_UNIT_MAX],  // Mutable.
+        int32_t *codepoint_pointer,  // Mutable.
+        utf8lex_cat_t *cat_pointer  // Mutable.
         );
 
 #endif  // UTF8LEX_H_INCLUDED
