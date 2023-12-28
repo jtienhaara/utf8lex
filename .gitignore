@@ -1,2 +1,3 @@
 *.o
 test_utf8lex
+test_utf8lex_cat

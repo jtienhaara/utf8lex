@@ -133,6 +133,792 @@ const utf8lex_cat_t UTF8LEX_GROUP_WHITESPACE =
   | UTF8LEX_EXT_SEP_LINE;
 
 
+// Formats the specified OR'ed category/ies as a string,
+// overwriting the specified str_pointer.
+utf8lex_error_t utf8lex_format_cat(
+        utf8lex_cat_t cat,
+        unsigned char *str_pointer
+        )
+{
+  if (cat <= UTF8LEX_CAT_NONE
+      || cat >= UTF8LEX_CAT_MAX)
+  {
+    return UTF8LEX_ERROR_CAT;
+  }
+  else if (str_pointer == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  // Curently can format up to 386 bytes.
+
+  char *or = " | ";
+  char *first = "";
+  char *maybe_or = first;
+
+  utf8lex_cat_t remaining_cat = cat;
+  size_t total_bytes_written = (size_t) 0;
+  size_t remaining_num_bytes = UTF8LEX_CAT_FORMAT_MAX_LENGTH;
+
+  //
+  // Groups first.
+  //
+  // Combined categories, OR'ed together base categories e.g. letter
+  // can be upper, lower or title case, etc.:
+  //
+  if ((remaining_cat & UTF8LEX_GROUP_OTHER) == UTF8LEX_GROUP_OTHER)
+  {
+    // 5-8 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sOTHER",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_GROUP_OTHER);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_GROUP_LETTER) == UTF8LEX_GROUP_LETTER)
+  {
+    // 6-9 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sLETTER",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_GROUP_LETTER);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_GROUP_MARK) == UTF8LEX_GROUP_MARK)
+  {
+    // 4-7 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sMARK",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_GROUP_MARK);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_GROUP_NUM) == UTF8LEX_GROUP_NUM)
+  {
+    // 3-6 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sNUM",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_GROUP_NUM);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_GROUP_PUNCT) == UTF8LEX_GROUP_PUNCT)
+  {
+    // 5-8 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sPUNCT",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_GROUP_PUNCT);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_GROUP_SYM) == UTF8LEX_GROUP_SYM)
+  {
+    // 3-6 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sSYM",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_GROUP_SYM);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_GROUP_WHITESPACE) == UTF8LEX_GROUP_WHITESPACE)
+  {
+    // 10-13 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sWHITESPACE",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_GROUP_WHITESPACE);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+
+  if ((remaining_cat & UTF8LEX_CAT_OTHER_NA) == UTF8LEX_CAT_OTHER_NA)
+  {
+    // 2-5 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sNA",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_OTHER_NA);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_LETTER_UPPER) == UTF8LEX_CAT_LETTER_UPPER)
+  {
+    // 5-8 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sUPPER",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_LETTER_UPPER);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_LETTER_LOWER) == UTF8LEX_CAT_LETTER_LOWER)
+  {
+    // 5-8 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sLOWER",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_LETTER_LOWER);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_LETTER_TITLE) == UTF8LEX_CAT_LETTER_TITLE)
+  {
+    // 5-8 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sTITLE",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_LETTER_TITLE);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_LETTER_MODIFIER) == UTF8LEX_CAT_LETTER_MODIFIER)
+  {
+    // 8-11 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sMODIFIER",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_LETTER_MODIFIER);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_LETTER_OTHER) == UTF8LEX_CAT_LETTER_OTHER)
+  {
+    // 12-15 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sLETTER_OTHER",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_LETTER_OTHER);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_MARK_NON_SPACING) == UTF8LEX_CAT_MARK_NON_SPACING)
+  {
+    // 7-10 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sMARK_NS",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_MARK_NON_SPACING);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_MARK_SPACING_COMBINING) == UTF8LEX_CAT_MARK_SPACING_COMBINING)
+  {
+    // 7-10 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sMARK_SC",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_MARK_SPACING_COMBINING);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_MARK_ENCLOSING) == UTF8LEX_CAT_MARK_ENCLOSING)
+  {
+    // 6-9 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sMARK_E",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_MARK_ENCLOSING);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_NUM_DECIMAL) == UTF8LEX_CAT_NUM_DECIMAL)
+  {
+    // 7-10 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sDECIMAL",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_NUM_DECIMAL);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_NUM_LETTER) == UTF8LEX_CAT_NUM_LETTER)
+  {
+    // 10-13 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sNUM_LETTER",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_NUM_LETTER);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_NUM_OTHER) == UTF8LEX_CAT_NUM_OTHER)
+  {
+    // 9-12 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sNUM_OTHER",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_NUM_OTHER);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_PUNCT_CONNECTOR) == UTF8LEX_CAT_PUNCT_CONNECTOR)
+  {
+    // 9-12 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sCONNECTOR",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_PUNCT_CONNECTOR);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_PUNCT_DASH) == UTF8LEX_CAT_PUNCT_DASH)
+  {
+    // 4-7 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sDASH",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_PUNCT_DASH);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_PUNCT_OPEN) == UTF8LEX_CAT_PUNCT_OPEN)
+  {
+    // 10-13 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sPUNCT_OPEN",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_PUNCT_OPEN);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_PUNCT_CLOSE) == UTF8LEX_CAT_PUNCT_CLOSE)
+  {
+    // 11-14 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sPUNCT_CLOSE",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_PUNCT_CLOSE);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_PUNCT_QUOTE_OPEN) == UTF8LEX_CAT_PUNCT_QUOTE_OPEN)
+  {
+    // 10-13 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sQUOTE_OPEN",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_PUNCT_QUOTE_OPEN);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_PUNCT_QUOTE_CLOSE) == UTF8LEX_CAT_PUNCT_QUOTE_CLOSE)
+  {
+    // 11-14 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sQUOTE_CLOSE",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_PUNCT_QUOTE_CLOSE);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_PUNCT_OTHER) == UTF8LEX_CAT_PUNCT_OTHER)
+  {
+    // 11-14 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sPUNCT_OTHER",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_PUNCT_OTHER);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_SYM_MATH) == UTF8LEX_CAT_SYM_MATH)
+  {
+    // 4-7 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sMATH",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_SYM_MATH);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_SYM_CURRENCY) == UTF8LEX_CAT_SYM_CURRENCY)
+  {
+    // 8-11 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sCURRENCY",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_SYM_CURRENCY);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_SYM_MODIFIER) == UTF8LEX_CAT_SYM_MODIFIER)
+  {
+    // 12-15 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sSYM_MODIFIER",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_SYM_MODIFIER);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_SYM_OTHER) == UTF8LEX_CAT_SYM_OTHER)
+  {
+    // 9-12 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sSYM_OTHER",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_SYM_OTHER);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_SEP_SPACE) == UTF8LEX_CAT_SEP_SPACE)
+  {
+    // 6-9 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sHSPACE",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_SEP_SPACE);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_SEP_LINE) == UTF8LEX_CAT_SEP_LINE)
+  {
+    // 6-9 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sVSPACE",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_SEP_LINE);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_SEP_PARAGRAPH) == UTF8LEX_CAT_SEP_PARAGRAPH)
+  {
+    // 9-12 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sPARAGRAPH",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_SEP_PARAGRAPH);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_OTHER_CONTROL) == UTF8LEX_CAT_OTHER_CONTROL)
+  {
+    // 7-10 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sCONTROL",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_OTHER_CONTROL);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_OTHER_FORMAT) == UTF8LEX_CAT_OTHER_FORMAT)
+  {
+    // 6-9 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sFORMAT",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_OTHER_FORMAT);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_OTHER_SURROGATE) == UTF8LEX_CAT_OTHER_SURROGATE)
+  {
+    // 9-12 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sSURROGATE",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_OTHER_SURROGATE);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_CAT_OTHER_PRIVATE) == UTF8LEX_CAT_OTHER_PRIVATE)
+  {
+    // 7-10 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sPRIVATE",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_CAT_OTHER_PRIVATE);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_EXT_SEP_LINE) == UTF8LEX_EXT_SEP_LINE)
+  {
+    // 7-10 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sNEWLINE",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_EXT_SEP_LINE);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+
+  // Sanity checks:
+  if (remaining_cat != UTF8LEX_CAT_NONE)
+  {
+    fprintf(stderr, "*** utf8lex bug: utf8lex_format_cat() remaining = %d\n",
+            (int) remaining_cat);
+    return UTF8LEX_ERROR_CAT;
+  }
+  else if (remaining_num_bytes == (size_t) 0)
+  {
+    fprintf(stderr, "*** utf8lex bug: utf8lex_format_cat() too many bytes\n");
+    return UTF8LEX_ERROR_CAT;
+  }
+
+  return UTF8LEX_OK;
+}
+
+// Parses the specified string into OR'ed category/ies,
+// overwriting the specified cat_pointer.
+utf8lex_error_t utf8lex_parse_cat(
+        utf8lex_cat_t *cat_pointer,
+        unsigned char *str
+        )
+{
+  if (cat_pointer == NULL
+      || str == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  utf8lex_cat_t cat = UTF8LEX_CAT_NONE;
+  int length_bytes = strlen(str);
+
+  bool is_category_expected = true;
+  for (off_t c = 0; c < length_bytes;)
+  {
+    if (str[c] == ' ')
+    {
+      c ++;
+      continue;
+    }
+
+    unsigned char *ptr = (unsigned char *) (str + c);
+    if (strncmp("CONNECTOR", ptr, (size_t) 9) == 0)
+    {
+      cat |= UTF8LEX_CAT_PUNCT_CONNECTOR;
+      c += (off_t) 9;
+    }
+    else if (strncmp("CONTROL", ptr, (size_t) 7) == 0)
+    {
+      cat |= UTF8LEX_CAT_OTHER_CONTROL;
+      c += (off_t) 7;
+    }
+    else if (strncmp("CURRENCY", ptr, (size_t) 8) == 0)
+    {
+      cat |= UTF8LEX_CAT_SYM_CURRENCY;
+      c += (off_t) 8;
+    }
+    else if (strncmp("DASH", ptr, (size_t) 4) == 0)
+    {
+      cat |= UTF8LEX_CAT_PUNCT_DASH;
+      c += (off_t) 4;
+    }
+    else if (strncmp("DECIMAL", ptr, (size_t) 7) == 0)
+    {
+      cat |= UTF8LEX_CAT_NUM_DECIMAL;
+      c += (off_t) 7;
+    }
+    else if (strncmp("FORMAT", ptr, (size_t) 6) == 0)
+    {
+      cat |= UTF8LEX_CAT_OTHER_FORMAT;
+      c += (off_t) 6;
+    }
+    else if (strncmp("HSPACE", ptr, (size_t) 6) == 0)
+    {
+      cat |= UTF8LEX_CAT_SEP_SPACE;
+      c += (off_t) 6;
+    }
+    else if (strncmp("LETTER_OTHER", ptr, (size_t) 12) == 0)
+    {
+      cat |= UTF8LEX_CAT_LETTER_OTHER;
+      c += (off_t) 12;
+    }
+    else if (strncmp("LETTER", ptr, (size_t) 6) == 0)
+    {
+      cat |= UTF8LEX_GROUP_LETTER;
+      c += (off_t) 6;
+    }
+    else if (strncmp("LOWER", ptr, (size_t) 5) == 0)
+    {
+      cat |= UTF8LEX_CAT_LETTER_LOWER;
+      c += (off_t) 5;
+    }
+    else if (strncmp("MARK_E", ptr, (size_t) 6) == 0)
+    {
+      cat |= UTF8LEX_CAT_MARK_ENCLOSING;
+      c += (off_t) 6;
+    }
+    else if (strncmp("MARK_NS", ptr, (size_t) 7) == 0)
+    {
+      cat |= UTF8LEX_CAT_MARK_NON_SPACING;
+      c += (off_t) 7;
+    }
+    else if (strncmp("MARK_SC", ptr, (size_t) 7) == 0)
+    {
+      cat |= UTF8LEX_CAT_MARK_SPACING_COMBINING;
+      c += (off_t) 7;
+    }
+    else if (strncmp("MARK", ptr, (size_t) 4) == 0)
+    {
+      cat |= UTF8LEX_GROUP_MARK;
+      c += (off_t) 4;
+    }
+    else if (strncmp("MATH", ptr, (size_t) 4) == 0)
+    {
+      cat |= UTF8LEX_CAT_SYM_MATH;
+      c += (off_t) 4;
+    }
+    else if (strncmp("MODIFIER", ptr, (size_t) 8) == 0)
+    {
+      cat |= UTF8LEX_CAT_LETTER_MODIFIER;
+      c += (off_t) 8;
+    }
+    else if (strncmp("NA", ptr, (size_t) 2) == 0)
+    {
+      cat |= UTF8LEX_CAT_OTHER_NA;
+      c += (off_t) 2;
+    }
+    else if (strncmp("NEWLINE", ptr, (size_t) 7) == 0)
+    {
+      cat |= UTF8LEX_EXT_SEP_LINE;
+      c += (off_t) 7;
+    }
+    else if (strncmp("NUM_LETTER", ptr, (size_t) 10) == 0)
+    {
+      cat |= UTF8LEX_CAT_NUM_LETTER;
+      c += (off_t) 10;
+    }
+    else if (strncmp("NUM_OTHER", ptr, (size_t) 9) == 0)
+    {
+      cat |= UTF8LEX_CAT_NUM_OTHER;
+      c += (off_t) 9;
+    }
+    else if (strncmp("NUM", ptr, (size_t) 3) == 0)
+    {
+      cat |= UTF8LEX_GROUP_NUM;
+      c += (off_t) 3;
+    }
+    else if (strncmp("OTHER", ptr, (size_t) 5) == 0)
+    {
+      cat |= UTF8LEX_GROUP_OTHER;
+      c += (off_t) 5;
+    }
+    else if (strncmp("PARAGRAPH", ptr, (size_t) 9) == 0)
+    {
+      cat |= UTF8LEX_CAT_SEP_PARAGRAPH;
+      c += (off_t) 9;
+    }
+    else if (strncmp("PRIVATE", ptr, (size_t) 7) == 0)
+    {
+      cat |= UTF8LEX_CAT_OTHER_PRIVATE;
+      c += (off_t) 7;
+    }
+    else if (strncmp("PUNCT_CLOSE", ptr, (size_t) 11) == 0)
+    {
+      cat |= UTF8LEX_CAT_PUNCT_CLOSE;
+      c += (off_t) 11;
+    }
+    else if (strncmp("PUNCT_OPEN", ptr, (size_t) 10) == 0)
+    {
+      cat |= UTF8LEX_CAT_PUNCT_OPEN;
+      c += (off_t) 10;
+    }
+    else if (strncmp("PUNCT_OTHER", ptr, (size_t) 11) == 0)
+    {
+      cat |= UTF8LEX_CAT_PUNCT_OTHER;
+      c += (off_t) 11;
+    }
+    else if (strncmp("PUNCT", ptr, (size_t) 5) == 0)
+    {
+      cat |= UTF8LEX_GROUP_PUNCT;
+      c += (off_t) 5;
+    }
+    else if (strncmp("QUOTE_CLOSE", ptr, (size_t) 11) == 0)
+    {
+      cat |= UTF8LEX_CAT_PUNCT_QUOTE_CLOSE;
+      c += (off_t) 11;
+    }
+    else if (strncmp("QUOTE_OPEN", ptr, (size_t) 10) == 0)
+    {
+      cat |= UTF8LEX_CAT_PUNCT_QUOTE_OPEN;
+      c += (off_t) 10;
+    }
+    else if (strncmp("SURROGATE", ptr, (size_t) 9) == 0)
+    {
+      cat |= UTF8LEX_CAT_OTHER_SURROGATE;
+      c += (off_t) 9;
+    }
+    else if (strncmp("SYM_MODIFIER", ptr, (size_t) 12) == 0)
+    {
+      cat |= UTF8LEX_CAT_SYM_MODIFIER;
+      c += (off_t) 12;
+    }
+    else if (strncmp("SYM_OTHER", ptr, (size_t) 9) == 0)
+    {
+      cat |= UTF8LEX_CAT_SYM_OTHER;
+      c += (off_t) 9;
+    }
+    else if (strncmp("SYM", ptr, (size_t) 3) == 0)
+    {
+      cat |= UTF8LEX_GROUP_SYM;
+      c += (off_t) 3;
+    }
+    else if (strncmp("TITLE", ptr, (size_t) 5) == 0)
+    {
+      cat |= UTF8LEX_CAT_LETTER_TITLE;
+      c += (off_t) 5;
+    }
+    else if (strncmp("UPPER", ptr, (size_t) 5) == 0)
+    {
+      cat |= UTF8LEX_CAT_LETTER_UPPER;
+      c += (off_t) 5;
+    }
+    else if (strncmp("VSPACE", ptr, (size_t) 6) == 0)
+    {
+      cat |= UTF8LEX_CAT_SEP_LINE;
+      c += (off_t) 6;
+    }
+    else if (strncmp("WHITESPACE", ptr, (size_t) 10) == 0)
+    {
+      cat |= UTF8LEX_GROUP_WHITESPACE;
+      c += (off_t) 10;
+    }
+    else
+    {
+      fprintf(stderr,
+              "*** utf8lex_parse_cat(): unknown category starting at %d: \"%s\"\n",
+              (int) c,
+              ptr);
+      return UTF8LEX_ERROR_CAT;
+    }
+
+    bool is_or_found = false;
+    for (off_t o = c; o < length_bytes; o ++)
+    {
+      if (str[o] == '|')
+      {
+        c = o + 1;
+        is_or_found = true;
+        break;
+      }
+      else if (str[o] != ' ')
+      {
+        ptr = (unsigned char *) (str + o);
+        fprintf(stderr,
+                "*** utf8lex_parse_cat(): invalid text starting at %d: \"%s\"\n",
+                (int) o,
+                ptr);
+        return UTF8LEX_ERROR_CAT;
+      }
+    }
+
+    if (! is_or_found)
+    {
+      // End of the string, we're done.
+      is_category_expected = false;
+      break;
+    }
+
+    // Loop, continue looking for more categories.
+  }
+
+  if (is_category_expected)
+  {
+    if (cat == UTF8LEX_CAT_NONE)
+    {
+      fprintf(stderr,
+              "*** utf8lex_parse_cat(): empty categories: \"%s\"\n",
+              str);
+    }
+    else
+    {
+      fprintf(stderr,
+              "*** utf8lex_parse_cat(): dangling '|': \"%s\"\n",
+              str);
+    }
+
+    return UTF8LEX_ERROR_CAT;
+  }
+
+  *cat_pointer = cat;
+
+  return UTF8LEX_OK;
+}
+
+
 // ---------------------------------------------------------------------
 //                           utf8lex_string_t
 // ---------------------------------------------------------------------
@@ -337,117 +1123,6 @@ utf8lex_error_t utf8lex_error_string(
 }
 
 // ---------------------------------------------------------------------
-//                          utf8lex_category_t
-// ---------------------------------------------------------------------
-
-utf8lex_error_t utf8lex_category_init(
-        utf8lex_category_t *self,
-        utf8lex_category_t *prev,
-        utf8lex_cat_t cat,
-        unsigned char *name
-        )
-{
-  if (self == NULL
-      || name == NULL)
-  {
-    return UTF8LEX_ERROR_NULL_POINTER;
-  }
-  else if (prev != NULL
-           && prev->next != NULL)
-  {
-    return UTF8LEX_ERROR_CHAIN_INSERT;
-  }
-  else if (cat <= UTF8LEX_CAT_NONE
-           || cat >= UTF8LEX_CAT_MAX)
-  {
-    return UTF8LEX_ERROR_CAT;
-  }
-
-  self->next = NULL;
-  self->prev = prev;
-  self->cat = cat;
-  self->name = name;
-
-  if (self->prev != NULL)
-  {
-    self->prev->next = self;
-  }
-
-  return UTF8LEX_OK;
-}
-
-utf8lex_error_t utf8lex_category_clear(
-        utf8lex_category_t *self
-        )
-{
-  if (self == NULL)
-  {
-    return UTF8LEX_ERROR_NULL_POINTER;
-  }
-
-  if (self->prev != NULL)
-  {
-    self->prev->next = self->next;
-  }
-
-  if (self->next != NULL)
-  {
-    self->next->prev = self->prev;
-  }
-
-  self->next = NULL;
-  self->prev = NULL;
-  self->cat = UTF8LEX_CAT_NONE;
-  self->name = NULL;
-
-  return UTF8LEX_OK;
-}
-
-utf8lex_error_t utf8lex_find_category(
-        utf8lex_category_t *category_chain,
-        utf8lex_cat_t cat,
-        utf8lex_category_t **found_pointer
-        )
-{
-  if (category_chain == NULL
-      || found_pointer == NULL)
-  {
-    return UTF8LEX_ERROR_NULL_POINTER;
-  }
-  else if (cat <= UTF8LEX_CAT_NONE
-           || cat >= UTF8LEX_CAT_MAX)
-  {
-    return UTF8LEX_ERROR_CAT;
-  }
-
-  utf8lex_category_t *category = category_chain;
-  int infinite_loop = (int) UTF8LEX_CAT_MAX;
-  for (int c = 0; c < infinite_loop; c ++)
-  {
-    if (category->cat == cat)
-    {
-      *found_pointer = category;
-      return UTF8LEX_OK;
-    }
-
-    category = category->next;
-    if (category == NULL)
-    {
-      break;
-    }
-  }
-
-  if (category != NULL)
-  {
-    *found_pointer = NULL;
-    return UTF8LEX_ERROR_INFINITE_LOOP;
-  }
-
-  *found_pointer = NULL;
-  return UTF8LEX_ERROR_CAT;
-}
-
-// ---------------------------------------------------------------------
 //                       utf8lex_cat_pattern_t
 // ---------------------------------------------------------------------
 
@@ -479,6 +1154,7 @@ utf8lex_error_t utf8lex_cat_pattern_init(
 
   self->pattern_type = UTF8LEX_PATTERN_TYPE_CAT;
   self->cat = cat;
+  utf8lex_format_cat(self->cat, self->str);
   self->min = min;
   self->max = max;
 
@@ -499,6 +1175,7 @@ utf8lex_error_t utf8lex_cat_pattern_clear(
 
   cat_pattern->pattern_type = NULL;
   cat_pattern->cat = UTF8LEX_CAT_NONE;
+  cat_pattern->str[0] = 0;
   cat_pattern->min = 0;
   cat_pattern->max = 0;
 
@@ -604,9 +1281,10 @@ utf8lex_error_t utf8lex_literal_pattern_init(
   // Check to make sure strlen and utf8proc agree on # bytes.  (They should.)
   if (length[UTF8LEX_UNIT_BYTE] != self->length[UTF8LEX_UNIT_BYTE])
   {
-    printf("!!! strlen and utf8proc disagree: strlen = %d vs utf8proc = %d\n",
-           self->length[UTF8LEX_UNIT_BYTE],
-           length[UTF8LEX_UNIT_BYTE]);
+    fprintf(stderr,
+            "*** strlen and utf8proc disagree: strlen = %d vs utf8proc = %d\n",
+            self->length[UTF8LEX_UNIT_BYTE],
+            length[UTF8LEX_UNIT_BYTE]);
   }
 
   for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
@@ -677,7 +1355,8 @@ utf8lex_error_t utf8lex_regex_pattern_init(
     pcre2_get_error_message(pcre2_error,
                             pcre2_error_string,
                             (PCRE2_SIZE) 256);
-    printf("!!! pcre2 error: %s\n", pcre2_error_string);
+    fprintf(stderr,
+            "*** pcre2 error: %s\n", pcre2_error_string);
     utf8lex_regex_pattern_clear((utf8lex_abstract_pattern_t *) self);
 
     return UTF8LEX_ERROR_BAD_REGEX;
@@ -2000,9 +2679,10 @@ static utf8lex_error_t utf8lex_lex_regex(
   // Check to make sure pcre2 and utf8proc agree on # bytes.  (They should.)
   if (length[UTF8LEX_UNIT_BYTE] != match_length_bytes)
   {
-    printf("!!! pcre2 and utf8proc disagree: pcre2 match_length_bytes = %d vs utf8proc = %d\n",
-           match_length_bytes,
-           length[UTF8LEX_UNIT_BYTE]);
+    fprintf(stderr,
+            "*** pcre2 and utf8proc disagree: pcre2 match_length_bytes = %d vs utf8proc = %d\n",
+            match_length_bytes,
+            length[UTF8LEX_UNIT_BYTE]);
   }
 
   // Update buffer locations amd the absolute locations:

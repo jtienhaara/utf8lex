@@ -31,7 +31,6 @@
 typedef struct _STRUCT_utf8lex_abstract_pattern utf8lex_abstract_pattern_t;
 typedef struct _STRUCT_utf8lex_buffer           utf8lex_buffer_t;
 typedef uint32_t                                utf8lex_cat_t;
-typedef struct _STRUCT_utf8lex_category         utf8lex_category_t;
 typedef struct _STRUCT_utf8lex_cat_pattern      utf8lex_cat_pattern_t;
 typedef enum _ENUM_utf8lex_error                utf8lex_error_t;
 typedef struct _STRUCT_utf8lex_literal_pattern  utf8lex_literal_pattern_t;
@@ -195,29 +194,17 @@ extern const utf8lex_cat_t UTF8LEX_GROUP_SYM;  // Symbols
 extern const utf8lex_cat_t UTF8LEX_GROUP_WHITESPACE;  // CAT_SEPs + EXT_SEPs
 extern const utf8lex_cat_t UTF8LEX_CAT_MAX;
 
-struct _STRUCT_utf8lex_category
-{
-  utf8lex_category_t *next;
-  utf8lex_category_t *prev;
-
-  utf8lex_cat_t cat;  // Bits ORed together to get multiple categories
-  unsigned char *name;
-};
-
-extern utf8lex_error_t utf8lex_category_init(
-        utf8lex_category_t *self,
-        utf8lex_category_t *prev,
+// Formats the specified OR'ed category/ies as a string,
+// overwriting the specified str_pointer.
+extern utf8lex_error_t utf8lex_format_cat(
         utf8lex_cat_t cat,
-        unsigned char *name
+        unsigned char *str_pointer
         );
-extern utf8lex_error_t utf8lex_category_clear(
-        utf8lex_category_t *self
-        );
-
-extern utf8lex_error_t utf8lex_find_category(
-        utf8lex_category_t *category_chain,
-        utf8lex_cat_t cat,
-        utf8lex_category_t **found_pointer
+// Parses the specified string into OR'ed category/ies,
+// overwriting the specified cat_pointer.
+extern utf8lex_error_t utf8lex_parse_cat(
+        utf8lex_cat_t *cat_pointer,
+        unsigned char *str
         );
 
 enum _ENUM_utf8lex_unit
@@ -297,13 +284,15 @@ struct _STRUCT_utf8lex_abstract_pattern
   utf8lex_pattern_type_t *pattern_type;
 };
 
+#define UTF8LEX_CAT_FORMAT_MAX_LENGTH 512
+
 struct _STRUCT_utf8lex_cat_pattern
 {
   // utf8lex_abstract_pattern_t field(s):
   utf8lex_pattern_type_t *pattern_type;
 
   utf8lex_cat_t cat;  // The category, such as UTF8LEX_GROUP_LETTER.
-  utf8lex_category_t *category;  // More information about cat, such as name.
+  char str[UTF8LEX_CAT_FORMAT_MAX_LENGTH];  // e.g. "LETTER_UPPER|LETTER_LOWER".
   int min;  // Minimum consecutive occurrences of the cat (1 or more).
   int max;  // Maximum consecutive occurrences of the cat (-1 for no limit).
 };

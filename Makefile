@@ -41,9 +41,25 @@ container:
 build:
 	gcc $(CC_ARGS) -c utf8lex.c -o utf8lex.o
 
-# !!! -L/usr/lib/x86_64-linux-gnu --> no good architecture-dependent
 .PHONY: test
-test: build
+test: build unit_tests integration_tests
+
+# !!! -L/usr/lib/x86_64-linux-gnu --> no good architecture-dependent
+.PHONY: unit_tests
+unit_tests: build
+	gcc $(CC_ARGS) -c test_utf8lex_cat.c -o test_utf8lex_cat.o
+	gcc $(LINK_ARGS) \
+	    utf8lex.o \
+	    test_utf8lex_cat.o \
+	    -L/usr/lib/x86_64-linux-gnu \
+	    -lpcre2-8 \
+	    -lutf8proc \
+	    -o test_utf8lex_cat
+	./test_utf8lex_cat
+
+# !!! -L/usr/lib/x86_64-linux-gnu --> no good architecture-dependent
+.PHONY: integration_tests
+integration_tests: build
 	gcc $(CC_ARGS) -c test_utf8lex.c -o test_utf8lex.o
 	gcc $(LINK_ARGS) \
 	    utf8lex.o \
