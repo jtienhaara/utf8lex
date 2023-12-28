@@ -37,14 +37,15 @@ utf8lex_error_t test_utf8lex(
   // by all token types.  So until I can figure out why pcre2 is behaving
   // this way, and make it stop:
   //
-  //     ALL lexical classes MUST appear before ANY regular expressions.
+  //     ALL lexical cat patterns MUST appear before ANY regular expression
+  //     patterns.
   //
-  printf("    test_utf8lex: Create number class pattern\n");
-  utf8lex_class_pattern_t number_pattern;
-  error = utf8lex_class_pattern_init(&number_pattern,
-                                     UTF8LEX_GROUP_NUM,  // cat
-                                     1,  // min
-                                     -1);  // max
+  printf("    test_utf8lex: Create number cat pattern\n");
+  utf8lex_cat_pattern_t number_pattern;
+  error = utf8lex_cat_pattern_init(&number_pattern,
+                                   UTF8LEX_GROUP_NUM,  // cat
+                                   1,  // min
+                                   -1);  // max
   if (error != UTF8LEX_OK)
   {
     printf("  test_utf8lex: FAILED\n");

@@ -448,13 +448,13 @@ utf8lex_error_t utf8lex_find_category(
 }
 
 // ---------------------------------------------------------------------
-//                       utf8lex_class_pattern_t
+//                       utf8lex_cat_pattern_t
 // ---------------------------------------------------------------------
 
-utf8lex_error_t utf8lex_class_pattern_init(
-        utf8lex_class_pattern_t *self,
+utf8lex_error_t utf8lex_cat_pattern_init(
+        utf8lex_cat_pattern_t *self,
         utf8lex_cat_t cat,  // The category, such as UTF8LEX_GROUP_LETTER.
-        int min,  // Minimum consecutive occurrences of the class (1 or more).
+        int min,  // Minimum consecutive occurrences of the cat (1 or more).
         int max  // Maximum consecutive occurrences (-1 = no limit).
         )
 {
@@ -477,7 +477,7 @@ utf8lex_error_t utf8lex_class_pattern_init(
     return UTF8LEX_ERROR_BAD_MAX;
   }
 
-  self->pattern_type = UTF8LEX_PATTERN_TYPE_CLASS;
+  self->pattern_type = UTF8LEX_PATTERN_TYPE_CAT;
   self->cat = cat;
   self->min = min;
   self->max = max;
@@ -485,8 +485,8 @@ utf8lex_error_t utf8lex_class_pattern_init(
   return UTF8LEX_OK;
 }
 
-utf8lex_error_t utf8lex_class_pattern_clear(
-        utf8lex_abstract_pattern_t *self  // Must be utf8lex_class_pattern_t *
+utf8lex_error_t utf8lex_cat_pattern_clear(
+        utf8lex_abstract_pattern_t *self  // Must be utf8lex_cat_pattern_t *
         )
 {
   if (self == NULL)
@@ -494,13 +494,13 @@ utf8lex_error_t utf8lex_class_pattern_clear(
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
-  utf8lex_class_pattern_t *class_pattern =
-    (utf8lex_class_pattern_t *) self;
+  utf8lex_cat_pattern_t *cat_pattern =
+    (utf8lex_cat_pattern_t *) self;
 
-  class_pattern->pattern_type = NULL;
-  class_pattern->cat = UTF8LEX_CAT_NONE;
-  class_pattern->min = 0;
-  class_pattern->max = 0;
+  cat_pattern->pattern_type = NULL;
+  cat_pattern->cat = UTF8LEX_CAT_NONE;
+  cat_pattern->min = 0;
+  cat_pattern->max = 0;
 
   return UTF8LEX_OK;
 }
@@ -1612,7 +1612,7 @@ utf8lex_error_t utf8lex_read_grapheme(
   return UTF8LEX_OK;
 }
 
-static utf8lex_error_t utf8lex_lex_class(
+static utf8lex_error_t utf8lex_lex_cat(
         utf8lex_token_type_t *token_type,
         utf8lex_state_t *state,
         utf8lex_token_t *token_pointer
@@ -1628,7 +1628,7 @@ static utf8lex_error_t utf8lex_lex_class(
   {
     return UTF8LEX_ERROR_NULL_POINTER;
   }
-  else if (token_type->pattern->pattern_type != UTF8LEX_PATTERN_TYPE_CLASS)
+  else if (token_type->pattern->pattern_type != UTF8LEX_PATTERN_TYPE_CAT)
   {
     return UTF8LEX_ERROR_PATTERN_TYPE;
   }
@@ -1642,10 +1642,10 @@ static utf8lex_error_t utf8lex_lex_class(
     length[unit] = (size_t) 0;
   }
 
-  utf8lex_class_pattern_t *class_pattern =
-    (utf8lex_class_pattern_t *) token_type->pattern;
+  utf8lex_cat_pattern_t *cat_pattern =
+    (utf8lex_cat_pattern_t *) token_type->pattern;
   for (int ug = 0;
-       class_pattern->max == -1 || ug < class_pattern->max;
+       cat_pattern->max == -1 || ug < cat_pattern->max;
        ug ++)
   {
     // Read in one UTF-8 grapheme cluster:
@@ -1667,7 +1667,7 @@ static utf8lex_error_t utf8lex_lex_class(
     }
     else if (error != UTF8LEX_OK)
     {
-      if (ug < class_pattern->min)
+      if (ug < cat_pattern->min)
       {
         return error;
       }
@@ -1679,12 +1679,12 @@ static utf8lex_error_t utf8lex_lex_class(
       }
     }
 
-    if (class_pattern->cat & cat)
+    if (cat_pattern->cat & cat)
     {
       // A/the category we're looking for.
       error = UTF8LEX_OK;
     }
-    else if (ug < class_pattern->min)
+    else if (ug < cat_pattern->min)
     {
       // Not the category we're looking for, and we haven't found
       // at least (min) graphemes matching this category, so fail
@@ -1698,7 +1698,7 @@ static utf8lex_error_t utf8lex_lex_class(
       break;
     }
 
-    // We found another grapheme of the expected class.
+    // We found another grapheme of the expected cat.
     // Keep looking for more matches for this token,
     // until we hit the max.
     offset = grapheme_offset;
@@ -2028,15 +2028,15 @@ static utf8lex_error_t utf8lex_lex_regex(
 
 
 // A token pattern that matches a sequence of N characters
-// of a specific utf8lex_cat_t class, such as UTF8LEX_GROUP_WHITESPACE:
-static utf8lex_pattern_type_t UTF8LEX_PATTERN_TYPE_CLASS_INTERNAL =
+// of a specific utf8lex_cat_t cat, such as UTF8LEX_GROUP_WHITESPACE:
+static utf8lex_pattern_type_t UTF8LEX_PATTERN_TYPE_CAT_INTERNAL =
   {
-    .name = "CLASS",
-    .lex = utf8lex_lex_class,
-    .clear = utf8lex_class_pattern_clear
+    .name = "CATEGORY",
+    .lex = utf8lex_lex_cat,
+    .clear = utf8lex_cat_pattern_clear
   };
-utf8lex_pattern_type_t *UTF8LEX_PATTERN_TYPE_CLASS =
-  &UTF8LEX_PATTERN_TYPE_CLASS_INTERNAL;
+utf8lex_pattern_type_t *UTF8LEX_PATTERN_TYPE_CAT =
+  &UTF8LEX_PATTERN_TYPE_CAT_INTERNAL;
 
 // A token pattern that matches a literal string,
 // such as "int" or "==" or "proc" and so on:

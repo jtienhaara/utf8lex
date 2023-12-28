@@ -32,7 +32,7 @@ typedef struct _STRUCT_utf8lex_abstract_pattern utf8lex_abstract_pattern_t;
 typedef struct _STRUCT_utf8lex_buffer           utf8lex_buffer_t;
 typedef uint32_t                                utf8lex_cat_t;
 typedef struct _STRUCT_utf8lex_category         utf8lex_category_t;
-typedef struct _STRUCT_utf8lex_class_pattern    utf8lex_class_pattern_t;
+typedef struct _STRUCT_utf8lex_cat_pattern      utf8lex_cat_pattern_t;
 typedef enum _ENUM_utf8lex_error                utf8lex_error_t;
 typedef struct _STRUCT_utf8lex_literal_pattern  utf8lex_literal_pattern_t;
 typedef struct _STRUCT_utf8lex_location         utf8lex_location_t;
@@ -74,7 +74,7 @@ enum _ENUM_utf8lex_error
   UTF8LEX_ERROR_NULL_POINTER,
   UTF8LEX_ERROR_CHAIN_INSERT,  // Can't insert links into the chain, only append
   UTF8LEX_ERROR_CAT,  // Invalid cat (category id) NONE < cat < MAX / not found.
-  UTF8LEX_ERROR_PATTERN_TYPE,  // pattern_type mismatch (eg class, regex).
+  UTF8LEX_ERROR_PATTERN_TYPE,  // pattern_type mismatch (eg cat vs. regex).
   UTF8LEX_ERROR_EMPTY_LITERAL,  // Literals cannot be "".
   UTF8LEX_ERROR_REGEX,  // Matching against a regular expression failed.
   UTF8LEX_ERROR_UNIT,  // Invalid unit must be NONE < unit < MAX.
@@ -249,7 +249,7 @@ extern utf8lex_error_t utf8lex_location_clear(
 
 struct _STRUCT_utf8lex_pattern_type
 {
-  char *name;  // Such as "CLASS", "LITERAL" or "REGEX".
+  char *name;  // Such as "CATEGORY", "LITERAL" or "REGEX".
 
   // During lexing, utf8lex_lex() will invoke this pattern_type's
   // lex() function to determine 1) whether the text in the lexing
@@ -261,7 +261,7 @@ struct _STRUCT_utf8lex_pattern_type
   // token_type->pattern is of type utf8lex_abstract_pattern_t *,
   // so utf8lex_lex() calls token_type->pattern->pattern_type->lex(...).
   //
-  // The builtin class, literal and regex pattern types
+  // The builtin cat, literal and regex pattern types
   // provide this functionality; other pattern types can be added,
   // if desired.
   utf8lex_error_t (*lex)(
@@ -278,8 +278,8 @@ struct _STRUCT_utf8lex_pattern_type
 };
 
 // A token pattern that matches a sequence of N characters
-// of a specific utf8lex_cat_t class, such as UTF8LEX_GROUP_WHITESPACE:
-extern utf8lex_pattern_type_t *UTF8LEX_PATTERN_TYPE_CLASS;
+// of a specific utf8lex_cat_t categpru, such as UTF8LEX_GROUP_WHITESPACE:
+extern utf8lex_pattern_type_t *UTF8LEX_PATTERN_TYPE_CAT;
 
 // A token pattern that matches a literal string,
 // such as "int" or "==" or "proc" and so on:
@@ -293,28 +293,29 @@ extern utf8lex_pattern_type_t *UTF8LEX_PATTERN_TYPE_REGEX;
 struct _STRUCT_utf8lex_abstract_pattern
 {
   // The pattern_type must always be the first field in every
-  // utf8lex_abstract_pattern_t implementation (e.g. class, literal, regex).
+  // utf8lex_abstract_pattern_t implementation (e.g. cat, literal, regex).
   utf8lex_pattern_type_t *pattern_type;
 };
 
-struct _STRUCT_utf8lex_class_pattern
+struct _STRUCT_utf8lex_cat_pattern
 {
   // utf8lex_abstract_pattern_t field(s):
   utf8lex_pattern_type_t *pattern_type;
 
   utf8lex_cat_t cat;  // The category, such as UTF8LEX_GROUP_LETTER.
-  int min;  // Minimum consecutive occurrences of the class (1 or more).
-  int max;  // Maximum consecutive occurrences of the class (-1 for no limit).
+  utf8lex_category_t *category;  // More information about cat, such as name.
+  int min;  // Minimum consecutive occurrences of the cat (1 or more).
+  int max;  // Maximum consecutive occurrences of the cat (-1 for no limit).
 };
 
-extern utf8lex_error_t utf8lex_class_pattern_init(
-        utf8lex_class_pattern_t *self,
+extern utf8lex_error_t utf8lex_cat_pattern_init(
+        utf8lex_cat_pattern_t *self,
         utf8lex_cat_t cat,  // The category, such as UTF8LEX_GROUP_LETTER.
-        int min,  // Minimum consecutive occurrences of the class (1 or more).
+        int min,  // Minimum consecutive occurrences of the cat (1 or more).
         int max  // Maximum consecutive occurrences (-1 = no limit).
         );
-extern utf8lex_error_t utf8lex_class_pattern_clear(
-        utf8lex_abstract_pattern_t *self  // Must be utf8lex_class_pattern_t *
+extern utf8lex_error_t utf8lex_cat_pattern_clear(
+        utf8lex_abstract_pattern_t *self  // Must be utf8lex_cat_pattern_t *
         );
 
 struct _STRUCT_utf8lex_literal_pattern
@@ -360,7 +361,7 @@ struct _STRUCT_utf8lex_token_type
 
   uint32_t id;
   unsigned char *name;
-  utf8lex_abstract_pattern_t *pattern;  // Such as class, literal, regex.
+  utf8lex_abstract_pattern_t *pattern;  // Such as cat, literal, regex.
   unsigned char *code;
 };
 
@@ -368,7 +369,7 @@ extern utf8lex_error_t utf8lex_token_type_init(
         utf8lex_token_type_t *self,
         utf8lex_token_type_t *prev,
         unsigned char *name,
-        utf8lex_abstract_pattern_t *pattern,  // Such as class, literal, regex.
+        utf8lex_abstract_pattern_t *pattern,  // Such as cat, literal, regex.
         unsigned char *code
         );
 extern utf8lex_error_t utf8lex_token_type_clear(
