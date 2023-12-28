@@ -55,7 +55,7 @@ RUN apt-get update --yes \
        make \
     && apt-get clean
 
-ENV LC_CTYPE=UTF-8
+ENV LC_CTYPE=C.utf8
 
 #
 # User utf8lex

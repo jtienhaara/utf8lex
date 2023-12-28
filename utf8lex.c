@@ -454,6 +454,133 @@ utf8lex_error_t utf8lex_class_pattern_clear(
   return UTF8LEX_OK;
 }
 
+
+// ---------------------------------------------------------------------
+//                      utf8lex_literal_pattern_t
+// ---------------------------------------------------------------------
+
+utf8lex_error_t utf8lex_literal_pattern_init(
+        utf8lex_literal_pattern_t *self,
+        unsigned char *str
+        )
+{
+  if (self == NULL
+      || str == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  size_t num_bytes = strlen(str);
+  if (num_bytes == (size_t) 0)
+  {
+    return UTF8LEX_ERROR_EMPTY_LITERAL;
+  }
+
+  self->str = str;
+  self->length[UTF8LEX_UNIT_BYTE] = (int) num_bytes;
+
+  // We know how many bytes the ltieral is.
+  // Now we'll now use utf8proc to count how many characters,
+  // graphemes, lines, etc. are in the matching region.
+
+  utf8lex_string_t utf8lex_str;
+  utf8lex_string_init(&utf8lex_str,  // self
+                      num_bytes,     // max_length_bytes
+                      num_bytes,     // length_bytes
+                      self->str);    // bytes
+  utf8lex_buffer_t buffer;
+  utf8lex_buffer_init(&buffer,       // self
+                      NULL,          // prev
+                      &utf8lex_str,  // str
+                      true);         // is_eof
+  utf8lex_state_t state;
+  utf8lex_state_init(&state,         // self
+                     &buffer);       // buffer
+  for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
+       unit < UTF8LEX_UNIT_MAX;
+       unit ++)
+  {
+    state.loc[unit].start = 0;
+    state.loc[unit].length = 0;
+  }
+
+  off_t offset = (off_t) 0;
+  size_t length[UTF8LEX_UNIT_MAX];
+  for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
+       unit < UTF8LEX_UNIT_MAX;
+       unit ++)
+  {
+    length[unit] = (size_t) 0;
+  }
+
+  // Keep reading graphemes until we've reached the end of the literal string:
+  for (int ug = 0;
+       length[UTF8LEX_UNIT_BYTE] < self->length[UTF8LEX_UNIT_BYTE];
+       ug ++)
+  {
+    // Read in one UTF-8 grapheme cluster per loop iteration:
+    size_t num_bytes_read = (size_t) 0;
+    size_t num_chars_read = (size_t) 0;
+    int32_t codepoint = (int32_t) -1;
+    utf8lex_cat_t cat = UTF8LEX_CAT_NONE;
+    utf8lex_error_t error = utf8lex_read_grapheme(
+        &state,  // state, including absolute locations.
+        &offset,  // start byte, relative to start of the buffer string.
+        length,  // size_t[] # bytes, chars, etc read.
+        &codepoint,  // codepoint
+        &cat  //cat
+        );
+
+    if (error != UTF8LEX_OK)
+    {
+      // The literal is a string that utf8proc either needs MORE bytes for,
+      // or rejected outright.  We can't accept it.
+      return error;
+    }
+
+    // We found another grapheme inside the literal string.
+    // Keep looking for more graphemes inside the literal string.
+  }
+
+  // Check to make sure strlen and utf8proc agree on # bytes.  (They should.)
+  if (length[UTF8LEX_UNIT_BYTE] != self->length[UTF8LEX_UNIT_BYTE])
+  {
+    printf("!!! strlen and utf8proc disagree: strlen = %d vs utf8proc = %d\n",
+           self->length[UTF8LEX_UNIT_BYTE],
+           length[UTF8LEX_UNIT_BYTE]);
+  }
+
+  for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
+       unit < UTF8LEX_UNIT_MAX;
+       unit ++)
+  {
+    self->length[unit] = (int) length[unit];
+  }
+
+  return UTF8LEX_OK;
+}
+
+utf8lex_error_t utf8lex_literal_pattern_clear(
+        utf8lex_literal_pattern_t *self
+        )
+{
+  if (self == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  self->str = NULL;
+  for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
+       unit < UTF8LEX_UNIT_MAX;
+       unit ++)
+  {
+    self->length[unit] = -1;
+  }
+
+  return UTF8LEX_OK;
+}
+
+
 // ---------------------------------------------------------------------
 //                       utf8lex_regex_pattern_t
 // ---------------------------------------------------------------------
@@ -518,6 +645,7 @@ utf8lex_error_t utf8lex_regex_pattern_clear(
   return UTF8LEX_OK;
 }
 
+
 // ---------------------------------------------------------------------
 //                        utf8lex_token_type_t
 // ---------------------------------------------------------------------
@@ -528,8 +656,8 @@ utf8lex_error_t utf8lex_token_type_init(
         unsigned char *name,
         utf8lex_pattern_type_t pattern_type,
         utf8lex_class_pattern_t *class_pattern,
+        utf8lex_literal_pattern_t *literal_pattern,
         utf8lex_regex_pattern_t *regex_pattern,
-        unsigned char *string_pattern,
         unsigned char *code
         )
 {
@@ -560,20 +688,20 @@ utf8lex_error_t utf8lex_token_type_init(
     self->pattern.cls = class_pattern;
     break;
 
+  case UTF8LEX_PATTERN_TYPE_LITERAL:
+    if (literal_pattern == NULL)
+    {
+      return UTF8LEX_ERROR_NULL_POINTER;
+    }
+    self->pattern.literal = literal_pattern;
+    break;
+
   case UTF8LEX_PATTERN_TYPE_REGEX:
     if (regex_pattern == NULL)
     {
       return UTF8LEX_ERROR_NULL_POINTER;
     }
     self->pattern.regex = regex_pattern;
-    break;
-
-  case UTF8LEX_PATTERN_TYPE_STRING:
-    if (string_pattern == NULL)
-    {
-      return UTF8LEX_ERROR_NULL_POINTER;
-    }
-    self->pattern.str = string_pattern;
     break;
 
   default:
@@ -635,8 +763,8 @@ utf8lex_error_t utf8lex_token_type_clear(
   self->name = NULL;
   self->pattern_type = UTF8LEX_PATTERN_TYPE_NONE;
   self->pattern.cls = NULL;
+  self->pattern.literal = NULL;
   self->pattern.regex = NULL;
-  self->pattern.str = NULL;
   self->code = NULL;
 
   return UTF8LEX_OK;
@@ -1149,30 +1277,32 @@ utf8lex_error_t utf8lex_cat_from_utf8proc_category(
 // grapheme, and the number of bytes read.
 // The state is used only for the string buffer to read from,
 // not for its location info.
+// The offset, lengths, codepoint and cat are all updated upon
+// successfully reading one complete grapheme cluster.
 utf8lex_error_t utf8lex_read_grapheme(
         utf8lex_state_t *state,
-        int start_byte,
-        size_t *num_bytes_read,
-        size_t *num_chars_read,
-        int32_t *codepoint,
-        utf8lex_cat_t *cat
+        off_t *offset,  // Mutable.
+        size_t length[UTF8LEX_UNIT_MAX],  // Mutable.
+        int32_t *codepoint,  // Mutable.
+        utf8lex_cat_t *cat  // Mutable.
         )
 {
   if (state == NULL
-      || num_bytes_read == NULL
+      || offset == NULL
+      || length == NULL
       || codepoint == NULL
       || cat == NULL)
   {
     return UTF8LEX_ERROR_NULL_POINTER;
   }
-  else if (start_byte < 0
-           || start_byte >= state->buffer->str->length_bytes)
+  else if (*offset < (off_t) 0
+           || *offset >= state->buffer->str->length_bytes)
   {
     return UTF8LEX_ERROR_BAD_START;
   }
 
   utf8lex_error_t error = UTF8LEX_ERROR_BAD_ERROR;
-  off_t offset = (off_t) start_byte;
+  off_t curr_offset = *offset;
   utf8proc_int32_t first_codepoint = (utf8proc_int32_t) -1;
   utf8proc_int32_t prev_codepoint = (utf8proc_int32_t) -1;
   utf8proc_int32_t utf8proc_state = (utf8proc_int32_t) 0;;
@@ -1181,9 +1311,9 @@ utf8lex_error_t utf8lex_read_grapheme(
   for (int u8c = 0; ; u8c ++)
   {
     unsigned char *str_pointer = (unsigned char *)
-      (state->buffer->str->bytes + offset);
+      (state->buffer->str->bytes + curr_offset);
     size_t max_bytes = (size_t)
-      (state->buffer->str->length_bytes - offset);
+      (state->buffer->str->length_bytes - curr_offset);
 
     if (max_bytes <= (size_t) 0)
     {
@@ -1191,7 +1321,7 @@ utf8lex_error_t utf8lex_read_grapheme(
       {
         // Continue reading from the next buffer in the chain.
         state->buffer = state->buffer->next;
-        offset = (off_t) 0;
+        curr_offset = (off_t) 0;
         u8c --;
         continue;
       }
@@ -1227,7 +1357,7 @@ utf8lex_error_t utf8lex_read_grapheme(
         &utf8proc_codepoint);
 
     if (utf8proc_num_bytes_read == UTF8PROC_ERROR_INVALIDUTF8
-        && (state->buffer->str->length_bytes - (size_t) offset)
+        && (state->buffer->str->length_bytes - (size_t) curr_offset)
            < UTF8LEX_MAX_BYTES_PER_CHAR)
     {
       if (state->buffer->is_eof == true)
@@ -1289,7 +1419,7 @@ utf8lex_error_t utf8lex_read_grapheme(
       }
     }
 
-    offset += (off_t) utf8proc_num_bytes_read;
+    curr_offset += (off_t) utf8proc_num_bytes_read;
     total_bytes_read += (size_t) utf8proc_num_bytes_read;
     total_chars_read += (size_t) 1;
 
@@ -1316,8 +1446,10 @@ utf8lex_error_t utf8lex_read_grapheme(
   }
 
   // Success.
-  *num_bytes_read = (size_t) total_bytes_read;
-  *num_chars_read = total_chars_read;
+  *offset += (off_t) total_bytes_read;
+  length[UTF8LEX_UNIT_BYTE] += (size_t) total_bytes_read;
+  length[UTF8LEX_UNIT_CHAR] += (size_t) total_chars_read;
+  length[UTF8LEX_UNIT_GRAPHEME] += (size_t) 1;
   *codepoint = first_codepoint;
   *cat = utf8lex_cat;
 
@@ -1344,25 +1476,26 @@ utf8lex_error_t utf8lex_lex_class(
     return UTF8LEX_ERROR_PATTERN_TYPE;
   }
 
-  int grapheme_start = state->buffer->loc[UTF8LEX_UNIT_BYTE].start;
-  size_t total_bytes_read = (size_t) 0;
-  size_t total_chars_read = (size_t) 0;
-  size_t total_graphemes_read = (size_t) 0;
+  off_t offset = (off_t) state->buffer->loc[UTF8LEX_UNIT_BYTE].start;
+  size_t length[UTF8LEX_UNIT_MAX];
+  for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
+       unit < UTF8LEX_UNIT_MAX;
+       unit ++)
+  {
+    length[unit] = (size_t) 0;
+  }
 
-  for (int u = 0;
-       (token_type->pattern.cls->max == -1 || u < token_type->pattern.cls->max);
-       u ++)
+  for (int ug = 0;
+       token_type->pattern.cls->max == -1 || ug < token_type->pattern.cls->max;
+       ug ++)
   {
     // Read in one UTF-8 grapheme cluster:
-    size_t num_bytes_read = (size_t) 0;
-    size_t num_chars_read = (size_t) 0;
     int32_t codepoint = (int32_t) -1;
     utf8lex_cat_t cat = UTF8LEX_CAT_NONE;
     utf8lex_error_t error = utf8lex_read_grapheme(
         state,  // state, including absolute locations.
-        grapheme_start,  // start_byte, relative to start of buffer.
-        &num_bytes_read,  // num_bytes_read
-        &num_chars_read,  // num_chars_read
+        &offset,  // start byte, relative to start of the buffer string.
+        length,  // size_t[] # bytes, chars, etc read.
         &codepoint,  // codepoint
         &cat  //cat
         );
@@ -1373,7 +1506,7 @@ utf8lex_error_t utf8lex_lex_class(
     }
     else if (error != UTF8LEX_OK)
     {
-      if (u < token_type->pattern.cls->min)
+      if (ug < token_type->pattern.cls->min)
       {
         return error;
       }
@@ -1390,7 +1523,7 @@ utf8lex_error_t utf8lex_lex_class(
       // A/the category we're looking for.
       error = UTF8LEX_OK;
     }
-    else if (u < token_type->pattern.cls->min)
+    else if (ug < token_type->pattern.cls->min)
     {
       // Not the category we're looking for, and we haven't found
       // at least (min) graphemes matching this category, so fail
@@ -1404,25 +1537,96 @@ utf8lex_error_t utf8lex_lex_class(
       break;
     }
 
-    // We found another char / grapheme of the expected class.
-    // Increase the start position for the next grapheme,
-    // and keep looking for more matches for this token,
+    // We found another grapheme of the expected class.
+    // Keep looking for more matches for this token,
     // until we hit the max.
-    grapheme_start += (int) num_bytes_read;
-    total_bytes_read += (size_t) num_bytes_read;
-    total_chars_read += (size_t) num_chars_read;
-    total_graphemes_read += (size_t) 1;
   }
 
   // Found what we're looking for.
-  // Update buffer locations:
-  state->buffer->loc[UTF8LEX_UNIT_BYTE].length = (int) total_bytes_read;
-  state->buffer->loc[UTF8LEX_UNIT_CHAR].length = (int) total_chars_read;
-  state->buffer->loc[UTF8LEX_UNIT_GRAPHEME].length = (int) total_graphemes_read;
-  // Update absolute locations:
-  state->loc[UTF8LEX_UNIT_BYTE].length = (int) total_bytes_read;
-  state->loc[UTF8LEX_UNIT_CHAR].length = (int) total_chars_read;
-  state->loc[UTF8LEX_UNIT_GRAPHEME].length = (int) total_graphemes_read;
+  // Update buffer locations amd the absolute locations:
+  for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
+       unit < UTF8LEX_UNIT_MAX;
+       unit ++)
+  {
+    state->buffer->loc[unit].length = (int) length[unit];
+    state->loc[unit].length = (int) length[unit];
+  }
+
+  utf8lex_error_t error = utf8lex_token_init(
+      token,
+      token_type,
+      state);  // For buffer and absolute location.
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+
+  return UTF8LEX_OK;
+}
+
+
+utf8lex_error_t utf8lex_lex_literal(
+        utf8lex_token_type_t *token_type,
+        utf8lex_state_t *state,
+        utf8lex_token_t *token
+        )
+{
+  if (token_type == NULL
+      || token_type->pattern.literal == NULL
+      || state == NULL
+      || state->buffer == NULL
+      || state->buffer->str == NULL
+      || token == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+  else if (token_type->pattern_type != UTF8LEX_PATTERN_TYPE_LITERAL)
+  {
+    return UTF8LEX_ERROR_PATTERN_TYPE;
+  }
+
+  off_t offset = (off_t) state->buffer->loc[UTF8LEX_UNIT_BYTE].start;
+  size_t remaining_bytes = state->buffer->str->length_bytes - (size_t) offset;
+
+  utf8lex_literal_pattern_t *literal = token_type->pattern.literal;
+  size_t token_length_bytes = literal->length[UTF8LEX_UNIT_BYTE];
+
+  for (off_t c = (off_t) 0;
+       (size_t) c < remaining_bytes && (size_t) c < token_length_bytes;
+       c ++)
+  {
+    if (state->buffer->str->bytes[offset + c] != literal->str[c])
+    {
+      return UTF8LEX_NO_MATCH;
+    }
+  }
+
+  if (remaining_bytes < token_length_bytes)
+  {
+    // Not enough bytes to read the string.
+    // (It was matching for maybe a few bytes, anyway.)
+    if (state->buffer->is_eof)
+    {
+      // No more bytes can be read in, we're at EOF.
+      return UTF8LEX_NO_MATCH;
+    }
+    else
+    {
+      // Need to read more bytes for the full grapheme.
+      return UTF8LEX_MORE;
+    }
+  }
+
+  // Matched the literal exactly.
+
+  // Update buffer locations and absolute locations:
+  for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
+       unit < UTF8LEX_UNIT_MAX;
+       unit ++)
+  {
+    state->buffer->loc[unit].length = literal->length[unit];
+    state->loc[unit].length = literal->length[unit];
+  }
 
   utf8lex_error_t error = utf8lex_token_init(
       token,
@@ -1570,79 +1774,64 @@ utf8lex_error_t utf8lex_lex_regex(
   PCRE2_SIZE match_substring_length = 256;
   pcre2_substring_copy_bynumber(match, (uint32_t) 0, match_substring, &match_substring_length);
 
-  // Update buffer locations:
-  state->buffer->loc[UTF8LEX_UNIT_BYTE].length = (int) match_length_bytes;
-  // Update absolute locations:
-  state->loc[UTF8LEX_UNIT_BYTE].length = (int) match_length_bytes;
-
-  utf8lex_error_t error = utf8lex_token_init(
-      token,
-      token_type,
-      state);  // For buffer and absolute location.
-  if (error != UTF8LEX_OK)
-  {
-    return error;
-  }
-
-  return UTF8LEX_OK;
-}
-
-
-utf8lex_error_t utf8lex_lex_string(
-        utf8lex_token_type_t *token_type,
-        utf8lex_state_t *state,
-        utf8lex_token_t *token
-        )
-{
-  if (token_type == NULL
-      || token_type->pattern.str == NULL
-      || state == NULL
-      || state->buffer == NULL
-      || state->buffer->str == NULL
-      || token == NULL)
-  {
-    return UTF8LEX_ERROR_NULL_POINTER;
-  }
-  else if (token_type->pattern_type != UTF8LEX_PATTERN_TYPE_STRING)
-  {
-    return UTF8LEX_ERROR_PATTERN_TYPE;
-  }
-
-  off_t offset = (off_t) state->buffer->loc[UTF8LEX_UNIT_BYTE].start;
-  size_t remaining_bytes = state->buffer->str->length_bytes - (size_t) offset;
-  size_t token_length_bytes = strlen(token_type->pattern.str);
-
-  for (off_t c = (off_t) 0;
-       (size_t) c < remaining_bytes && (size_t) c < token_length_bytes;
-       c ++)
-  {
-    if (state->buffer->str->bytes[offset + c] != token_type->pattern.str[c])
-    {
-      return UTF8LEX_NO_MATCH;
-    }
-  }
-
-  if (remaining_bytes < token_length_bytes)
-  {
-    // Not enough bytes to read the string.
-    // (It was matching for maybe a few bytes, anyway.)
-    if (state->buffer->is_eof)
-    {
-      // No more bytes can be read in, we're at EOF.
-      return UTF8LEX_NO_MATCH;
-    }
-    else
-    {
-      // Need to read more bytes for the full grapheme.
-      return UTF8LEX_MORE;
-    }
-  }
-
   // Matched.
-  // Update buffer locations:
-  state->buffer->loc[UTF8LEX_UNIT_BYTE].length = (int) token_length_bytes;
-  // Update absolute locations:
-  state->loc[UTF8LEX_UNIT_BYTE].length = (int) token_length_bytes;
+  //
+  // We know how many bytes matched the regular expression.
+  // Now we'll now use utf8proc to count how many characters,
+  // graphemes, lines, etc. are in the matching region.
+  size_t length[UTF8LEX_UNIT_MAX];
+  for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
+       unit < UTF8LEX_UNIT_MAX;
+       unit ++)
+  {
+    length[unit] = (size_t) 0;
+  }
+
+  // Keep reading graphemes until we've reached the end of the regex match:
+  for (int ug = 0;
+       length[UTF8LEX_UNIT_BYTE] < match_length_bytes;
+       ug ++)
+  {
+    // Read in one UTF-8 grapheme cluster per loop iteration:
+    size_t num_bytes_read = (size_t) 0;
+    size_t num_chars_read = (size_t) 0;
+    int32_t codepoint = (int32_t) -1;
+    utf8lex_cat_t cat = UTF8LEX_CAT_NONE;
+    utf8lex_error_t error = utf8lex_read_grapheme(
+        state,  // state, including absolute locations.
+        &offset,  // start byte, relative to start of the buffer string.
+        length,  // size_t[] # bytes, chars, etc read.
+        &codepoint,  // codepoint
+        &cat  //cat
+        );
+
+    if (error != UTF8LEX_OK)
+    {
+      // pcre2 matched something that utf8proc either needs MORE bytes for,
+      // or rejected outright.
+      return error;
+    }
+
+    // We found another grapheme inside the regex match.
+    // Keep looking for more graphemes inside the regex match.
+  }
+
+  // Check to make sure pcre2 and utf8proc agree on # bytes.  (They should.)
+  if (length[UTF8LEX_UNIT_BYTE] != match_length_bytes)
+  {
+    printf("!!! pcre2 and utf8proc disagree: pcre2 match_length_bytes = %d vs utf8proc = %d\n",
+           match_length_bytes,
+           length[UTF8LEX_UNIT_BYTE]);
+  }
+
+  // Update buffer locations amd the absolute locations:
+  for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
+       unit < UTF8LEX_UNIT_MAX;
+       unit ++)
+  {
+    state->buffer->loc[unit].length = (int) length[unit];
+    state->loc[unit].length = (int) length[unit];
+  }
 
   utf8lex_error_t error = utf8lex_token_init(
       token,
@@ -1717,16 +1906,16 @@ utf8lex_error_t utf8lex_lex(
                                 token);
       break;
 
+    case UTF8LEX_PATTERN_TYPE_LITERAL:
+      error = utf8lex_lex_literal(token_type,
+                                 state,
+                                 token);
+      break;
+
     case UTF8LEX_PATTERN_TYPE_REGEX:
       error = utf8lex_lex_regex(token_type,
                                 state,
                                 token);
-      break;
-
-    case UTF8LEX_PATTERN_TYPE_STRING:
-      error = utf8lex_lex_string(token_type,
-                                 state,
-                                 token);
       break;
 
     default:
@@ -1768,10 +1957,6 @@ utf8lex_error_t utf8lex_lex(
        unit ++)
   {
     int length_units = token->loc[unit].length;
-    if (length_units <= 0)
-    {
-      continue;
-    }
 
     // Update buffer locations past end of this token:
     state->buffer->loc[unit].start += length_units;

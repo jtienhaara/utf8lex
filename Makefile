@@ -29,7 +29,7 @@ all: build test
 .PHONY: container
 container:
 	docker build . \
-	    --file Dockerfile.build \
+	    --file build.Dockerfile \
 	    --tag utf8lex:latest
 	docker run \
 	    --volume `pwd`:/utf8lex:rw \

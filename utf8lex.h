@@ -33,6 +33,7 @@ typedef uint32_t                                utf8lex_cat_t;
 typedef struct _STRUCT_utf8lex_category         utf8lex_category_t;
 typedef struct _STRUCT_utf8lex_class_pattern    utf8lex_class_pattern_t;
 typedef enum _ENUM_utf8lex_error                utf8lex_error_t;
+typedef struct _STRUCT_utf8lex_literal_pattern  utf8lex_literal_pattern_t;
 typedef struct _STRUCT_utf8lex_location         utf8lex_location_t;
 typedef enum _ENUM_utf8lex_pattern_type         utf8lex_pattern_type_t;
 typedef struct _STRUCT_utf8lex_regex_pattern    utf8lex_regex_pattern_t;
@@ -73,6 +74,7 @@ enum _ENUM_utf8lex_error
   UTF8LEX_ERROR_CHAIN_INSERT,  // Can't insert links into the chain, only append
   UTF8LEX_ERROR_CAT,  // Invalid cat (category id) NONE < cat < MAX / not found.
   UTF8LEX_ERROR_PATTERN_TYPE,  // Invalid pattern type NONE < p.t. < MAX.
+  UTF8LEX_ERROR_EMPTY_LITERAL,  // Literals cannot be "".
   UTF8LEX_ERROR_REGEX,  // Matching against a regular expression failed.
   UTF8LEX_ERROR_UNIT,  // Invalid unit must be NONE < unit < MAX.
   UTF8LEX_ERROR_INFINITE_LOOP,  // Aborted, possible infinite loop detected.
@@ -228,8 +230,8 @@ enum _ENUM_utf8lex_pattern_type
   UTF8LEX_PATTERN_TYPE_NONE = 0,
 
   UTF8LEX_PATTERN_TYPE_CLASS,
+  UTF8LEX_PATTERN_TYPE_LITERAL,
   UTF8LEX_PATTERN_TYPE_REGEX,
-  UTF8LEX_PATTERN_TYPE_STRING,
 
   UTF8LEX_PATTERN_TYPE_MAX
 };
@@ -249,6 +251,20 @@ extern utf8lex_error_t utf8lex_class_pattern_init(
         );
 extern utf8lex_error_t utf8lex_class_pattern_clear(
         utf8lex_class_pattern_t *self
+        );
+
+struct _STRUCT_utf8lex_literal_pattern
+{
+  unsigned char *str;
+  int length[UTF8LEX_UNIT_MAX];  // Literal # of bytes, chars, graphemes, ...
+};
+
+extern utf8lex_error_t utf8lex_literal_pattern_init(
+        utf8lex_literal_pattern_t *self,
+        unsigned char *str
+        );
+extern utf8lex_error_t utf8lex_literal_pattern_clear(
+        utf8lex_literal_pattern_t *self
         );
 
 struct _STRUCT_utf8lex_regex_pattern
@@ -276,8 +292,8 @@ struct _STRUCT_utf8lex_token_type
   union
   {
     utf8lex_class_pattern_t *cls;
+    utf8lex_literal_pattern_t *literal;
     utf8lex_regex_pattern_t *regex;
-    unsigned char *str;
   } pattern;
   unsigned char *code;
 };
@@ -290,8 +306,8 @@ extern utf8lex_error_t utf8lex_token_type_init(
         unsigned char *name,
         utf8lex_pattern_type_t pattern_type,
         utf8lex_class_pattern_t *class_pattern,
+        utf8lex_literal_pattern_t *literal_pattern,
         utf8lex_regex_pattern_t *regex_pattern,
-        unsigned char *string_pattern,
         unsigned char *code
         );
 extern utf8lex_error_t utf8lex_token_type_clear(
@@ -364,6 +380,20 @@ extern utf8lex_error_t utf8lex_state_init(
         );
 extern utf8lex_error_t utf8lex_state_clear(
         utf8lex_state_t *self
+        );
+
+// Reads to the end of a grapheme, sets the first codepoint of the
+// grapheme, and the number of bytes read.
+// The state is used only for the string buffer to read from,
+// not for its location info.
+// The offset, lengths, codepoint and cat are all updated upon
+// successfully reading one complete grapheme cluster.
+extern utf8lex_error_t utf8lex_read_grapheme(
+        utf8lex_state_t *state,
+        off_t *offset,  // Mutable.
+        size_t length[UTF8LEX_UNIT_MAX],  // Mutable.
+        int32_t *codepoint,  // Mutable.
+        utf8lex_cat_t *cat  // Mutable.
         );
 
 #endif  // UTF8LEX_H_INCLUDED
