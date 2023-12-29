@@ -1,6 +1,2 @@
-*.o
-src/libutf8lex.so
-src/libutf8lex.so.1
-src/libutf8lex.so.1.0.0
-tests/unit/test_utf8lex_cat
-tests/integration/test_utf8lex
+build/
+tests/build/

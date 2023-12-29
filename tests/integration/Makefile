@@ -1,32 +1,66 @@
+SRC_DIR = ../../src
+BUILD_DIR = ../../build
+
 #
 # Parameters for gcc compiling .c into .o files, .o files into exes, etc:
 #
-CC_ARGS = -Werror -fPIC -I../../src
-LINK_ARGS = -Wl,--no-as-needed -lpcre2-8 -lutf8proc -L../../src -Wl,-rpath,../../src -lutf8lex
+CC = gcc
+CFLAGS = -Werror -fPIC -I$(SRC_DIR)
+
+LD = gcc
+LDFLAGS = -Wl,--no-as-needed -lpcre2-8 -lutf8proc -L$(BUILD_DIR) -Wl,-rpath,$(BUILD_DIR) -lutf8lex
+
+TEST_BUILD_DIR = ../build
+
+SOURCE_FILES = \
+	test_utf8lex.c
+
+OBJECT_FILES = \
+	$(patsubst %.c,$(TEST_BUILD_DIR)/%.o,$(SOURCE_FILES))
+
+PROGRAMS = \
+	$(patsubst %.c,$(TEST_BUILD_DIR)/%,$(SOURCE_FILES))
 
 LC_CTYPE=en_US.UTF-8
 
-.PHONY: all
-all: build run
+# Rule for $(OBJECT_FILES):
+$(TEST_BUILD_DIR)/%.o: %.c
+	mkdir -p $(TEST_BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Rule for $(PROGRAMS):
+$(TEST_BUILD_DIR)/%: $(TEST_BUILD_DIR)/%.o
+	$(LD) $(LDFLAGS) $< -o $@
+	rm -f $<
+
+#
+# Kludgy McKludgerson for running the unit tests with the builtin
+# "../build" library path for libutf8lex.so.$(MAJOR_VERSION).
+# (-Wl,-soname,../build/libutf8.so.1 leads to "ld test_utf8lex_blabla"
+# returning "../build/libutf8lex.so.1 => not found".)
+# We should properly install the library in an absolute path.
+# Meanwhile, this is a temporary kludge.
+#
+.PHONY: libraries-for-runtime
+libraries-for-runtime:
+	for LIBRARY in $(BUILD_DIR)/libutf8lex.so*; \
+	do \
+	    ln -s -f "$$LIBRARY" $(TEST_BUILD_DIR) || exit 1; \
+	done
 
 .PHONY: build
-build:
-	gcc $(CC_ARGS) -c test_utf8lex.c -o test_utf8lex.o
-	gcc $(LINK_ARGS) \
-	    test_utf8lex.o \
-	    -o test_utf8lex
+build: $(PROGRAMS) libraries-for-runtime
 
 .PHONY: clean
 clean:
-	rm -f *.o
-	rm -f test_utf8lex
+	rm -f $(OBJECT_FILES) $(PROGRAMS)
 
 .PHONY: run
-run: build
+run:
 	@for TEST_FILE in test_utf8lex_*.txt; \
 	do \
 	    echo ""; \
 	    echo "$$TEST_FILE:"; \
-	        ./test_utf8lex "$$TEST_FILE" \
+	        $(TEST_BUILD_DIR)/test_utf8lex "$$TEST_FILE" \
 	        || exit 1; \
 	done

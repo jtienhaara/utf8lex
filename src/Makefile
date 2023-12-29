@@ -1,57 +1,62 @@
-# !!! AR?=ar
-# !!! CC?=gcc
-# !!! INSTALL=install
-# !!! 
-# !!! CFLAGS ?= -O2
-# !!! PICFLAG = -fPIC
-# !!! C99FLAG = -std=c99
-# !!! WCFLAGS = -Wsign-conversion -Wall -Wextra -pedantic
-# !!! UCFLAGS = $(CPPFLAGS) $(CFLAGS) $(PICFLAG) $(C99FLAG) $(WCFLAGS) -DUTF8PROC_EXPORTS $(UTF8PROC_DEFINES)
-# !!! LDFLAG_SHARED = -shared
-# !!! SOFLAG = -Wl,-soname
-# !!! $(CC) $(LDFLAGS) $(LDFLAG_SHARED) -o $@ $(SOFLAG) -Wl,libutf8proc.so.$(MAJOR) utf8proc.o
-# !!! 	chmod a-x $@
+UTF8LEX_LIBRARY_VERSION = 1.0.0
+UTF8LEX_MAJOR = $(word 1, $(subst ., ,$(UTF8LEX_LIBRARY_VERSION)))
 
 #
 # Parameters for gcc compiling .c into .o files, .o files into exes, etc:
 #
-CC_ARGS = -Werror -fPIC -O2
-LINK_ARGS = -shared
+CC = gcc
+CFLAGS = -Werror -fPIC -O2
+
+LD = gcc
+LDFLAGS = -shared
+
+BUILD_DIR = ../build
+
+SOURCE_FILES = \
+	utf8lex_cat.c \
+	utf8lex_file.c \
+	utf8lex_lex.c \
+	utf8lex_location.c \
+	utf8lex_pattern_cat.c \
+	utf8lex_pattern_literal.c \
+	utf8lex_pattern_regex.c \
+	utf8lex_read.c \
+	utf8lex_string.c \
+	utf8lex_token.c
+
+OBJECT_FILES = \
+	$(patsubst %.c,$(BUILD_DIR)/%.o,$(SOURCE_FILES))
 
 LC_CTYPE=en_US.UTF-8
 
 .PHONY: all
 all: build
 
+# Rule for $(OBJECT_FILES):
+$(BUILD_DIR)/%.o: %.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_LIBRARY_VERSION): $(OBJECT_FILES)
+	$(LD) $(LDFLAGS)  \
+	    -Wl,-soname,$(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_MAJOR) \
+	    $(OBJECT_FILES) \
+	    -o $(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_LIBRARY_VERSION)
+	chmod a+x $(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_LIBRARY_VERSION)
+	cd $(BUILD_DIR) \
+	    && ln -s -f libutf8lex.so.$(UTF8LEX_LIBRARY_VERSION) \
+	        libutf8lex.so.$(UTF8LEX_MAJOR) \
+	    && ln -s -f libutf8lex.so.$(UTF8LEX_LIBRARY_VERSION) \
+	        libutf8lex.so
+	rm -f $(OBJECT_FILES)
+
 .PHONY: build
-build:
-	gcc $(CC_ARGS) -c utf8lex_cat.c -o utf8lex_cat.o
-	gcc $(CC_ARGS) -c utf8lex_file.c -o utf8lex_file.o
-	gcc $(CC_ARGS) -c utf8lex_lex.c -o utf8lex_lex.o
-	gcc $(CC_ARGS) -c utf8lex_location.c -o utf8lex_location.o
-	gcc $(CC_ARGS) -c utf8lex_pattern_cat.c -o utf8lex_pattern_cat.o
-	gcc $(CC_ARGS) -c utf8lex_pattern_literal.c -o utf8lex_pattern_literal.o
-	gcc $(CC_ARGS) -c utf8lex_pattern_regex.c -o utf8lex_pattern_regex.o
-	gcc $(CC_ARGS) -c utf8lex_read.c -o utf8lex_read.o
-	gcc $(CC_ARGS) -c utf8lex_string.c -o utf8lex_string.o
-	gcc $(CC_ARGS) -c utf8lex_token.c -o utf8lex_token.o
-	gcc $(LINK_ARGS)  -Wl,-soname,libutf8lex.so.1 \
-	    utf8lex_cat.o \
-	    utf8lex_file.o \
-	    utf8lex_lex.o \
-	    utf8lex_location.o \
-	    utf8lex_pattern_cat.o \
-	    utf8lex_pattern_literal.o \
-	    utf8lex_pattern_regex.o \
-	    utf8lex_read.o \
-	    utf8lex_string.o \
-	    utf8lex_token.o \
-	    -o libutf8lex.so.1.0.0
-	chmod a+x libutf8lex.so.1.0.0
-	ln -s libutf8lex.so.1.0.0 libutf8lex.so.1
-	ln -s libutf8lex.so.1.0.0 libutf8lex.so
+build: $(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_LIBRARY_VERSION)
 
 .PHONY: clean
 clean:
-	rm -f *.o
-	rm -f libutf8lex.so.1.0.0 libutf8lex.so.1 libutf8lex.so
+	rm -f $(OBJECT_FILES)
+	rm -f \
+	    $(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_LIBRARY_VERSION) \
+	    $(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_MAJOR) \
+	    $(BUILD_DIR)/libutf8lex.so
