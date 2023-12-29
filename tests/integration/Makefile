@@ -27,7 +27,6 @@ run: build
 	do \
 	    echo ""; \
 	    echo "$$TEST_FILE:"; \
-	    cat "$$TEST_FILE" \
-	        | ./test_utf8lex \
+	        ./test_utf8lex "$$TEST_FILE" \
 	        || exit 1; \
 	done

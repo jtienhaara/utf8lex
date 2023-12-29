@@ -342,7 +342,7 @@ int main(
                         &error_bytes[0]);
     utf8lex_error_string(&error_string,
                          error);
-    fprintf(stderr, "FAILED testing utf8lex_cat: %d %s\n",
+    fprintf(stderr, "FAILED testing utf8lex_cat: error %d %s\n",
             error,
             error_string.bytes);
       fflush(stderr);

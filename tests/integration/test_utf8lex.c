@@ -17,12 +17,12 @@
 
 #include <stdio.h>
 #include <string.h>  // For strcpy()
-#include <unistd.h>  // For read(), STDIN_FILENO
+#include <unistd.h>  // For read()
 
 #include "utf8lex.h"
 
 utf8lex_error_t test_utf8lex(
-        int fd,
+        char *file_to_lex_path,
         utf8lex_state_t *state
         )
 {
@@ -189,29 +189,18 @@ utf8lex_error_t test_utf8lex(
     return error;
   }
 
-  // Now read in some bytes:
-  printf("    test_utf8lex: Read bytes\n");
-  unsigned char utf8_bytes[16384];
-  size_t length_bytes = read(fd, utf8_bytes, (size_t) 16384);
-
-  printf("    test_utf8lex: Create string\n");
+  // mmap the file to be lexed:
+  printf("    test_utf8lex: MMap file %s\n", file_to_lex_path);
   utf8lex_string_t str;
-  error = utf8lex_string_init(&str,
-                              16384,  // max_length_bytes
-                              length_bytes,  // length_bytes
-                              &utf8_bytes[0]);
-  if (error != UTF8LEX_OK)
-  {
-    printf("  test_utf8lex: FAILED\n");
-    return error;
-  }
-
-  printf("    test_utf8lex: Create buffer\n");
+  str.max_length_bytes = -1;
+  str.length_bytes = -1;
+  str.bytes = NULL;
   utf8lex_buffer_t buffer;
-  error = utf8lex_buffer_init(&buffer,
-                              NULL,  // prev
-                              &str,
-                              true);  // is_eof
+  buffer.next = NULL;
+  buffer.prev = NULL;
+  buffer.str = &str;
+  error = utf8lex_buffer_mmap(&buffer,
+                              file_to_lex_path);  // path
   if (error != UTF8LEX_OK)
   {
     printf("  test_utf8lex: FAILED\n");
@@ -276,6 +265,14 @@ utf8lex_error_t test_utf8lex(
 
   printf("    test_utf8lex: End lexing\n");
 
+  printf("    test_utf8lex: Munmap file %s\n", file_to_lex_path);
+  error = utf8lex_buffer_munmap(&buffer);
+  if (error != UTF8LEX_OK)
+  {
+    printf("  test_utf8lex: FAILED\n");
+    return error;
+  }
+
   printf("  test_utf8lex: SUCCESS\n");
   return UTF8LEX_OK;
 }
@@ -286,8 +283,17 @@ int main(
         char *argv[]
         )
 {
+  if (argc != 2)
+  {
+    fprintf(stderr, "Usage: %s (file-to-lex)\n",
+            argv[0]);
+    return 1;
+  }
+
+  unsigned char *file_to_lex_path = (unsigned char *) argv[1];
+
   utf8lex_state_t state;
-  utf8lex_error_t error = test_utf8lex(STDIN_FILENO, &state);
+  utf8lex_error_t error = test_utf8lex(file_to_lex_path, &state);
   if (error == UTF8LEX_OK)
   {
     printf("SUCCESS lexing\n");

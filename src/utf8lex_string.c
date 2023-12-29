@@ -109,6 +109,36 @@ utf8lex_error_t utf8lex_error_string(
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
                                  "UTF8LEX_ERROR_NULL_POINTER");
     break;
+
+  case UTF8LEX_ERROR_FILE_OPEN:
+    num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
+                                 "UTF8LEX_ERROR_FILE_OPEN");
+    break;
+  case UTF8LEX_ERROR_FILE_DESCRIPTOR:
+    num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
+                                 "UTF8LEX_ERROR_FILE_DESCRIPTOR");
+    break;
+  case UTF8LEX_ERROR_FILE_EMPTY:
+    num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
+                                 "UTF8LEX_ERROR_FILE_EMPTY");
+    break;
+  case UTF8LEX_ERROR_FILE_MMAP:
+    num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
+                                 "UTF8LEX_ERROR_FILE_MMAP");
+    break;
+  case UTF8LEX_ERROR_FILE_READ:
+    num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
+                                 "UTF8LEX_ERROR_FILE_READ");
+    break;
+  case UTF8LEX_ERROR_FILE_SIZE:
+    num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
+                                 "UTF8LEX_ERROR_FILE_SIZE");
+    break;
+
+  case UTF8LEX_ERROR_BUFFER_INITIALIZED:
+    num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
+                                 "UTF8LEX_ERROR_BUFFER_INITIALIZED");
+    break;
   case UTF8LEX_ERROR_CHAIN_INSERT:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
                                  "UTF8LEX_ERROR_CHAIN_INSERT");
@@ -212,6 +242,9 @@ utf8lex_error_t utf8lex_buffer_init(
 
   self->next = NULL;
   self->prev = prev;
+
+  self->fd = -1;
+
   self->str = str;
   self->is_eof = is_eof;
 
@@ -252,6 +285,9 @@ utf8lex_error_t utf8lex_buffer_clear(
 
   self->prev = NULL;
   self->next = NULL;
+
+  self->fd = -1;
+
   self->str = NULL;
 
 

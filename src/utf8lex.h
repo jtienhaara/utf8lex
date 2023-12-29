@@ -71,6 +71,15 @@ enum _ENUM_utf8lex_error
   UTF8LEX_NO_MATCH,  // Could not match bytes against any pattern(s).
 
   UTF8LEX_ERROR_NULL_POINTER,
+
+  UTF8LEX_ERROR_FILE_OPEN,  // File doesn't exist, or permissions, etc.
+  UTF8LEX_ERROR_FILE_DESCRIPTOR,  // Invalid file descriptor (int fd) or FILE *.
+  UTF8LEX_ERROR_FILE_EMPTY,  // 0-byte file.
+  UTF8LEX_ERROR_FILE_MMAP,  // Could not mmap() a file.
+  UTF8LEX_ERROR_FILE_READ,  // Could not read() from an open file descriptor.
+  UTF8LEX_ERROR_FILE_SIZE,  // Could not use fstat for file size.
+
+  UTF8LEX_ERROR_BUFFER_INITIALIZED,  // Buffer has non-NULL str->bytes.
   UTF8LEX_ERROR_CHAIN_INSERT,  // Can't insert links into the chain, only append
   UTF8LEX_ERROR_CAT,  // Invalid cat (category id) NONE < cat < MAX / not found.
   UTF8LEX_ERROR_PATTERN_TYPE,  // pattern_type mismatch (eg cat vs. regex).
@@ -78,6 +87,7 @@ enum _ENUM_utf8lex_error
   UTF8LEX_ERROR_REGEX,  // Matching against a regular expression failed.
   UTF8LEX_ERROR_UNIT,  // Invalid unit must be NONE < unit < MAX.
   UTF8LEX_ERROR_INFINITE_LOOP,  // Aborted, possible infinite loop detected.
+
   UTF8LEX_ERROR_BAD_LENGTH,  // Negative length, < start, too close to end.
   UTF8LEX_ERROR_BAD_OFFSET,  // Negative offset, or too close to end of string.
   UTF8LEX_ERROR_BAD_START,  // Negative start, or too close to end of string.
@@ -89,6 +99,35 @@ enum _ENUM_utf8lex_error
 
   UTF8LEX_ERROR_MAX
 };
+
+
+enum _ENUM_utf8lex_unit
+{
+  UTF8LEX_UNIT_NONE = -1,
+
+  UTF8LEX_UNIT_BYTE = 0,
+  UTF8LEX_UNIT_CHAR,
+  UTF8LEX_UNIT_GRAPHEME,
+  UTF8LEX_UNIT_LINE,
+
+  UTF8LEX_UNIT_MAX
+};
+
+struct _STRUCT_utf8lex_location
+{
+  int start;  // First byte / char / grapheme / and so on of a token.
+  int length;  // # of bytes / chars / graphemes / and so on of a token.
+};
+
+extern utf8lex_error_t utf8lex_location_init(
+        utf8lex_location_t *self,
+        int start,
+        int length
+        );
+extern utf8lex_error_t utf8lex_location_clear(
+        utf8lex_location_t *self
+        );
+
 
 struct _STRUCT_utf8lex_string
 {
@@ -117,6 +156,53 @@ utf8lex_error_t utf8lex_state_string(
 utf8lex_error_t utf8lex_error_string(
         utf8lex_string_t *str,
         utf8lex_error_t error
+        );
+
+// No more than (this many) buffers can be chained together:
+extern const uint32_t UTF8LEX_BUFFER_STRINGS_MAX;
+
+struct _STRUCT_utf8lex_buffer
+{
+  utf8lex_buffer_t *next;
+  utf8lex_buffer_t *prev;
+
+  int fd;  // File descriptor, or -1 if no open file backs this buffer.
+
+  utf8lex_location_t loc[UTF8LEX_UNIT_MAX];
+  utf8lex_string_t *str;
+  bool is_eof;  // No more bytes to read?  (If so, do not return UTF8LEX_MORE).
+};
+
+extern utf8lex_error_t utf8lex_buffer_init(
+        utf8lex_buffer_t *self,
+        utf8lex_buffer_t *prev,
+        utf8lex_string_t *str,
+        bool is_eof
+        );
+extern utf8lex_error_t utf8lex_buffer_clear(
+        utf8lex_buffer_t *self
+        );
+
+extern utf8lex_error_t utf8lex_buffer_add(
+        utf8lex_buffer_t *self,
+        utf8lex_buffer_t *tail
+        );
+
+// buffer functions in utf8lex_file.c:
+
+// Do NOT call utf8lex_buffer_init() before calling utf8lex_buffer_mmap().
+extern utf8lex_error_t utf8lex_buffer_mmap(
+        utf8lex_buffer_t *self,
+        unsigned char *path
+        );
+extern utf8lex_error_t utf8lex_buffer_munmap(
+        utf8lex_buffer_t *self
+        );
+
+// Call utf8lex_buffer_init() first, then utf8lex_buffer_read().
+extern utf8lex_error_t utf8lex_buffer_read(
+        utf8lex_buffer_t *self,
+        int fd
         );
 
 //
@@ -205,33 +291,6 @@ extern utf8lex_error_t utf8lex_format_cat(
 extern utf8lex_error_t utf8lex_parse_cat(
         utf8lex_cat_t *cat_pointer,
         unsigned char *str
-        );
-
-enum _ENUM_utf8lex_unit
-{
-  UTF8LEX_UNIT_NONE = -1,
-
-  UTF8LEX_UNIT_BYTE = 0,
-  UTF8LEX_UNIT_CHAR,
-  UTF8LEX_UNIT_GRAPHEME,
-  UTF8LEX_UNIT_LINE,
-
-  UTF8LEX_UNIT_MAX
-};
-
-struct _STRUCT_utf8lex_location
-{
-  int start;  // First byte / char / grapheme / and so on of a token.
-  int length;  // # of bytes / chars / graphemes / and so on of a token.
-};
-
-extern utf8lex_error_t utf8lex_location_init(
-        utf8lex_location_t *self,
-        int start,
-        int length
-        );
-extern utf8lex_error_t utf8lex_location_clear(
-        utf8lex_location_t *self
         );
 
 struct _STRUCT_utf8lex_pattern_type
@@ -390,34 +449,6 @@ extern utf8lex_error_t utf8lex_token_copy_string(
         utf8lex_token_t *self,
         unsigned char *str,
         size_t max_bytes);
-
-// No more than (this many) buffers can be chained together:
-extern const uint32_t UTF8LEX_BUFFER_STRINGS_MAX;
-
-struct _STRUCT_utf8lex_buffer
-{
-  utf8lex_buffer_t *next;
-  utf8lex_buffer_t *prev;
-
-  utf8lex_location_t loc[UTF8LEX_UNIT_MAX];
-  utf8lex_string_t *str;
-  bool is_eof;  // No more bytes to read?  (If so, do not return UTF8LEX_MORE).
-};
-
-extern utf8lex_error_t utf8lex_buffer_init(
-        utf8lex_buffer_t *self,
-        utf8lex_buffer_t *prev,
-        utf8lex_string_t *str,
-        bool is_eof
-        );
-extern utf8lex_error_t utf8lex_buffer_clear(
-        utf8lex_buffer_t *self
-        );
-
-extern utf8lex_error_t utf8lex_buffer_add(
-        utf8lex_buffer_t *self,
-        utf8lex_buffer_t *tail
-        );
 
 struct _STRUCT_ut8lex_state
 {

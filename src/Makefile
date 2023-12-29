@@ -26,6 +26,7 @@ all: build
 .PHONY: build
 build:
 	gcc $(CC_ARGS) -c utf8lex_cat.c -o utf8lex_cat.o
+	gcc $(CC_ARGS) -c utf8lex_file.c -o utf8lex_file.o
 	gcc $(CC_ARGS) -c utf8lex_lex.c -o utf8lex_lex.o
 	gcc $(CC_ARGS) -c utf8lex_location.c -o utf8lex_location.o
 	gcc $(CC_ARGS) -c utf8lex_pattern_cat.c -o utf8lex_pattern_cat.o
@@ -36,6 +37,7 @@ build:
 	gcc $(CC_ARGS) -c utf8lex_token.c -o utf8lex_token.o
 	gcc $(LINK_ARGS)  -Wl,-soname,libutf8lex.so.1 \
 	    utf8lex_cat.o \
+	    utf8lex_file.o \
 	    utf8lex_lex.o \
 	    utf8lex_location.o \
 	    utf8lex_pattern_cat.o \
