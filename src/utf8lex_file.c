@@ -69,6 +69,7 @@ utf8lex_error_t utf8lex_buffer_mmap(
   self->prev = NULL;
 
   self->fd = -1;
+  self->fp = NULL;
 
   self->str->bytes = (unsigned char *) mapped_file;
   self->str->max_length_bytes = file_size;
@@ -110,6 +111,9 @@ utf8lex_error_t utf8lex_buffer_munmap(
   {
     return UTF8LEX_ERROR_FILE_MMAP;
   }
+
+  self->fd = -1;
+  self->fp = NULL;
 
   self->str->max_length_bytes = (size_t) -1;
   self->str->length_bytes = (size_t) -1;
@@ -164,6 +168,7 @@ utf8lex_error_t utf8lex_buffer_read(
   // Leave self->prev alone.
 
   self->fd = fd;
+  self->fp = NULL;
 
   self->str->bytes[length_bytes] = 0;
   self->str->length_bytes = length_bytes;
@@ -188,93 +193,63 @@ utf8lex_error_t utf8lex_buffer_read(
   return UTF8LEX_OK;
 }
 
-// !!! musaico_error_t *musaico_block_readf(
-// !!!         musaico_block_t *block,
-// !!!         FILE *fp
-// !!!         )
-// !!! {
-// !!!   if (block == NULL
-// !!!       || block->musaico == NULL)
-// !!!   {
-// !!!     return MUSAICO_NULL_POINTER;
-// !!!   }
-// !!! 
-// !!!   musaico_t *musaico = block->musaico;
-// !!! 
-// !!!   musaico->trace_step(musaico,
-// !!!                       MUSAICO_TRACE_ENTER,
-// !!!                       "musaico_block_readf()",
-// !!!                       NULL);  // source
-// !!! 
-// !!!   if (block->buffer == NULL)
-// !!!   {
-// !!!     musaico->allocate(musaico,
-// !!!                       "char[]",
-// !!!                       (void **) &block->buffer,
-// !!!                       (size_t) MUSAICO_BLOCK_SIZE * sizeof(char));
-// !!!     block->flags |= MUSAICO_BLOCK_FLAG_OWNED;
-// !!!   }
-// !!!   else if (! (block->flags & MUSAICO_BLOCK_FLAG_OWNED))
-// !!!   {
-// !!!     musaico->trace_step(musaico,
-// !!!                         MUSAICO_TRACE_EXIT,
-// !!!                         "musaico_block_readf()",
-// !!!                         NULL);  // source
-// !!! 
-// !!!     return musaico->error(musaico,
-// !!!                           "musaico_block_readf(%x, %x) write to unowned block",
-// !!!                           (long) block,
-// !!!                           (long) fp);
-// !!!   }
-// !!! 
-// !!!   size_t length_to_read = MUSAICO_BLOCK_SIZE - (size_t) block->offset;
-// !!! 
-// !!!   if (length_to_read <= (size_t) 0)
-// !!!   {
-// !!!     musaico->trace_step(musaico,
-// !!!                         MUSAICO_TRACE_EXIT,
-// !!!                         "musaico_block_readf()",
-// !!!                         NULL);  // source
-// !!! 
-// !!!     return musaico->error(musaico,
-// !!!                           "musaico_block_readf(%x, %x) write to full buffer (offset %d, length %d)",
-// !!!                           (long) block,
-// !!!                           (long) fp,
-// !!!                           block->offset,
-// !!!                           (int) block->length);
-// !!!   }
-// !!! 
-// !!!   size_t length = fread(&block->buffer[block->offset],
-// !!!                         sizeof(char),
-// !!!                         length_to_read,
-// !!!                         fp);
-// !!! 
-// !!!   if (length < length_to_read)
-// !!!   {
-// !!!     block->flags |= MUSAICO_BLOCK_FLAG_EOF;
-// !!!   }
-// !!! 
-// !!!   if (length < 0)
-// !!!   {
-// !!!     musaico->trace_step(musaico,
-// !!!                         MUSAICO_TRACE_EXIT,
-// !!!                         "musaico_block_readf()",
-// !!!                         NULL);  // source
-// !!! 
-// !!!     return musaico->error(musaico,
-// !!!                           "musaico_block_readf(%x, %x) failed: $d",
-// !!!                           (long) block,
-// !!!                           (long) fp,
-// !!!                           (int) length);
-// !!!   }
-// !!! 
-// !!!   block->length += length;
-// !!!   block->offset += (int) length;
-// !!! 
-// !!!   musaico->trace_step(musaico,
-// !!!                       MUSAICO_TRACE_EXIT,
-// !!!                       "musaico_block_readf()",
-// !!!                       NULL);  // source
-// !!! 
-// !!!   return MUSAICO_OK;
-// !!! }
+
+// Call utf8lex_buffer_init() first, then utf8lex_buffer_readf().
+utf8lex_error_t utf8lex_buffer_readf(
+        utf8lex_buffer_t *self,
+        FILE *fp
+        )
+{
+  if (self == NULL
+      || self->loc == NULL
+      || self->str == NULL
+      || self->str->bytes == NULL
+      || fp == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+  else if (self->str->max_length_bytes <= (size_t) 0)
+  {
+    return UTF8LEX_ERROR_BAD_LENGTH;
+  }
+
+  size_t read_length_bytes = self->str->max_length_bytes - 1;
+
+  size_t length_bytes = fread(self->str->bytes,
+                              sizeof(unsigned char),
+                              read_length_bytes,
+                              fp);
+  if (length_bytes < (size_t) 0)
+  {
+    return UTF8LEX_ERROR_FILE_READ;
+  }
+
+  // Now set up the buffer to point to the mmap'ed file:
+  self->next = NULL;
+  // Leave self->prev alone.
+
+  self->fd = -1;
+  self->fp = fp;
+
+  self->str->bytes[length_bytes] = 0;
+  self->str->length_bytes = length_bytes;
+
+  if (length_bytes < read_length_bytes)
+  {
+    self->is_eof = true;
+  }
+  else
+  {
+    self->is_eof = false;
+  }
+
+  for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
+       unit < UTF8LEX_UNIT_MAX;
+       unit ++)
+  {
+    self->loc[unit].start = 0;
+    self->loc[unit].length = 0;
+  }
+
+  return UTF8LEX_OK;
+}

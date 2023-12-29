@@ -244,6 +244,7 @@ utf8lex_error_t utf8lex_buffer_init(
   self->prev = prev;
 
   self->fd = -1;
+  self->fp = NULL;
 
   self->str = str;
   self->is_eof = is_eof;
@@ -287,6 +288,7 @@ utf8lex_error_t utf8lex_buffer_clear(
   self->next = NULL;
 
   self->fd = -1;
+  self->fp = NULL;
 
   self->str = NULL;
 

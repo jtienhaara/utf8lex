@@ -167,6 +167,7 @@ struct _STRUCT_utf8lex_buffer
   utf8lex_buffer_t *prev;
 
   int fd;  // File descriptor, or -1 if no open file backs this buffer.
+  FILE *fp;  // File descriptor for fopen(), fread(), or NULL.
 
   utf8lex_location_t loc[UTF8LEX_UNIT_MAX];
   utf8lex_string_t *str;
@@ -204,6 +205,13 @@ extern utf8lex_error_t utf8lex_buffer_read(
         utf8lex_buffer_t *self,
         int fd
         );
+
+// Call utf8lex_buffer_init() first, then utf8lex_buffer_readf().
+extern utf8lex_error_t utf8lex_buffer_readf(
+        utf8lex_buffer_t *self,
+        FILE *fp
+        );
+
 
 //
 // Base categories are equivalent to (but not equal to) those
