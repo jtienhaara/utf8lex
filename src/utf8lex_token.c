@@ -31,7 +31,8 @@ utf8lex_error_t utf8lex_token_type_init(
         utf8lex_token_type_t *prev,
         unsigned char *name,
         utf8lex_abstract_pattern_t *pattern,
-        unsigned char *code
+        unsigned char *code,
+        size_t code_length_bytes
         )
 {
   if (self == NULL
@@ -48,6 +49,10 @@ utf8lex_error_t utf8lex_token_type_init(
   {
     return UTF8LEX_ERROR_CHAIN_INSERT;
   }
+  else if (code_length_bytes < (size_t) 0)
+  {
+    return UTF8LEX_ERROR_BAD_LENGTH;
+  }
 
   self->next = NULL;
   self->prev = prev;
@@ -55,6 +60,7 @@ utf8lex_error_t utf8lex_token_type_init(
   self->name = name;
   self->pattern = pattern;
   self->code = code;
+  self->code_length_bytes = code_length_bytes;
   if (self->prev != NULL)
   {
     self->id = self->prev->id + 1;
@@ -100,6 +106,7 @@ utf8lex_error_t utf8lex_token_type_clear(
   self->name = NULL;
   self->pattern = NULL;
   self->code = NULL;
+  self->code_length_bytes = (size_t) -1;
 
   return UTF8LEX_OK;
 }
@@ -112,19 +119,23 @@ utf8lex_error_t utf8lex_token_type_clear(
 utf8lex_error_t utf8lex_token_init(
         utf8lex_token_t *self,
         utf8lex_token_type_t *token_type,
+        utf8lex_location_t token_loc[UTF8LEX_UNIT_MAX],  // Resets, lengths.
         utf8lex_state_t *state  // For buffer and absolute location.
         )
 {
   if (self == NULL
       || token_type == NULL
+      || token_loc == NULL
       || state == NULL
+      || state->loc == NULL
       || state->buffer == NULL
+      || state->buffer->loc == NULL
       || state->buffer->str == NULL)
   {
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
-  // Check valid buffer-relative starts, lengths:
+  // Check valid buffer relative start locations:
   for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
        unit < UTF8LEX_UNIT_MAX;
        unit ++)
@@ -133,29 +144,9 @@ utf8lex_error_t utf8lex_token_init(
     {
       return UTF8LEX_ERROR_BAD_START;
     }
-    else if (state->buffer->loc[unit].length < 0)
-    {
-      return UTF8LEX_ERROR_BAD_LENGTH;
-    }
   }
 
-  // Check valid bytes range within buffer:
-  int start_byte = state->buffer->loc[UTF8LEX_UNIT_BYTE].start;
-  int length_bytes = state->buffer->loc[UTF8LEX_UNIT_BYTE].length;
-  if ((size_t) start_byte >= state->buffer->str->length_bytes)
-  {
-    return UTF8LEX_ERROR_BAD_START;
-  }
-  else if (length_bytes < 0)
-  {
-    return UTF8LEX_ERROR_BAD_LENGTH;
-  }
-  else if ((start_byte + length_bytes) > state->buffer->str->length_bytes)
-  {
-    return UTF8LEX_ERROR_BAD_LENGTH;
-  }
-
-  // Check valid absolute starts, lengths:
+  // Check valid absolute start locations:
   for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
        unit < UTF8LEX_UNIT_MAX;
        unit ++)
@@ -164,10 +155,37 @@ utf8lex_error_t utf8lex_token_init(
     {
       return UTF8LEX_ERROR_BAD_START;
     }
-    else if (state->loc[unit].length < 0)
+  }
+
+  // Check token starts, lengths, afters, valid bytes range within buffer:
+  for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
+       unit < UTF8LEX_UNIT_MAX;
+       unit ++)
+  {
+    // The start location for the token must be absolute,
+    // not relative to the buffer:
+    if (token_loc[unit].start != state->loc[unit].start)
+    {
+      return UTF8LEX_ERROR_BAD_START;
+    }
+    else if (token_loc[unit].length < 0)
     {
       return UTF8LEX_ERROR_BAD_LENGTH;
     }
+    else if (token_loc[unit].after < -1)  // -1 (reset) is OK.
+    {
+      return UTF8LEX_ERROR_BAD_AFTER;
+    }
+  }
+  int start_byte = state->buffer->loc[UTF8LEX_UNIT_BYTE].start;
+  int length_bytes = token_loc[UTF8LEX_UNIT_BYTE].length;
+  if (length_bytes <= 0)
+  {
+    return UTF8LEX_ERROR_BAD_LENGTH;
+  }
+  else if ((start_byte + length_bytes) > state->buffer->str->length_bytes)
+  {
+    return UTF8LEX_ERROR_BAD_LENGTH;
   }
 
   self->token_type = token_type;
@@ -180,9 +198,12 @@ utf8lex_error_t utf8lex_token_init(
        unit ++)
   {
     // Absolute location from the absolute state:
-    self->loc[unit].start = state->loc[unit].start;
-    // Absolute length from the length of the token within the buffer:
-    self->loc[unit].length = state->buffer->loc[unit].length;
+    self->loc[unit].start = token_loc[unit].start;
+    // Length of the token:
+    self->loc[unit].length = token_loc[unit].length;
+    // Possible reset (both relative buffer and absolute state)
+    // start locations (for chars, graphemes only) after this token:
+    self->loc[unit].after = token_loc[unit].after;
   }
 
   return UTF8LEX_OK;
@@ -208,6 +229,7 @@ utf8lex_error_t utf8lex_token_clear(
   {
     self->loc[unit].start = -1;
     self->loc[unit].length = -1;
+    self->loc[unit].after = -2;
   }
 
   return UTF8LEX_OK;

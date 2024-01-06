@@ -231,35 +231,40 @@ static utf8lex_error_t utf8lex_lex_regex(
 
   PCRE2_UCHAR match_substring[256];
   PCRE2_SIZE match_substring_length = 256;
-  pcre2_substring_copy_bynumber(match, (uint32_t) 0, match_substring, &match_substring_length);
+  pcre2_substring_copy_bynumber(match,
+                                (uint32_t) 0,
+                                match_substring,
+                                &match_substring_length);
 
   // Matched.
   //
   // We know how many bytes matched the regular expression.
   // Now we'll now use utf8proc to count how many characters,
   // graphemes, lines, etc. are in the matching region.
-  size_t length[UTF8LEX_UNIT_MAX];
+  utf8lex_location_t token_loc[UTF8LEX_UNIT_MAX];
   for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
        unit < UTF8LEX_UNIT_MAX;
        unit ++)
   {
-    length[unit] = (size_t) 0;
+    token_loc[unit].start = state->loc[unit].start;
+    token_loc[unit].length = (int) 0;
+    token_loc[unit].after = (int) -1;  // No reset after token.
   }
 
   // Keep reading graphemes until we've reached the end of the regex match:
   for (int ug = 0;
-       length[UTF8LEX_UNIT_BYTE] < match_length_bytes;
+       token_loc[UTF8LEX_UNIT_BYTE].length < match_length_bytes;
        ug ++)
   {
     // Read in one UTF-8 grapheme cluster per loop iteration:
     off_t grapheme_offset = offset;
-    size_t grapheme_length[UTF8LEX_UNIT_MAX];  // Uninitialized is fine.
+    utf8lex_location_t grapheme_loc[UTF8LEX_UNIT_MAX];  // Unitialized is fine.
     int32_t codepoint = (int32_t) -1;
     utf8lex_cat_t cat = UTF8LEX_CAT_NONE;
     utf8lex_error_t error = utf8lex_read_grapheme(
         state,  // state, including absolute locations.
         &grapheme_offset,  // start byte, relative to start of buffer string.
-        grapheme_length,  // size_t[] # bytes, chars, etc read.
+        grapheme_loc,  // Char, grapheme newline resets, and grapheme lengths
         &codepoint,  // codepoint
         &cat  //cat
         );
@@ -278,31 +283,27 @@ static utf8lex_error_t utf8lex_lex_regex(
          unit < UTF8LEX_UNIT_MAX;
          unit ++)
     {
-      length[unit] += grapheme_length[unit];
+      // Ignore the grapheme's start location.
+      // Add to length (bytes, chars, graphemes, lines):
+      token_loc[unit].length += grapheme_loc[unit].length;
+      // Possible resets to char, grapheme position due to newlines:
+      token_loc[unit].after = grapheme_loc[unit].after;
     }
   }
 
   // Check to make sure pcre2 and utf8proc agree on # bytes.  (They should.)
-  if (length[UTF8LEX_UNIT_BYTE] != match_length_bytes)
+  if (token_loc[UTF8LEX_UNIT_BYTE].length != match_length_bytes)
   {
     fprintf(stderr,
             "*** pcre2 and utf8proc disagree: pcre2 match_length_bytes = %d vs utf8proc = %d\n",
             match_length_bytes,
-            length[UTF8LEX_UNIT_BYTE]);
-  }
-
-  // Update buffer locations amd the absolute locations:
-  for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
-       unit < UTF8LEX_UNIT_MAX;
-       unit ++)
-  {
-    state->buffer->loc[unit].length = (int) length[unit];
-    state->loc[unit].length = (int) length[unit];
+            token_loc[UTF8LEX_UNIT_BYTE].length);
   }
 
   utf8lex_error_t error = utf8lex_token_init(
       token_pointer,
       token_type,
+      token_loc,  // Resets for newlines, and lengths in bytes, chars, etc.
       state);  // For buffer and absolute location.
   if (error != UTF8LEX_OK)
   {

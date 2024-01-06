@@ -26,11 +26,14 @@ LC_CTYPE=en_US.UTF-8
 .PHONY: all
 all: build test
 
-.PHONY: container
-container:
+.PHONY: build-container
+build-container:
 	docker build . \
 	    --file build.Dockerfile \
 	    --tag utf8lex:latest
+
+.PHONY: container
+container: build-container
 	docker run \
 	    --rm \
 	    --volume `pwd`:/utf8lex:rw \

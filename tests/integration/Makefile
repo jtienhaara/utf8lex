@@ -13,7 +13,8 @@ LDFLAGS = -Wl,--no-as-needed -lpcre2-8 -lutf8proc -L$(BUILD_DIR) -Wl,-rpath,$(BU
 TEST_BUILD_DIR = ../build
 
 SOURCE_FILES = \
-	test_utf8lex.c
+	test_utf8lex.c \
+	test_utf8lex_generate.c
 
 OBJECT_FILES = \
 	$(patsubst %.c,$(TEST_BUILD_DIR)/%.o,$(SOURCE_FILES))
@@ -56,7 +57,10 @@ clean:
 	rm -f $(OBJECT_FILES) $(PROGRAMS)
 
 .PHONY: run
-run:
+run: run-test_utf8lex run-test_utf8lex_generate
+
+.PHONY: run-test_utf8lex
+run-test_utf8lex:
 	@for TEST_FILE in test_utf8lex_*.txt; \
 	do \
 	    echo ""; \
@@ -64,3 +68,11 @@ run:
 	        $(TEST_BUILD_DIR)/test_utf8lex "$$TEST_FILE" \
 	        || exit 1; \
 	done
+
+.PHONY: run-test_utf8lex_generate
+run-test_utf8lex_generate:
+	$(TEST_BUILD_DIR)/test_utf8lex_generate \
+	    . \
+	    ../../templates/c/mmap \
+	    $(TEST_BUILD_DIR) \
+	    test_utf8lex_generate_001

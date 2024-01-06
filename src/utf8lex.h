@@ -39,6 +39,7 @@ typedef struct _STRUCT_utf8lex_pattern_type     utf8lex_pattern_type_t;
 typedef struct _STRUCT_utf8lex_regex_pattern    utf8lex_regex_pattern_t;
 typedef struct _STRUCT_ut8lex_state             utf8lex_state_t;
 typedef struct _STRUCT_utf8lex_string           utf8lex_string_t;
+typedef struct _STRUCT_utf8lex_target_language  utf8lex_target_language_t;
 typedef struct _STRUCT_utf8lex_token            utf8lex_token_t;
 typedef struct _STRUCT_utf8lex_token_type       utf8lex_token_type_t;
 typedef enum _ENUM_utf8lex_unit                 utf8lex_unit_t;
@@ -78,6 +79,7 @@ enum _ENUM_utf8lex_error
   UTF8LEX_ERROR_FILE_MMAP,  // Could not mmap() a file.
   UTF8LEX_ERROR_FILE_READ,  // Could not read() from an open file descriptor.
   UTF8LEX_ERROR_FILE_SIZE,  // Could not use fstat for file size.
+  UTF8LEX_ERROR_FILE_WRITE,  // Could not write() to an open file descriptor.
 
   UTF8LEX_ERROR_BUFFER_INITIALIZED,  // Buffer has non-NULL str->bytes.
   UTF8LEX_ERROR_CHAIN_INSERT,  // Can't insert links into the chain, only append
@@ -91,11 +93,15 @@ enum _ENUM_utf8lex_error
   UTF8LEX_ERROR_BAD_LENGTH,  // Negative length, < start, too close to end.
   UTF8LEX_ERROR_BAD_OFFSET,  // Negative offset, or too close to end of string.
   UTF8LEX_ERROR_BAD_START,  // Negative start, or too close to end of string.
+  UTF8LEX_ERROR_BAD_AFTER,  // After is neither reset (-1) nor valid new start.
   UTF8LEX_ERROR_BAD_MIN,  // Min must be 1 or greater.
   UTF8LEX_ERROR_BAD_MAX,  // Max must be >= min, or -1 for no limit.
   UTF8LEX_ERROR_BAD_REGEX,  // Could not compile regex pattern.
   UTF8LEX_ERROR_BAD_UTF8,  // Could not process the UTF-8 text.
   UTF8LEX_ERROR_BAD_ERROR,  // Invalid error NONE <= e <= MAX.
+
+  UTF8LEX_ERROR_TOKEN,  // Unexpected token, while in some lexer state or other.
+  UTF8LEX_ERROR_STATE,  // Some other bad state that is not captured above.
 
   UTF8LEX_ERROR_MAX
 };
@@ -117,16 +123,8 @@ struct _STRUCT_utf8lex_location
 {
   int start;  // First byte / char / grapheme / and so on of a token.
   int length;  // # of bytes / chars / graphemes / and so on of a token.
+  int after;  // Either -1, or reset the start location to this, if >= 0.
 };
-
-extern utf8lex_error_t utf8lex_location_init(
-        utf8lex_location_t *self,
-        int start,
-        int length
-        );
-extern utf8lex_error_t utf8lex_location_clear(
-        utf8lex_location_t *self
-        );
 
 
 struct _STRUCT_utf8lex_string
@@ -278,14 +276,26 @@ extern const utf8lex_cat_t UTF8LEX_EXT_SEP_LINE;  // Unicode line separators
 // can be upper, lower or title case, etc.:
 //
 extern const utf8lex_cat_t UTF8LEX_GROUP_OTHER;  // Other (control, format, etc)
+extern const utf8lex_cat_t UTF8LEX_GROUP_NOT_OTHER;  // All but OTHER
 extern const utf8lex_cat_t UTF8LEX_GROUP_LETTER;  // Letters
+extern const utf8lex_cat_t UTF8LEX_GROUP_NOT_LETTER;  // All but LETTER
 extern const utf8lex_cat_t UTF8LEX_GROUP_MARK;  // Marks
+extern const utf8lex_cat_t UTF8LEX_GROUP_NOT_MARK;  // All but MARK
 extern const utf8lex_cat_t UTF8LEX_GROUP_NUM;  // Numbers
+extern const utf8lex_cat_t UTF8LEX_GROUP_NOT_NUM;  // All but NUM
 extern const utf8lex_cat_t UTF8LEX_GROUP_PUNCT;  // Punctuation
+extern const utf8lex_cat_t UTF8LEX_GROUP_NOT_PUNCT;  // All but PUNCT
 extern const utf8lex_cat_t UTF8LEX_GROUP_SYM;  // Symbols
+extern const utf8lex_cat_t UTF8LEX_GROUP_NOT_SYM;  // All but SYM
 // Warning: Unicode considers \n, \r, \t, etc to be control characters!
 //     https://www.unicode.org/charts/PDF/U0000.pdf
 extern const utf8lex_cat_t UTF8LEX_GROUP_WHITESPACE;  // CAT_SEPs + EXT_SEPs
+extern const utf8lex_cat_t UTF8LEX_GROUP_NOT_WHITESPACE;  // All but WHITESPACE
+extern const utf8lex_cat_t UTF8LEX_GROUP_HSPACE;  // space, tab, ...
+extern const utf8lex_cat_t UTF8LEX_GROUP_NOT_HSPACE;  // All but HSPACE
+extern const utf8lex_cat_t UTF8LEX_GROUP_VSPACE;  // LF, CR, paragraph sep, ...
+extern const utf8lex_cat_t UTF8LEX_GROUP_NOT_VSPACE;  // All but VSPACE
+extern const utf8lex_cat_t UTF8LEX_GROUP_ALL;  // All categories
 extern const utf8lex_cat_t UTF8LEX_CAT_MAX;
 
 // Formats the specified OR'ed category/ies as a string,
@@ -380,7 +390,11 @@ struct _STRUCT_utf8lex_literal_pattern
   utf8lex_pattern_type_t *pattern_type;
 
   unsigned char *str;
-  int length[UTF8LEX_UNIT_MAX];  // Literal # of bytes, chars, graphemes, ...
+  // # bytes, chars, graphemes and lines in this literal,
+  // plus char and grapheme resets to account for newlines
+  // (after == -1 -> no reset; after >= 0 -> reset state, buffer positions
+  // to the specified char, grapheme locations):
+  utf8lex_location_t loc[UTF8LEX_UNIT_MAX];
 };
 
 extern utf8lex_error_t utf8lex_literal_pattern_init(
@@ -419,6 +433,7 @@ struct _STRUCT_utf8lex_token_type
   unsigned char *name;
   utf8lex_abstract_pattern_t *pattern;  // Such as cat, literal, regex.
   unsigned char *code;
+  size_t code_length_bytes;
 };
 
 extern utf8lex_error_t utf8lex_token_type_init(
@@ -426,7 +441,8 @@ extern utf8lex_error_t utf8lex_token_type_init(
         utf8lex_token_type_t *prev,
         unsigned char *name,
         utf8lex_abstract_pattern_t *pattern,  // Such as cat, literal, regex.
-        unsigned char *code
+        unsigned char *code,
+        size_t code_length_bytes
         );
 extern utf8lex_error_t utf8lex_token_type_clear(
         utf8lex_token_type_t *self
@@ -446,6 +462,7 @@ struct _STRUCT_utf8lex_token
 extern utf8lex_error_t utf8lex_token_init(
         utf8lex_token_t *self,
         utf8lex_token_type_t *token_type,
+        utf8lex_location_t token_loc[UTF8LEX_UNIT_MAX],  // Resets, lengths.
         utf8lex_state_t *state  // For buffer and absolute location.
         );
 extern utf8lex_error_t utf8lex_token_clear(
@@ -490,12 +507,33 @@ extern utf8lex_error_t utf8lex_cat_codepoint(
 // not for its location info.
 // The offset, lengths, codepoint and cat are all set upon
 // successfully reading one complete grapheme cluster.
+// loc[*].after will be -1 if no newlines were encountered, or 0
+// or more if the character / grapheme positions were reset to 0 at newline.
+// (Bytes and lines will never have their after locations reset, always -1.)
 extern utf8lex_error_t utf8lex_read_grapheme(
         utf8lex_state_t *state,
         off_t *offset_pointer,  // Mutable.
-        size_t lengths_pointer[UTF8LEX_UNIT_MAX],  // Mutable.
+        utf8lex_location_t loc_pointer[UTF8LEX_UNIT_MAX], // Mutable
         int32_t *codepoint_pointer,  // Mutable.
         utf8lex_cat_t *cat_pointer  // Mutable.
+        );
+
+
+struct _STRUCT_utf8lex_target_language
+{
+  unsigned char *name;
+  unsigned char *extension;
+};
+
+extern const utf8lex_target_language_t *TARGET_LANGUAGE_C;
+
+
+extern utf8lex_error_t utf8lex_generate(
+        const utf8lex_target_language_t *target_language,
+        unsigned char *lex_file_path,
+        unsigned char *template_dir_path,
+        unsigned char *generated_file_path,
+        utf8lex_state_t *state_pointer  // Will be initialized.
         );
 
 #endif  // UTF8LEX_H_INCLUDED

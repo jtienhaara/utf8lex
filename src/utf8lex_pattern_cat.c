@@ -92,7 +92,9 @@ static utf8lex_error_t utf8lex_lex_cat(
       || token_type->pattern == NULL
       || token_type->pattern->pattern_type == NULL
       || state == NULL
+      || state->loc == NULL
       || state->buffer == NULL
+      || state->buffer->loc == NULL
       || state->buffer->str == NULL
       || token_pointer == NULL)
   {
@@ -104,12 +106,14 @@ static utf8lex_error_t utf8lex_lex_cat(
   }
 
   off_t offset = (off_t) state->buffer->loc[UTF8LEX_UNIT_BYTE].start;
-  size_t length[UTF8LEX_UNIT_MAX];
+  utf8lex_location_t token_loc[UTF8LEX_UNIT_MAX];
   for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
        unit < UTF8LEX_UNIT_MAX;
        unit ++)
   {
-    length[unit] = (size_t) 0;
+    token_loc[unit].start = state->loc[unit].start;
+    token_loc[unit].length = (int) 0;
+    token_loc[unit].after = -1;  // No reset.
   }
 
   utf8lex_cat_pattern_t *cat_pattern =
@@ -120,13 +124,13 @@ static utf8lex_error_t utf8lex_lex_cat(
   {
     // Read in one UTF-8 grapheme cluster:
     off_t grapheme_offset = offset;
-    size_t grapheme_length[UTF8LEX_UNIT_MAX];  // Uninitialized is fine.
+    utf8lex_location_t grapheme_loc[UTF8LEX_UNIT_MAX];  // Unitialized is fine.
     int32_t codepoint = (int32_t) -1;
     utf8lex_cat_t cat = UTF8LEX_CAT_NONE;
     utf8lex_error_t error = utf8lex_read_grapheme(
         state,  // state, including absolute locations.
         &grapheme_offset,  // start byte, relative to start of buffer string.
-        grapheme_length,  // size_t[] # bytes, chars, etc read.
+        grapheme_loc,  // Char, grapheme newline resets, and grapheme lengths
         &codepoint,  // codepoint
         &cat  //cat
         );
@@ -176,23 +180,19 @@ static utf8lex_error_t utf8lex_lex_cat(
          unit < UTF8LEX_UNIT_MAX;
          unit ++)
     {
-      length[unit] += grapheme_length[unit];
+      // Ignore the grapheme's start location.
+      // Add to length (bytes, chars, graphemes, lines):
+      token_loc[unit].length += grapheme_loc[unit].length;
+      // Possible resets to char, grapheme position due to newlines:
+      token_loc[unit].after = grapheme_loc[unit].after;
     }
   }
 
   // Found what we're looking for.
-  // Update buffer locations amd the absolute locations:
-  for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
-       unit < UTF8LEX_UNIT_MAX;
-       unit ++)
-  {
-    state->buffer->loc[unit].length = (int) length[unit];
-    state->loc[unit].length = (int) length[unit];
-  }
-
   utf8lex_error_t error = utf8lex_token_init(
       token_pointer,
       token_type,
+      token_loc,  // Resets for newlines, and lengths in bytes, chars, etc.
       state);  // For buffer and absolute location.
   if (error != UTF8LEX_OK)
   {

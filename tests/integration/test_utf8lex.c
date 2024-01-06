@@ -21,11 +21,17 @@
 
 #include "utf8lex.h"
 
-utf8lex_error_t test_utf8lex(
+static utf8lex_error_t test_utf8lex(
         char *file_to_lex_path,
         utf8lex_state_t *state
         )
 {
+  if (file_to_lex_path == NULL
+      || state == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
   utf8lex_error_t error = UTF8LEX_OK;
   printf("  test_utf8lex: begin test...\n");
 
@@ -56,7 +62,8 @@ utf8lex_error_t test_utf8lex(
   error = utf8lex_token_type_init(
       &NUMBER, NULL, "NUMBER",
       (utf8lex_abstract_pattern_t *) &number_pattern,  // pattern
-      "// Empty code");
+      "// Empty code",
+      (size_t) 13);
   if (error != UTF8LEX_OK)
   {
     printf("  test_utf8lex: FAILED\n");
@@ -77,7 +84,8 @@ utf8lex_error_t test_utf8lex(
   error = utf8lex_token_type_init(
       &ID, &NUMBER, "ID",
       (utf8lex_abstract_pattern_t *) &id_pattern,  // pattern
-      "// Empty code");
+      "// Empty code",
+      (size_t) 13);
   if (error != UTF8LEX_OK)
   {
     printf("  test_utf8lex: FAILED\n");
@@ -98,7 +106,8 @@ utf8lex_error_t test_utf8lex(
   error = utf8lex_token_type_init(
       &EQUALS3, &ID, "EQUALS3",
       (utf8lex_abstract_pattern_t *) &equals3_pattern,  // pattern
-      "// Empty code");
+      "// Empty code",
+      (size_t) 13);
   if (error != UTF8LEX_OK)
   {
     printf("  test_utf8lex: FAILED\n");
@@ -119,7 +128,8 @@ utf8lex_error_t test_utf8lex(
   error = utf8lex_token_type_init(
       &EQUALS, &EQUALS3, "EQUALS",
       (utf8lex_abstract_pattern_t *) &equals_pattern,  // pattern
-      "// Empty code");
+      "// Empty code",
+      (size_t) 13);
   if (error != UTF8LEX_OK)
   {
     printf("  test_utf8lex: FAILED\n");
@@ -140,7 +150,8 @@ utf8lex_error_t test_utf8lex(
   error = utf8lex_token_type_init(
       &PLUS, &EQUALS, "PLUS",
       (utf8lex_abstract_pattern_t *) &plus_pattern,  // pattern
-      "// Empty code");
+      "// Empty code",
+      (size_t) 13);
   if (error != UTF8LEX_OK)
   {
     printf("  test_utf8lex: FAILED\n");
@@ -161,7 +172,8 @@ utf8lex_error_t test_utf8lex(
   error = utf8lex_token_type_init(
       &MINUS, &PLUS, "MINUS",
       (utf8lex_abstract_pattern_t *) &minus_pattern,  // pattern
-      "// Empty code");
+      "// Empty code",
+      (size_t) 13);
   if (error != UTF8LEX_OK)
   {
     printf("  test_utf8lex: FAILED\n");
@@ -182,7 +194,8 @@ utf8lex_error_t test_utf8lex(
   error = utf8lex_token_type_init(
       &SPACE, &MINUS, "SPACE",
       (utf8lex_abstract_pattern_t *) &space_pattern,  // pattern
-      "// Empty code");
+      "// Empty code",
+      (size_t) 13);
   if (error != UTF8LEX_OK)
   {
     printf("  test_utf8lex: FAILED\n");

@@ -79,6 +79,7 @@ utf8lex_error_t utf8lex_state_init(
   {
     self->loc[unit].start = -1;
     self->loc[unit].length = -1;
+    self->loc[unit].after = -2;
   }
 
   return UTF8LEX_OK;
@@ -100,6 +101,7 @@ utf8lex_error_t utf8lex_state_clear(
   {
     self->loc[unit].start = -1;
     self->loc[unit].length = -1;
+    self->loc[unit].after = -2;
   }
 
   return UTF8LEX_OK;
@@ -130,6 +132,7 @@ utf8lex_error_t utf8lex_lex(
     {
       state->loc[unit].start = 0;
       state->loc[unit].length = 0;
+      state->loc[unit].after = -1;
     }
   }
   // EOF check:
@@ -213,14 +216,25 @@ utf8lex_error_t utf8lex_lex(
        unit < UTF8LEX_UNIT_MAX;
        unit ++)
   {
-    int length_units = token_pointer->loc[unit].length;
+    int after = token_pointer->loc[unit].after;
 
-    // Update buffer locations past end of this token:
-    state->buffer->loc[unit].start += length_units;
+    // Update buffer and absolute state locations past end of this token:
+    if (token_pointer->loc[unit].after == -1)
+    {
+      int length_units = token_pointer->loc[unit].length;
+      state->buffer->loc[unit].start += length_units;
+      state->loc[unit].start += length_units;
+    }
+    else
+    {
+      // Chars, graphemes reset at newline:
+      state->buffer->loc[unit].start = token_pointer->loc[unit].after;
+      state->loc[unit].start = token_pointer->loc[unit].after;
+    }
     state->buffer->loc[unit].length = 0;
-    // Update absolute locations past end of this token:
-    state->loc[unit].start += length_units;
     state->loc[unit].length = 0;
+    state->buffer->loc[unit].after = -1;
+    state->loc[unit].after = -1;
   }
 
   return UTF8LEX_OK;
