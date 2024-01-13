@@ -35,6 +35,9 @@ static utf8lex_error_t test_utf8lex(
   utf8lex_error_t error = UTF8LEX_OK;
   printf("  test_utf8lex: begin test...\n");
 
+  utf8lex_definition_t *prev_definition = NULL;
+  utf8lex_rule_t *prev_rule = NULL;
+
   //
   // Note: I'm not sure if pcre2 has bugs, or what, but the ID
   // regular expression matches the first byte (and only the first byte)
@@ -43,25 +46,28 @@ static utf8lex_error_t test_utf8lex(
   // by all token types.  So until I can figure out why pcre2 is behaving
   // this way, and make it stop:
   //
-  //     ALL lexical cat patterns MUST appear before ANY regular expression
-  //     patterns.
+  //     ALL lexical cat definitions MUST appear before ANY regular expression
+  //     definitions.
   //
-  printf("    test_utf8lex: Create number cat pattern\n");
-  utf8lex_cat_pattern_t number_pattern;
-  error = utf8lex_cat_pattern_init(&number_pattern,
-                                   UTF8LEX_GROUP_NUM,  // cat
-                                   1,  // min
-                                   -1);  // max
+  printf("    test_utf8lex: Create number cat definition\n");
+  utf8lex_cat_definition_t number_definition;
+  error = utf8lex_cat_definition_init(&number_definition,
+                                      prev_definition,  // prev
+                                      "NUM",  // name
+                                      UTF8LEX_GROUP_NUM,  // cat
+                                      1,  // min
+                                      -1);  // max
   if (error != UTF8LEX_OK)
   {
     printf("  test_utf8lex: FAILED\n");
     return error;
   }
-  printf("    test_utf8lex: Create token_type NUMBER\n");
-  utf8lex_token_type_t NUMBER;
-  error = utf8lex_token_type_init(
-      &NUMBER, NULL, "NUMBER",
-      (utf8lex_abstract_pattern_t *) &number_pattern,  // pattern
+  prev_definition = (utf8lex_definition_t *) &number_definition;
+  printf("    test_utf8lex: Create rule NUMBER\n");
+  utf8lex_rule_t NUMBER;
+  error = utf8lex_rule_init(
+      &NUMBER, prev_rule, "NUMBER",
+      (utf8lex_definition_t *) &number_definition,  // definition
       "// Empty code",
       (size_t) 13);
   if (error != UTF8LEX_OK)
@@ -69,21 +75,25 @@ static utf8lex_error_t test_utf8lex(
     printf("  test_utf8lex: FAILED\n");
     return error;
   }
+  prev_rule = &NUMBER;
 
-  printf("    test_utf8lex: Create id regex pattern\n");
-  utf8lex_regex_pattern_t id_pattern;
-  error = utf8lex_regex_pattern_init(&id_pattern,
-                                     "[_\\p{L}][_\\p{L}\\p{N}]*");
+  printf("    test_utf8lex: Create id regex definition\n");
+  utf8lex_regex_definition_t id_definition;
+  error = utf8lex_regex_definition_init(&id_definition,
+                                        prev_definition,  // prev
+                                        "ID",  // name
+                                        "[_\\p{L}][_\\p{L}\\p{N}]*");
   if (error != UTF8LEX_OK)
   {
     printf("  test_utf8lex: FAILED\n");
     return error;
   }
-  printf("    test_utf8lex: Create token_type ID\n");
-  utf8lex_token_type_t ID;
-  error = utf8lex_token_type_init(
-      &ID, &NUMBER, "ID",
-      (utf8lex_abstract_pattern_t *) &id_pattern,  // pattern
+  prev_definition = (utf8lex_definition_t *) &id_definition;
+  printf("    test_utf8lex: Create rule ID\n");
+  utf8lex_rule_t ID;
+  error = utf8lex_rule_init(
+      &ID, prev_rule, "ID",
+      (utf8lex_definition_t *) &id_definition,  // definition
       "// Empty code",
       (size_t) 13);
   if (error != UTF8LEX_OK)
@@ -91,21 +101,25 @@ static utf8lex_error_t test_utf8lex(
     printf("  test_utf8lex: FAILED\n");
     return error;
   }
+  prev_rule = &ID;
 
-  printf("    test_utf8lex: Create equals3 literal pattern\n");
-  utf8lex_literal_pattern_t equals3_pattern;
-  error = utf8lex_literal_pattern_init(&equals3_pattern,
-                                       "===");
+  printf("    test_utf8lex: Create equals3 literal definition\n");
+  utf8lex_literal_definition_t equals3_definition;
+  error = utf8lex_literal_definition_init(&equals3_definition,
+                                          prev_definition,  // prev
+                                          "EQUALS3",  // name
+                                          "===");
   if (error != UTF8LEX_OK)
   {
     printf("  test_utf8lex: FAILED\n");
     return error;
   }
-  printf("    test_utf8lex: Create token_type EQUALS3\n");
-  utf8lex_token_type_t EQUALS3;
-  error = utf8lex_token_type_init(
-      &EQUALS3, &ID, "EQUALS3",
-      (utf8lex_abstract_pattern_t *) &equals3_pattern,  // pattern
+  prev_definition = (utf8lex_definition_t *) &equals3_definition;
+  printf("    test_utf8lex: Create rule EQUALS3\n");
+  utf8lex_rule_t EQUALS3;
+  error = utf8lex_rule_init(
+      &EQUALS3, prev_rule, "EQUALS3",
+      (utf8lex_definition_t *) &equals3_definition,  // definition
       "// Empty code",
       (size_t) 13);
   if (error != UTF8LEX_OK)
@@ -113,21 +127,25 @@ static utf8lex_error_t test_utf8lex(
     printf("  test_utf8lex: FAILED\n");
     return error;
   }
+  prev_rule = &EQUALS3;
 
-  printf("    test_utf8lex: Create equals literal pattern\n");
-  utf8lex_literal_pattern_t equals_pattern;
-  error = utf8lex_literal_pattern_init(&equals_pattern,
-                                       "=");
+  printf("    test_utf8lex: Create equals literal definition\n");
+  utf8lex_literal_definition_t equals_definition;
+  error = utf8lex_literal_definition_init(&equals_definition,
+                                          prev_definition,  // prev
+                                          "EQUALS",  // name
+                                          "=");
   if (error != UTF8LEX_OK)
   {
     printf("  test_utf8lex: FAILED\n");
     return error;
   }
-  printf("    test_utf8lex: Create token_type EQUALS\n");
-  utf8lex_token_type_t EQUALS;
-  error = utf8lex_token_type_init(
-      &EQUALS, &EQUALS3, "EQUALS",
-      (utf8lex_abstract_pattern_t *) &equals_pattern,  // pattern
+  prev_definition = (utf8lex_definition_t *) &equals_definition;
+  printf("    test_utf8lex: Create rule EQUALS\n");
+  utf8lex_rule_t EQUALS;
+  error = utf8lex_rule_init(
+      &EQUALS, prev_rule, "EQUALS",
+      (utf8lex_definition_t *) &equals_definition,  // definition
       "// Empty code",
       (size_t) 13);
   if (error != UTF8LEX_OK)
@@ -135,21 +153,25 @@ static utf8lex_error_t test_utf8lex(
     printf("  test_utf8lex: FAILED\n");
     return error;
   }
+  prev_rule = &EQUALS;
 
-  printf("    test_utf8lex: Create plus literal pattern\n");
-  utf8lex_literal_pattern_t plus_pattern;
-  error = utf8lex_literal_pattern_init(&plus_pattern,
-                                       "+");
+  printf("    test_utf8lex: Create plus literal definition\n");
+  utf8lex_literal_definition_t plus_definition;
+  error = utf8lex_literal_definition_init(&plus_definition,
+                                          prev_definition,  // prev
+                                          "PLUS",  // name
+                                          "+");
   if (error != UTF8LEX_OK)
   {
     printf("  test_utf8lex: FAILED\n");
     return error;
   }
-  printf("    test_utf8lex: Create token_type PLUS\n");
-  utf8lex_token_type_t PLUS;
-  error = utf8lex_token_type_init(
-      &PLUS, &EQUALS, "PLUS",
-      (utf8lex_abstract_pattern_t *) &plus_pattern,  // pattern
+  prev_definition = (utf8lex_definition_t *) &plus_definition;
+  printf("    test_utf8lex: Create rule PLUS\n");
+  utf8lex_rule_t PLUS;
+  error = utf8lex_rule_init(
+      &PLUS, prev_rule, "PLUS",
+      (utf8lex_definition_t *) &plus_definition,  // definition
       "// Empty code",
       (size_t) 13);
   if (error != UTF8LEX_OK)
@@ -157,21 +179,25 @@ static utf8lex_error_t test_utf8lex(
     printf("  test_utf8lex: FAILED\n");
     return error;
   }
+  prev_rule = &PLUS;
 
-  printf("    test_utf8lex: Create minus literal pattern\n");
-  utf8lex_literal_pattern_t minus_pattern;
-  error = utf8lex_literal_pattern_init(&minus_pattern,
-                                     "-");
+  printf("    test_utf8lex: Create minus literal definition\n");
+  utf8lex_literal_definition_t minus_definition;
+  error = utf8lex_literal_definition_init(&minus_definition,
+                                          prev_definition,  // prev
+                                          "MINUS",  // name
+                                          "-");
   if (error != UTF8LEX_OK)
   {
     printf("  test_utf8lex: FAILED\n");
     return error;
   }
-  printf("    test_utf8lex: Create token_type MINUS\n");
-  utf8lex_token_type_t MINUS;
-  error = utf8lex_token_type_init(
-      &MINUS, &PLUS, "MINUS",
-      (utf8lex_abstract_pattern_t *) &minus_pattern,  // pattern
+  prev_definition = (utf8lex_definition_t *) &minus_definition;
+  printf("    test_utf8lex: Create rule MINUS\n");
+  utf8lex_rule_t MINUS;
+  error = utf8lex_rule_init(
+      &MINUS, prev_rule, "MINUS",
+      (utf8lex_definition_t *) &minus_definition,  // definition
       "// Empty code",
       (size_t) 13);
   if (error != UTF8LEX_OK)
@@ -179,21 +205,25 @@ static utf8lex_error_t test_utf8lex(
     printf("  test_utf8lex: FAILED\n");
     return error;
   }
+  prev_rule = &MINUS;
 
-  printf("    test_utf8lex: Create space regex pattern\n");
-  utf8lex_regex_pattern_t space_pattern;
-  error = utf8lex_regex_pattern_init(&space_pattern,
-                                     "[\\s]+");
+  printf("    test_utf8lex: Create space regex definition\n");
+  utf8lex_regex_definition_t space_definition;
+  error = utf8lex_regex_definition_init(&space_definition,
+                                        prev_definition,  // prev
+                                        "SPACE",  // name
+                                        "[\\s]+");
   if (error != UTF8LEX_OK)
   {
     printf("  test_utf8lex: FAILED\n");
     return error;
   }
-  printf("    test_utf8lex: Create token_type SPACE\n");
-  utf8lex_token_type_t SPACE;
-  error = utf8lex_token_type_init(
-      &SPACE, &MINUS, "SPACE",
-      (utf8lex_abstract_pattern_t *) &space_pattern,  // pattern
+  prev_definition = (utf8lex_definition_t *) &space_definition;
+  printf("    test_utf8lex: Create rule SPACE\n");
+  utf8lex_rule_t SPACE;
+  error = utf8lex_rule_init(
+      &SPACE, prev_rule, "SPACE",
+      (utf8lex_definition_t *) &space_definition,  // definition
       "// Empty code",
       (size_t) 13);
   if (error != UTF8LEX_OK)
@@ -201,6 +231,7 @@ static utf8lex_error_t test_utf8lex(
     printf("  test_utf8lex: FAILED\n");
     return error;
   }
+  prev_rule = &SPACE;
 
   // mmap the file to be lexed:
   printf("    test_utf8lex: MMap file %s\n", file_to_lex_path);
@@ -234,7 +265,7 @@ static utf8lex_error_t test_utf8lex(
   {
     printf("      test_utf8lex: Lex:\n");
     utf8lex_token_t token;
-    error = utf8lex_lex(&NUMBER,  // first_token_type
+    error = utf8lex_lex(&NUMBER,  // first_rule
                         state,  // state
                         &token);  // token
     if (error == UTF8LEX_EOF)
@@ -262,8 +293,8 @@ static utf8lex_error_t test_utf8lex(
                               token_bytes,
                               (size_t) 256);
     printf("        test_utf8lex: %s (%s) \"%s\" @(%d/%d/%d/%d)[%d/%d/%d/%d]\n",
-           token.token_type->name,
-           token.token_type->pattern->pattern_type->name,
+           token.rule->name,
+           token.rule->definition->definition_type->name,
            token_bytes,
            token.loc[UTF8LEX_UNIT_BYTE].start,
            token.loc[UTF8LEX_UNIT_CHAR].start,

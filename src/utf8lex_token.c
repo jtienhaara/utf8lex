@@ -23,23 +23,23 @@
 
 
 // ---------------------------------------------------------------------
-//                        utf8lex_token_type_t
+//                        utf8lex_rule_t
 // ---------------------------------------------------------------------
 
-utf8lex_error_t utf8lex_token_type_init(
-        utf8lex_token_type_t *self,
-        utf8lex_token_type_t *prev,
+utf8lex_error_t utf8lex_rule_init(
+        utf8lex_rule_t *self,
+        utf8lex_rule_t *prev,
         unsigned char *name,
-        utf8lex_abstract_pattern_t *pattern,
+        utf8lex_definition_t *definition,
         unsigned char *code,
         size_t code_length_bytes
         )
 {
   if (self == NULL
       || name == NULL
-      || pattern == NULL
-      || pattern->pattern_type == NULL
-      || pattern->pattern_type->lex == NULL
+      || definition == NULL
+      || definition->definition_type == NULL
+      || definition->definition_type->lex == NULL
       || code == NULL)
   {
     return UTF8LEX_ERROR_NULL_POINTER;
@@ -58,7 +58,7 @@ utf8lex_error_t utf8lex_token_type_init(
   self->prev = prev;
   // id is set below, in the if/else statements.
   self->name = name;
-  self->pattern = pattern;
+  self->definition = definition;
   self->code = code;
   self->code_length_bytes = code_length_bytes;
   if (self->prev != NULL)
@@ -74,8 +74,8 @@ utf8lex_error_t utf8lex_token_type_init(
   return UTF8LEX_OK;
 }
 
-utf8lex_error_t utf8lex_token_type_clear(
-        utf8lex_token_type_t *self
+utf8lex_error_t utf8lex_rule_clear(
+        utf8lex_rule_t *self
         )
 {
   if (self == NULL)
@@ -93,18 +93,18 @@ utf8lex_error_t utf8lex_token_type_clear(
     self->next->prev = self->prev;
   }
 
-  if (self->pattern != NULL
-      && self->pattern->pattern_type != NULL
-      && self->pattern->pattern_type->clear != NULL)
+  if (self->definition != NULL
+      && self->definition->definition_type != NULL
+      && self->definition->definition_type->clear != NULL)
   {
-    self->pattern->pattern_type->clear(self->pattern);
+    self->definition->definition_type->clear(self->definition);
   }
 
   self->next = NULL;
   self->prev = NULL;
   self->id = (uint32_t) 0;
   self->name = NULL;
-  self->pattern = NULL;
+  self->definition = NULL;
   self->code = NULL;
   self->code_length_bytes = (size_t) -1;
 
@@ -118,13 +118,13 @@ utf8lex_error_t utf8lex_token_type_clear(
 
 utf8lex_error_t utf8lex_token_init(
         utf8lex_token_t *self,
-        utf8lex_token_type_t *token_type,
+        utf8lex_rule_t *rule,
         utf8lex_location_t token_loc[UTF8LEX_UNIT_MAX],  // Resets, lengths.
         utf8lex_state_t *state  // For buffer and absolute location.
         )
 {
   if (self == NULL
-      || token_type == NULL
+      || rule == NULL
       || token_loc == NULL
       || state == NULL
       || state->loc == NULL
@@ -188,7 +188,7 @@ utf8lex_error_t utf8lex_token_init(
     return UTF8LEX_ERROR_BAD_LENGTH;
   }
 
-  self->token_type = token_type;
+  self->rule = rule;
   self->start_byte = start_byte;  // Bytes offset into str where token starts.
   self->length_bytes = length_bytes;  // # bytes in token.
   self->str = state->buffer->str;  // The buffer's string.
@@ -218,7 +218,7 @@ utf8lex_error_t utf8lex_token_clear(
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
-  self->token_type = NULL;
+  self->rule = NULL;
   self->start_byte = -1;
   self->length_bytes = -1;
   self->str = NULL;

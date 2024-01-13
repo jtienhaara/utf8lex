@@ -20,4 +20,4 @@
 
 #include "utf8lex.h"
 
-static utf8lex_token_type_t *FIRST_TOKEN_TYPE = NULL;
+static utf8lex_rule_t *FIRST_RULE = NULL;

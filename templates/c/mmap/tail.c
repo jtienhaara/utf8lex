@@ -48,7 +48,7 @@ static int yylex (
         )
 {
   utf8lex_token_t token;
-  error = utf8lex_lex(FIRST_TOKEN_TYPE,  // first_token_type
+  error = utf8lex_lex(FIRST_RULE,  // first_rule
                       state,  // state
                       &token);  // token
   if (error == UTF8LEX_EOF)
@@ -61,7 +61,7 @@ static int yylex (
     return YYerror;
   }
 
-  int token_code = (int) token.token_type->id;
+  int token_code = (int) token.rule->id;
 
   llocp->first_line = state->loc[UTF8LEX_UNIT_LINE].start;
   llocp->first_column = state->loc[UTF8LEX_UNIT_BYTE].start;

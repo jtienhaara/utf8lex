@@ -151,9 +151,9 @@ utf8lex_error_t utf8lex_error_string(
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
                                  "UTF8LEX_ERROR_CAT");
     break;
-  case UTF8LEX_ERROR_PATTERN_TYPE:
+  case UTF8LEX_ERROR_DEFINITION_TYPE:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
-                                 "UTF8LEX_ERROR_PATTERN_TYPE");
+                                 "UTF8LEX_ERROR_DEFINITION_TYPE");
     break;
   case UTF8LEX_ERROR_EMPTY_LITERAL:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,

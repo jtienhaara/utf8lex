@@ -29,70 +29,56 @@ typedef struct _STRUCT_utf8lex_definition       utf8lex_definition_t;
 typedef struct _STRUCT_utf8lex_generate_lexicon utf8lex_generate_lexicon_t;
 
 #define UTF8LEX_MAX_DEFINITIONS 4096
-struct _STRUCT_utf8lex_definition
-{
-  utf8lex_definition_t *next;
-  utf8lex_definition_t *prev;
-
-  unsigned char *name;
-  union
-  {
-    utf8lex_cat_pattern_t cat;
-    utf8lex_literal_pattern_t literal;
-    utf8lex_regex_pattern_t regex;
-    utf8lex_definition_t *definitions[UTF8LEX_MAX_DEFINITIONS];
-  } pattern;
-};
 
 #define UTF8LEX_MAX_CATS 64
 struct _STRUCT_utf8lex_generate_lexicon
 {
   // Newline
-  utf8lex_cat_pattern_t newline_pattern;
-  utf8lex_token_type_t newline;
+  utf8lex_cat_definition_t newline_definition;
+  utf8lex_rule_t newline;
 
   // %%
-  utf8lex_literal_pattern_t section_divider_pattern;
-  utf8lex_token_type_t section_divider;
+  utf8lex_literal_definition_t section_divider_definition;
+  utf8lex_rule_t section_divider;
   // %{
-  utf8lex_literal_pattern_t enclosed_open_pattern;
-  utf8lex_token_type_t enclosed_open;
+  utf8lex_literal_definition_t enclosed_open_definition;
+  utf8lex_rule_t enclosed_open;
   // %}
-  utf8lex_literal_pattern_t enclosed_close_pattern;
-  utf8lex_token_type_t enclosed_close;
+  utf8lex_literal_definition_t enclosed_close_definition;
+  utf8lex_rule_t enclosed_close;
   // "
-  utf8lex_literal_pattern_t quote_pattern;
-  utf8lex_token_type_t quote;
+  utf8lex_literal_definition_t quote_definition;
+  utf8lex_rule_t quote;
   // |
-  utf8lex_literal_pattern_t or_pattern;
-  utf8lex_token_type_t or;
+  utf8lex_literal_definition_t or_definition;
+  utf8lex_rule_t or;
   // {
-  utf8lex_literal_pattern_t rule_open_pattern;
-  utf8lex_token_type_t rule_open;
+  utf8lex_literal_definition_t rule_open_definition;
+  utf8lex_rule_t rule_open;
   // }
-  utf8lex_literal_pattern_t rule_close_pattern;
-  utf8lex_token_type_t rule_close;
+  utf8lex_literal_definition_t rule_close_definition;
+  utf8lex_rule_t rule_close;
 
   // Literals matching the category names
   int num_cats;
   char cat_names[UTF8LEX_MAX_CATS][UTF8LEX_CAT_FORMAT_MAX_LENGTH];
-  utf8lex_literal_pattern_t cat_patterns[UTF8LEX_MAX_CATS];
-  utf8lex_token_type_t cats[UTF8LEX_MAX_CATS];
+  utf8lex_literal_definition_t cat_definitions[UTF8LEX_MAX_CATS];
+  utf8lex_rule_t cats[UTF8LEX_MAX_CATS];
 
   // definition ID
-  utf8lex_regex_pattern_t definition_pattern;
-  utf8lex_token_type_t definition;
+  utf8lex_regex_definition_t definition_definition;
+  utf8lex_rule_t definition;
   // horizontal whitespace
-  utf8lex_regex_pattern_t space_pattern;
-  utf8lex_token_type_t space;
+  utf8lex_regex_definition_t space_definition;
+  utf8lex_rule_t space;
 
   // code
-  utf8lex_regex_pattern_t code_pattern;
-  utf8lex_token_type_t code;
+  utf8lex_regex_definition_t code_definition;
+  utf8lex_rule_t code;
 
   // read to end of line
-  utf8lex_cat_pattern_t to_eol_pattern;
-  utf8lex_token_type_t to_eol;
+  utf8lex_cat_definition_t to_eol_definition;
+  utf8lex_rule_t to_eol;
 };
 
 
@@ -105,116 +91,141 @@ static utf8lex_error_t utf8lex_generate_setup(
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
-  utf8lex_token_type_t *prev = NULL;
+  utf8lex_definition_t *prev_definition = NULL;
+  utf8lex_rule_t *prev = NULL;
   utf8lex_error_t error = UTF8LEX_OK;
 
   // Newline
-  error = utf8lex_cat_pattern_init(&(lex->newline_pattern),
-                                   UTF8LEX_CAT_SEP_LINE  // cat
-                                   | UTF8LEX_CAT_SEP_PARAGRAPH
-                                   | UTF8LEX_EXT_SEP_LINE,
-                                   1,  // min
-                                   -1);  // max
+  error = utf8lex_cat_definition_init(&(lex->newline_definition),
+                                      prev_definition,  // prev
+                                      "NEWLINE",  // name
+                                      UTF8LEX_CAT_SEP_LINE  // cat
+                                      | UTF8LEX_CAT_SEP_PARAGRAPH
+                                      | UTF8LEX_EXT_SEP_LINE,
+                                      1,  // min
+                                      -1);  // max
   if (error != UTF8LEX_OK) { return error; }
-  error = utf8lex_token_type_init(&(lex->newline),
-                                  prev,
-                                  "newline",  // name
-                                  (utf8lex_abstract_pattern_t *)
-                                  &(lex->newline_pattern),  // pattern
-                                  "",  // code
-                                  (size_t) 0);  // code_length_bytes
+  prev_definition = (utf8lex_definition_t *) &(lex->newline_definition);
+  error = utf8lex_rule_init(&(lex->newline),
+                            prev,
+                            "newline",  // name
+                            (utf8lex_definition_t *)
+                            &(lex->newline_definition),  // definition
+                            "",  // code
+                            (size_t) 0);  // code_length_bytes
   if (error != UTF8LEX_OK) { return error; }
   prev = &(lex->newline);
 
   // %%
-  error = utf8lex_literal_pattern_init(&(lex->section_divider_pattern),
-                                       "%%");
+  error = utf8lex_literal_definition_init(&(lex->section_divider_definition),
+                                          prev_definition,  // prev
+                                          "SECTION_DIVIDER",  // name
+                                          "%%");
   if (error != UTF8LEX_OK) { return error; }
-  error = utf8lex_token_type_init(&(lex->section_divider),
-                                  prev,
-                                  "section_divider",  // name
-                                  (utf8lex_abstract_pattern_t *)
-                                  &(lex->section_divider_pattern),  // pattern
-                                  "",  // code
-                                  (size_t) 0);  // code_length_bytes
+  prev_definition = (utf8lex_definition_t *) &(lex->section_divider_definition);
+  error = utf8lex_rule_init(&(lex->section_divider),
+                            prev,
+                            "section_divider",  // name
+                            (utf8lex_definition_t *)  // definition
+                            &(lex->section_divider_definition),
+                            "",  // code
+                            (size_t) 0);  // code_length_bytes
   if (error != UTF8LEX_OK) { return error; }
   prev = &(lex->section_divider);
   // %{
-  error = utf8lex_literal_pattern_init(&(lex->enclosed_open_pattern),
-                                       "%{");
+  error = utf8lex_literal_definition_init(&(lex->enclosed_open_definition),
+                                          prev_definition,  // prev
+                                          "ENCLOSED_OPEN",  // name
+                                          "%{");
   if (error != UTF8LEX_OK) { return error; }
-  error = utf8lex_token_type_init(&(lex->enclosed_open),
-                                  prev,
-                                  "enclosed_open",  // name
-                                  (utf8lex_abstract_pattern_t *)
-                                  &(lex->enclosed_open_pattern),  // pattern
-                                  "",  // code
-                                  (size_t) 0);  // code_length_bytes
+  prev_definition = (utf8lex_definition_t *) &(lex->enclosed_open_definition);
+  error = utf8lex_rule_init(&(lex->enclosed_open),
+                            prev,
+                            "enclosed_open",  // name
+                            (utf8lex_definition_t *)  // definition
+                            &(lex->enclosed_open_definition),
+                            "",  // code
+                            (size_t) 0);  // code_length_bytes
   if (error != UTF8LEX_OK) { return error; }
   prev = &(lex->enclosed_open);
   // %<}
-  error = utf8lex_literal_pattern_init(&(lex->enclosed_close_pattern),
-                                       "%}");
+  error = utf8lex_literal_definition_init(&(lex->enclosed_close_definition),
+                                          prev_definition,  // prev
+                                          "ENCLOSED_CLOSE",  // name
+                                          "%}");
   if (error != UTF8LEX_OK) { return error; }
-  error = utf8lex_token_type_init(&(lex->enclosed_close),
-                                  prev,
-                                  "enclosed_close",  // name
-                                  (utf8lex_abstract_pattern_t *)
-                                  &(lex->enclosed_close_pattern),  // pattern
-                                  "",  // code
-                                  (size_t) 0);  // code_length_bytes
+  prev_definition = (utf8lex_definition_t *) &(lex->enclosed_close_definition);
+  error = utf8lex_rule_init(&(lex->enclosed_close),
+                            prev,
+                            "enclosed_close",  // name
+                            (utf8lex_definition_t *)  // definition
+                            &(lex->enclosed_close_definition),
+                            "",  // code
+                            (size_t) 0);  // code_length_bytes
   if (error != UTF8LEX_OK) { return error; }
   prev = &(lex->enclosed_close);
   // "
-  error = utf8lex_literal_pattern_init(&(lex->quote_pattern),
-                                       "\"");
+  error = utf8lex_literal_definition_init(&(lex->quote_definition),
+                                          prev_definition,  // prev
+                                          "QUOTE",  // name
+                                          "\"");
   if (error != UTF8LEX_OK) { return error; }
-  error = utf8lex_token_type_init(&(lex->quote),
-                                  prev,
-                                  "quote",  // name
-                                  (utf8lex_abstract_pattern_t *)
-                                  &(lex->quote_pattern),  // pattern
-                                  "",  // code
-                                  (size_t) 0);  // code_length_bytes
+  prev_definition = (utf8lex_definition_t *) &(lex->quote_definition);
+  error = utf8lex_rule_init(&(lex->quote),
+                            prev,
+                            "quote",  // name
+                            (utf8lex_definition_t *)
+                            &(lex->quote_definition),  // definition
+                            "",  // code
+                            (size_t) 0);  // code_length_bytes
   if (error != UTF8LEX_OK) { return error; }
   prev = &(lex->quote);
   // |
-  error = utf8lex_literal_pattern_init(&(lex->or_pattern),
-                                       "|");
+  error = utf8lex_literal_definition_init(&(lex->or_definition),
+                                          prev_definition,  // prev
+                                          "OR",  // name
+                                          "|");
   if (error != UTF8LEX_OK) { return error; }
-  error = utf8lex_token_type_init(&(lex->or),
-                                  prev,
-                                  "or",  // name
-                                  (utf8lex_abstract_pattern_t *)
-                                  &(lex->or_pattern),  // pattern
-                                  "",  // code
-                                  (size_t) 0);  // code_length_bytes
+  prev_definition = (utf8lex_definition_t *) &(lex->or_definition);
+  error = utf8lex_rule_init(&(lex->or),
+                            prev,
+                            "or",  // name
+                            (utf8lex_definition_t *)
+                            &(lex->or_definition),  // definition
+                            "",  // code
+                            (size_t) 0);  // code_length_bytes
   if (error != UTF8LEX_OK) { return error; }
   prev = &(lex->or);
   // {
-  error = utf8lex_literal_pattern_init(&(lex->rule_open_pattern),
-                                       "{");
+  error = utf8lex_literal_definition_init(&(lex->rule_open_definition),
+                                          prev_definition,  // prev
+                                          "RULE_OPEN",  // name
+                                          "{");
   if (error != UTF8LEX_OK) { return error; }
-  error = utf8lex_token_type_init(&(lex->rule_open),
-                                  prev,
-                                  "rule_open",  // name
-                                  (utf8lex_abstract_pattern_t *)
-                                  &(lex->rule_open_pattern),  // pattern
-                                  "",  // code
-                                  (size_t) 0);  // code_length_bytes
+  prev_definition = (utf8lex_definition_t *) &(lex->rule_open_definition);
+  error = utf8lex_rule_init(&(lex->rule_open),
+                            prev,
+                            "rule_open",  // name
+                            (utf8lex_definition_t *)
+                            &(lex->rule_open_definition),  // definition
+                            "",  // code
+                            (size_t) 0);  // code_length_bytes
   if (error != UTF8LEX_OK) { return error; }
   prev = &(lex->rule_open);
   // }
-  error = utf8lex_literal_pattern_init(&(lex->rule_close_pattern),
-                                       "}");
+  error = utf8lex_literal_definition_init(&(lex->rule_close_definition),
+                                          prev_definition,  // prev
+                                          "RULE_CLOSE",  // name
+                                          "}");
   if (error != UTF8LEX_OK) { return error; }
-  error = utf8lex_token_type_init(&(lex->rule_close),
-                                  prev,
-                                  "rule_close",  // name
-                                  (utf8lex_abstract_pattern_t *)
-                                  &(lex->rule_close_pattern),  // pattern
-                                  "",  // code
-                                  (size_t) 0);  // code_length_bytes
+  prev_definition = (utf8lex_definition_t *) &(lex->rule_close_definition);
+  error = utf8lex_rule_init(&(lex->rule_close),
+                            prev,
+                            "rule_close",  // name
+                            (utf8lex_definition_t *)
+                            &(lex->rule_close_definition),  // definition
+                            "",  // code
+                            (size_t) 0);  // code_length_bytes
   if (error != UTF8LEX_OK) { return error; }
   prev = &(lex->rule_close);
 
@@ -232,65 +243,77 @@ static utf8lex_error_t utf8lex_generate_setup(
     }
     strcat(lex->cat_names[num_cats], ":");
 
-    error = utf8lex_literal_pattern_init(&(lex->cat_patterns)[num_cats],
-                                         lex->cat_names[num_cats]);
+    error = utf8lex_literal_definition_init(&(lex->cat_definitions[num_cats]),
+                                            prev_definition,  // prev
+                                            lex->cat_names[num_cats],  // name  // name
+                                            lex->cat_names[num_cats]);
     if (error != UTF8LEX_OK) { return error; }
-    error = utf8lex_token_type_init(&(lex->cats)[num_cats],
-                                    prev,
-                                    lex->cat_names[num_cats],  // name
-                                    (utf8lex_abstract_pattern_t *)
-                                    &(lex->cat_patterns)[num_cats],  // pattern
-                                    "",  // code
-                                    (size_t) 0);  // code_length_bytes
+    prev_definition = (utf8lex_definition_t *) &(lex->cat_definitions[num_cats]);
+    error = utf8lex_rule_init(&(lex->cats[num_cats]),
+                              prev,
+                              lex->cat_names[num_cats],  // name
+                              (utf8lex_definition_t *)  // definition
+                              &(lex->cat_definitions[num_cats]),
+                              "",  // code
+                              (size_t) 0);  // code_length_bytes
     if (error != UTF8LEX_OK) { return error; }
-    prev = &(lex->cats)[num_cats];
+    prev = &(lex->cats[num_cats]);
 
     num_cats ++;
   }
   lex->num_cats = num_cats;
 
   // definition ID
-  error = utf8lex_regex_pattern_init(&(lex->definition_pattern),
-                                     "[_\\p{L}][_\\p{L}\\p{N}]*");
+  error = utf8lex_regex_definition_init(&(lex->definition_definition),
+                                        prev_definition,  // prev
+                                        "DEFINITION",  // name
+                                        "[_\\p{L}][_\\p{L}\\p{N}]*");
   if (error != UTF8LEX_OK) { return error; }
-  error = utf8lex_token_type_init(&(lex->definition),
-                                  prev,
-                                  "definition",  // name
-                                  (utf8lex_abstract_pattern_t *)
-                                  &(lex->definition_pattern),  // pattern
-                                  "",  // code
-                                  (size_t) 0);  // code_length_bytes
+  prev_definition = (utf8lex_definition_t *) &(lex->definition_definition);
+  error = utf8lex_rule_init(&(lex->definition),
+                            prev,
+                            "definition",  // name
+                            (utf8lex_definition_t *)
+                            &(lex->definition_definition),  // definition
+                            "",  // code
+                            (size_t) 0);  // code_length_bytes
   if (error != UTF8LEX_OK) { return error; }
   prev = &(lex->definition);
 
   // horizontal whitespace
-  error = utf8lex_regex_pattern_init(&(lex->space_pattern),
-                                     "[\\h]+");
+  error = utf8lex_regex_definition_init(&(lex->space_definition),
+                                        prev_definition,  // prev
+                                        "SPACE",  // name
+                                        "[\\h]+");
   if (error != UTF8LEX_OK) { return error; }
-  error = utf8lex_token_type_init(&(lex->space),
-                                  prev,
-                                  "space",  // name
-                                  (utf8lex_abstract_pattern_t *)
-                                  &(lex->space_pattern),  // pattern
-                                  "",  // code
-                                  (size_t) 0);  // code_length_bytes
+  prev_definition = (utf8lex_definition_t *) &(lex->space_definition);
+  error = utf8lex_rule_init(&(lex->space),
+                            prev,
+                            "space",  // name
+                            (utf8lex_definition_t *)
+                            &(lex->space_definition),  // definition
+                            "",  // code
+                            (size_t) 0);  // code_length_bytes
   if (error != UTF8LEX_OK) { return error; }
   prev = &(lex->space);
 
 
   // Everything to the end of the line
-  error = utf8lex_cat_pattern_init(&(lex->to_eol_pattern),
-                                   UTF8LEX_GROUP_NOT_VSPACE,  // cat
-                                   1,  // min
-                                   -1);  // max
+  error = utf8lex_cat_definition_init(&(lex->to_eol_definition),
+                                      prev_definition,  // prev
+                                      "TO_EOL",  // name
+                                      UTF8LEX_GROUP_NOT_VSPACE,  // cat
+                                      1,  // min
+                                      -1);  // max
   if (error != UTF8LEX_OK) { return error; }
-  error = utf8lex_token_type_init(&(lex->to_eol),
-                                  NULL,  // Do not link to other token types.
-                                  "to_eol",  // name
-                                  (utf8lex_abstract_pattern_t *)
-                                  &(lex->to_eol_pattern),  // pattern
-                                  "",  // code
-                                  (size_t) 0);  // code_length_bytes
+  prev_definition = (utf8lex_definition_t *) &(lex->to_eol_definition);
+  error = utf8lex_rule_init(&(lex->to_eol),
+                            NULL,  // Do not link to other token types.
+                            "to_eol",  // name
+                            (utf8lex_definition_t *)
+                            &(lex->to_eol_definition),  // definition
+                            "",  // code
+                            (size_t) 0);  // code_length_bytes
   if (error != UTF8LEX_OK) { return error; }
 
   return UTF8LEX_OK;
@@ -406,8 +429,8 @@ static utf8lex_error_t utf8lex_generate_token_error(
       || state->buffer->loc == NULL
       || state->loc == NULL
       || token == NULL
-      || token->token_type == NULL
-      || token->token_type->name == NULL
+      || token->rule == NULL
+      || token->rule->name == NULL
       || message == NULL)
   {
     return UTF8LEX_ERROR_NULL_POINTER;
@@ -423,8 +446,8 @@ static utf8lex_error_t utf8lex_generate_token_error(
           state->loc[UTF8LEX_UNIT_LINE].start + 1,
           state->loc[UTF8LEX_UNIT_CHAR].start,
           message,
-          token->token_type->name,
-          token->token_type->id,
+          token->rule->name,
+          token->rule->id,
           some_of_remaining_buffer);
 
   return UTF8LEX_ERROR_TOKEN;
@@ -533,7 +556,7 @@ static utf8lex_error_t utf8lex_generate_read_to_eol(
   {
     // Hack Kludge Janky
     // We can't really generate an empty token, so we fake it here.
-    line_token_pointer->token_type = &(lex->to_eol);
+    line_token_pointer->rule = &(lex->to_eol);
     line_token_pointer->start_byte = newline_token_pointer->start_byte;
     line_token_pointer->length_bytes = (int) 0;
     line_token_pointer->str = newline_token_pointer->str;
@@ -635,7 +658,7 @@ static utf8lex_error_t utf8lex_generate_parse(
     return error;
   }
 
-  utf8lex_token_type_t *first_token_type = &(lex.newline);
+  utf8lex_rule_t *first_rule = &(lex.newline);
 
   // Database of definitions:
   utf8lex_definition_t definitions[UTF8LEX_MAX_DEFINITIONS];
@@ -643,7 +666,7 @@ static utf8lex_error_t utf8lex_generate_parse(
   utf8lex_definition_t *first_definition = NULL;
   // Currently defined definition's id:
   unsigned char definition_id[256];
-  // Patterns for definitions and for rules:
+  // Definitions for rules:
   utf8lex_cat_t categories = UTF8LEX_CAT_NONE;
   int cat_min;
   int cat_max;
@@ -683,7 +706,7 @@ static utf8lex_error_t utf8lex_generate_parse(
 
     // Read a token in from the beginning of the line:
     utf8lex_token_t token;
-    error = utf8lex_lex(first_token_type,
+    error = utf8lex_lex(first_rule,
                         state_pointer,
                         &token);
     if (is_enclosed == true
@@ -723,8 +746,8 @@ static utf8lex_error_t utf8lex_generate_parse(
             token.length_bytes);
     token_string[token.length_bytes] = 0;
     printf("!!! YAY definitions got token type id %d '%s' = '%s'\n",
-           token.token_type->id,
-           token.token_type->name,
+           token.rule->id,
+           token.rule->name,
            token_string);
 
     // Acceptable tokens in the definitions section:
@@ -734,17 +757,17 @@ static utf8lex_error_t utf8lex_generate_parse(
     //   (space)   Indented code line.
     //   (id)      Definition.
     error = UTF8LEX_ERROR_TOKEN;  // Default to invalid token.
-    if (lex.newline.id == token.token_type->id)
+    if (lex.newline.id == token.rule->id)
     {
       error = UTF8LEX_OK;
     }
-    else if (lex.enclosed_open.id == token.token_type->id
+    else if (lex.enclosed_open.id == token.rule->id
              && is_enclosed == false)
     {
       is_enclosed = true;
       error = UTF8LEX_OK;
     }
-    else if (lex.enclosed_close.id == token.token_type->id
+    else if (lex.enclosed_close.id == token.rule->id
              && is_enclosed == true)
     {
       is_enclosed = false;
@@ -766,16 +789,16 @@ static utf8lex_error_t utf8lex_generate_parse(
                                           &lex,
                                           state_pointer);
     }
-    else if (lex.space.id == token.token_type->id)
+    else if (lex.space.id == token.rule->id)
     {
       utf8lex_generate_write_line(fd_out,
                                   &lex,
                                   state_pointer);
       error = UTF8LEX_OK;
     }
-    else if (lex.definition.id == token.token_type->id)
+    else if (lex.definition.id == token.rule->id)
     {
-      printf("!!! todo store definition id, use rest of line as pattern\n");
+      printf("!!! todo store definition id, use rest of line as definition\n");
       // Read the rest of the current line as a single token:
       utf8lex_token_t line_token;
       utf8lex_token_t newline_token;
@@ -788,14 +811,14 @@ static utf8lex_error_t utf8lex_generate_parse(
         return error;
       }
 
-      // !!! pattern is now stored in line_token.
+      // !!! definition is now stored in line_token.
       // !!! we don't care about newline_token.
 
       error = UTF8LEX_OK;
     }
-    else if (lex.section_divider.id == token.token_type->id)
+    else if (lex.section_divider.id == token.rule->id)
     {
-      error = utf8lex_lex(first_token_type,
+      error = utf8lex_lex(first_rule,
                           state_pointer,
                           &token);
       if (error != UTF8LEX_OK)
@@ -814,7 +837,7 @@ static utf8lex_error_t utf8lex_generate_parse(
                 some_of_remaining_buffer);
         return error;
       }
-      else if (lex.newline.id != token.token_type->id)
+      else if (lex.newline.id != token.rule->id)
       {
         return utf8lex_generate_token_error(
             state_pointer,
@@ -868,7 +891,7 @@ static utf8lex_error_t utf8lex_generate_parse(
 
     // Read a token in from the beginning of the line:
     utf8lex_token_t token;
-    error = utf8lex_lex(first_token_type,
+    error = utf8lex_lex(first_rule,
                         state_pointer,
                         &token);
     if (is_enclosed == true
@@ -908,8 +931,8 @@ static utf8lex_error_t utf8lex_generate_parse(
             token.length_bytes);
     token_string[token.length_bytes] = 0;
     printf("!!! YAY rules got token type id %d '%s' = '%s'\n",
-           token.token_type->id,
-           token.token_type->name,
+           token.rule->id,
+           token.rule->name,
            token_string);
 
     // Acceptable tokens in the rules section:
@@ -917,19 +940,19 @@ static utf8lex_error_t utf8lex_generate_parse(
     //   %{                        Start enclosed code section.
     //   %}                        End enclosed code section.
     //   (space)                   Indented code line.
-    //   (pattern) { ...code... }  Rule.
+    //   (definition) { ...code... }  Rule.
     error = UTF8LEX_ERROR_TOKEN;  // Default to invalid token.
-    if (lex.newline.id == token.token_type->id)
+    if (lex.newline.id == token.rule->id)
     {
       error = UTF8LEX_OK;
     }
-    else if (lex.enclosed_open.id == token.token_type->id
+    else if (lex.enclosed_open.id == token.rule->id
              && is_enclosed == false)
     {
       is_enclosed = true;
       error = UTF8LEX_OK;
     }
-    else if (lex.enclosed_close.id == token.token_type->id
+    else if (lex.enclosed_close.id == token.rule->id
              && is_enclosed == true)
     {
       is_enclosed = false;
@@ -951,16 +974,16 @@ static utf8lex_error_t utf8lex_generate_parse(
                                           &lex,
                                           state_pointer);
     }
-    else if (lex.space.id == token.token_type->id)
+    else if (lex.space.id == token.rule->id)
     {
       utf8lex_generate_write_line(fd_out,
                                   &lex,
                                   state_pointer);
       error = UTF8LEX_OK;
     }
-    else if (lex.definition.id == token.token_type->id)
+    else if (lex.definition.id == token.rule->id)
     {
-      printf("!!! todo pattern: start with id\n");
+      printf("!!! todo definition: start with id\n");
       // !!! Read the rest of the current line as a single token:
       utf8lex_token_t line_token;
       utf8lex_token_t newline_token;
@@ -975,9 +998,9 @@ static utf8lex_error_t utf8lex_generate_parse(
 
       error = UTF8LEX_OK;
     }
-    else if (lex.section_divider.id == token.token_type->id)
+    else if (lex.section_divider.id == token.rule->id)
     {
-      error = utf8lex_lex(first_token_type,
+      error = utf8lex_lex(first_rule,
                           state_pointer,
                           &token);
       if (error != UTF8LEX_OK)
@@ -996,7 +1019,7 @@ static utf8lex_error_t utf8lex_generate_parse(
                 some_of_remaining_buffer);
         return error;
       }
-      else if (lex.newline.id != token.token_type->id)
+      else if (lex.newline.id != token.rule->id)
       {
         return utf8lex_generate_token_error(
             state_pointer,

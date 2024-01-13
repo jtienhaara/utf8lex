@@ -26,21 +26,29 @@
 
 
 // ---------------------------------------------------------------------
-//                       utf8lex_regex_pattern_t
+//                       utf8lex_regex_definition_t
 // ---------------------------------------------------------------------
 
-utf8lex_error_t utf8lex_regex_pattern_init(
-        utf8lex_regex_pattern_t *self,
+utf8lex_error_t utf8lex_regex_definition_init(
+        utf8lex_regex_definition_t *self,
+        utf8lex_definition_t *prev,  // Previous definition in DB, or NULL.
+        unsigned char *name,  // Usually all uppercase name of definition.
         unsigned char *pattern
         )
 {
   if (self == NULL
+      || name == NULL
       || pattern == NULL)
   {
     return UTF8LEX_ERROR_NULL_POINTER;
   }
+  else if (prev != NULL
+           && prev->next != NULL)
+  {
+    return UTF8LEX_ERROR_CHAIN_INSERT;
+  }
 
-  // Compile the regex_pattern string into a pcre2code
+  // Compile the pattern string into a pcre2code
   // regular expression:
   // https://pcre2project.github.io/pcre2/doc/html/pcre2api.html#SEC20
   int pcre2_error;  // We don't actually use this for now.
@@ -60,19 +68,32 @@ utf8lex_error_t utf8lex_regex_pattern_init(
                             (PCRE2_SIZE) 256);
     fprintf(stderr,
             "*** pcre2 error: %s\n", pcre2_error_string);
-    utf8lex_regex_pattern_clear((utf8lex_abstract_pattern_t *) self);
+    utf8lex_regex_definition_clear((utf8lex_definition_t *) self);
 
     return UTF8LEX_ERROR_BAD_REGEX;
   }
 
-  self->pattern_type = UTF8LEX_PATTERN_TYPE_REGEX;
+  self->base.definition_type = UTF8LEX_DEFINITION_TYPE_REGEX;
+  self->base.name = name;
+  self->base.next = NULL;
+  self->base.prev = prev;
   self->pattern = pattern;
+
+  if (self->base.prev == NULL)
+  {
+    self->base.id = (uint32_t) 0;
+  }
+  else
+  {
+    self->base.id = self->base.prev->id + 1;
+    self->base.prev->next = (utf8lex_definition_t *) self;
+  }
 
   return UTF8LEX_OK;
 }
 
-utf8lex_error_t utf8lex_regex_pattern_clear(
-        utf8lex_abstract_pattern_t *self  // Must be utf8lex_regex_pattern_t *
+utf8lex_error_t utf8lex_regex_definition_clear(
+        utf8lex_definition_t *self  // Must be utf8lex_regex_definition_t *
         )
 {
   if (self == NULL)
@@ -80,31 +101,43 @@ utf8lex_error_t utf8lex_regex_pattern_clear(
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
-  utf8lex_regex_pattern_t *regex_pattern =
-    (utf8lex_regex_pattern_t *) self;
+  utf8lex_regex_definition_t *regex_definition =
+    (utf8lex_regex_definition_t *) self;
 
-  if (regex_pattern->regex != NULL)
+  if (regex_definition->regex != NULL)
   {
-    pcre2_code_free(regex_pattern->regex);
+    pcre2_code_free(regex_definition->regex);
   }
 
-  regex_pattern->pattern_type = NULL;
-  regex_pattern->pattern = NULL;
-  regex_pattern->regex = NULL;
+  if (regex_definition->base.next != NULL)
+  {
+    regex_definition->base.next->prev = regex_definition->base.prev;
+  }
+  if (regex_definition->base.prev != NULL)
+  {
+    regex_definition->base.prev->next = regex_definition->base.next;
+  }
+
+  regex_definition->base.definition_type = NULL;
+  regex_definition->base.id = (uint32_t) 0;
+  regex_definition->base.name = NULL;
+  regex_definition->pattern = NULL;
+  regex_definition->regex = NULL;
 
   return UTF8LEX_OK;
 }
 
 
 static utf8lex_error_t utf8lex_lex_regex(
-        utf8lex_token_type_t *token_type,
+        utf8lex_rule_t *rule,
         utf8lex_state_t *state,
         utf8lex_token_t *token_pointer
         )
 {
-  if (token_type == NULL
-      || token_type->pattern == NULL
-      || token_type->pattern->pattern_type == NULL
+  if (rule == NULL
+      || rule->definition == NULL
+      || rule->definition->definition_type == NULL
+      || rule->definition->name == NULL
       || state == NULL
       || state->buffer == NULL
       || state->buffer->str == NULL
@@ -112,9 +145,10 @@ static utf8lex_error_t utf8lex_lex_regex(
   {
     return UTF8LEX_ERROR_NULL_POINTER;
   }
-  else if (token_type->pattern->pattern_type != UTF8LEX_PATTERN_TYPE_REGEX)
+  else if (rule->definition->definition_type
+           != UTF8LEX_DEFINITION_TYPE_REGEX)
   {
-    return UTF8LEX_ERROR_PATTERN_TYPE;
+    return UTF8LEX_ERROR_DEFINITION_TYPE;
   }
 
   off_t offset = (off_t) state->buffer->loc[UTF8LEX_UNIT_BYTE].start;
@@ -133,8 +167,8 @@ static utf8lex_error_t utf8lex_lex_regex(
     return UTF8LEX_ERROR_REGEX;
   }
 
-  utf8lex_regex_pattern_t *regex_pattern =
-    (utf8lex_regex_pattern_t *) token_type->pattern;
+  utf8lex_regex_definition_t *regex_definition =
+    (utf8lex_regex_definition_t *) rule->definition;
 
   // Match options:
   // https://pcre2project.github.io/pcre2/doc/html/pcre2api.html#matchoptions
@@ -170,7 +204,7 @@ static utf8lex_error_t utf8lex_lex_regex(
   //     this match is not valid, so pcre2_match() searches further
   //     into the string for occurrences of "a" or "b". 
   int pcre2_error = pcre2_match(
-      regex_pattern->regex,  // The pcre2_code (compiled regex).
+      regex_definition->regex,  // The pcre2_code (compiled regex).
       (PCRE2_SPTR) state->buffer->str->bytes,  // subject
       (PCRE2_SIZE) state->buffer->str->length_bytes,  // length
       (PCRE2_SIZE) offset,  // startoffset
@@ -302,7 +336,7 @@ static utf8lex_error_t utf8lex_lex_regex(
 
   utf8lex_error_t error = utf8lex_token_init(
       token_pointer,
-      token_type,
+      rule,
       token_loc,  // Resets for newlines, and lengths in bytes, chars, etc.
       state);  // For buffer and absolute location.
   if (error != UTF8LEX_OK)
@@ -314,14 +348,14 @@ static utf8lex_error_t utf8lex_lex_regex(
 }
 
 
-// A token pattern that matches a regular expression,
+// A token definition that matches a regular expression,
 // such as "^[0-9]+" or "[\\p{N}]+" or "[_\\p{L}][_\\p{L}\\p{N}]*" or "[\\s]+"
 // and so on:
-static utf8lex_pattern_type_t UTF8LEX_PATTERN_TYPE_REGEX_INTERNAL =
+static utf8lex_definition_type_t UTF8LEX_DEFINITION_TYPE_REGEX_INTERNAL =
   {
     .name = "REGEX",
     .lex = utf8lex_lex_regex,
-    .clear = utf8lex_regex_pattern_clear
+    .clear = utf8lex_regex_definition_clear
   };
-utf8lex_pattern_type_t *UTF8LEX_PATTERN_TYPE_REGEX =
-  &UTF8LEX_PATTERN_TYPE_REGEX_INTERNAL;
+utf8lex_definition_type_t *UTF8LEX_DEFINITION_TYPE_REGEX =
+  &UTF8LEX_DEFINITION_TYPE_REGEX_INTERNAL;
