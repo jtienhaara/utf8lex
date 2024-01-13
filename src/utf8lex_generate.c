@@ -28,8 +28,6 @@
 typedef struct _STRUCT_utf8lex_definition       utf8lex_definition_t;
 typedef struct _STRUCT_utf8lex_generate_lexicon utf8lex_generate_lexicon_t;
 
-#define UTF8LEX_MAX_DEFINITIONS 4096
-
 #define UTF8LEX_MAX_CATS 64
 struct _STRUCT_utf8lex_generate_lexicon
 {
@@ -453,44 +451,6 @@ static utf8lex_error_t utf8lex_generate_token_error(
   return UTF8LEX_ERROR_TOKEN;
 }
 
-static utf8lex_error_t utf8lex_definition_find(
-        utf8lex_definition_t *first_definition,
-        char *definition_ref,
-        utf8lex_definition_t **found_definition_pointer
-        )
-{
-  if (definition_ref == NULL
-      || found_definition_pointer == NULL)
-  {
-    return UTF8LEX_ERROR_NULL_POINTER;
-  }
-  else if (first_definition == NULL)
-  {
-    return UTF8LEX_NO_MATCH;
-  }
-
-  utf8lex_definition_t *definition = first_definition;
-  int infinite_loop = (int) UTF8LEX_BUFFER_STRINGS_MAX;
-  for (int b = 0; b < infinite_loop; b ++)
-  {
-    if (strcmp(definition->name,
-               definition_ref) == 0)
-    {
-      *found_definition_pointer = definition;
-      return UTF8LEX_OK;
-    }
-
-    definition = definition->next;
-  }
-
-  if (definition != NULL)
-  {
-    return UTF8LEX_ERROR_INFINITE_LOOP;
-  }
-
-  return UTF8LEX_NO_MATCH;
-}
-
 static utf8lex_error_t utf8lex_generate_read_to_eol(
         utf8lex_generate_lexicon_t *lex,
         utf8lex_state_t *state,
@@ -661,7 +621,7 @@ static utf8lex_error_t utf8lex_generate_parse(
   utf8lex_rule_t *first_rule = &(lex.newline);
 
   // Database of definitions:
-  utf8lex_definition_t definitions[UTF8LEX_MAX_DEFINITIONS];
+  utf8lex_definition_t definitions[UTF8LEX_DEFINITIONS_DB_LENGTH_MAX];
   int num_definitions = 0;
   utf8lex_definition_t *first_definition = NULL;
   // Currently defined definition's id:
@@ -672,7 +632,7 @@ static utf8lex_error_t utf8lex_generate_parse(
   int cat_max;
   char regex[1024];
   char literal[1024];
-  utf8lex_definition_t *definition_refs[UTF8LEX_MAX_DEFINITIONS];
+  utf8lex_definition_t *definition_refs[UTF8LEX_DEFINITIONS_DB_LENGTH_MAX];
   int num_definition_refs = 0;
 
   // This horrid approach will have to do for now.

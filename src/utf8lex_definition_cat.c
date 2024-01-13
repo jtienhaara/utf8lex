@@ -75,6 +75,10 @@ utf8lex_error_t utf8lex_cat_definition_init(
   else
   {
     self->base.id = self->base.prev->id + 1;
+    if (self->base.id >= UTF8LEX_DEFINITIONS_DB_LENGTH_MAX)
+    {
+      return UTF8LEX_ERROR_MAX_LENGTH;
+    }
     self->base.prev->next = (utf8lex_definition_t *) self;
   }
 

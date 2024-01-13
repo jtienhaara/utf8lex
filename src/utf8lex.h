@@ -86,6 +86,8 @@ enum _ENUM_utf8lex_error
   UTF8LEX_ERROR_CAT,  // Invalid cat (category id) NONE < cat < MAX / not found.
   UTF8LEX_ERROR_DEFINITION_TYPE,  // definition_type mismatch (eg cat / regex).
   UTF8LEX_ERROR_EMPTY_LITERAL,  // Literals cannot be "".
+  UTF8LEX_ERROR_MAX_LENGTH,  // Too many (rules, definitions, ...) in database.
+  UTF8LEX_ERROR_NOT_FOUND,  // ..._find() did not match any objects.
   UTF8LEX_ERROR_REGEX,  // Matching against a regular expression failed.
   UTF8LEX_ERROR_UNIT,  // Invalid unit must be NONE < unit < MAX.
   UTF8LEX_ERROR_INFINITE_LOOP,  // Aborted, possible infinite loop detected.
@@ -354,6 +356,9 @@ extern utf8lex_definition_type_t *UTF8LEX_DEFINITION_TYPE_LITERAL;
 // and so on:
 extern utf8lex_definition_type_t *UTF8LEX_DEFINITION_TYPE_REGEX;
 
+// No more than (this many) utf8lex_definition_t's can be in a database.
+extern const uint32_t UTF8LEX_DEFINITIONS_DB_LENGTH_MAX;
+
 struct _STRUCT_utf8lex_definition
 {
   // The definition_type must always be the first field in every
@@ -370,6 +375,18 @@ struct _STRUCT_utf8lex_definition
   utf8lex_definition_t *next;
   utf8lex_definition_t *prev;
 };
+
+extern utf8lex_error_t utf8lex_definition_find(
+        utf8lex_definition_t *first_definition,  // Database to search.
+        unsigned char *name,  // Name of definition to search for.
+        utf8lex_definition_t ** found_pointer  // Gets set when found.
+        );
+extern utf8lex_error_t utf8lex_definition_find_by_id(
+        utf8lex_definition_t *first_definition,  // Database to search.
+        uint32_t id,  // The id of the definition to search for.
+        utf8lex_definition_t ** found_pointer  // Gets set when found.
+        );
+
 
 #define UTF8LEX_CAT_FORMAT_MAX_LENGTH 512
 
@@ -440,6 +457,9 @@ extern utf8lex_error_t utf8lex_regex_definition_clear(
         utf8lex_definition_t *self
         );
 
+// No more than (this many) utf8lex_rule_t's can be in a database.
+extern const uint32_t UTF8LEX_RULES_DB_LENGTH_MAX;
+
 struct _STRUCT_utf8lex_rule
 {
   utf8lex_rule_t *prev;
@@ -462,6 +482,17 @@ extern utf8lex_error_t utf8lex_rule_init(
         );
 extern utf8lex_error_t utf8lex_rule_clear(
         utf8lex_rule_t *self
+        );
+
+extern utf8lex_error_t utf8lex_rule_find(
+        utf8lex_rule_t *first_rule,  // Database to search.
+        unsigned char *name,  // Name of rule to search for.
+        utf8lex_rule_t ** found_pointer  // Gets set when found.
+        );
+extern utf8lex_error_t utf8lex_rule_find_by_id(
+        utf8lex_rule_t *first_rule,  // Database to search.
+        uint32_t id,  // The id of the rule to search for.
+        utf8lex_rule_t ** found_pointer  // Gets set when found.
         );
 
 struct _STRUCT_utf8lex_token
