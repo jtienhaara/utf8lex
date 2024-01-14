@@ -478,7 +478,7 @@ extern utf8lex_error_t utf8lex_rule_init(
         unsigned char *name,
         utf8lex_definition_t *definition,  // Such as cat, literal, regex.
         unsigned char *code,
-        size_t code_length_bytes
+        size_t code_length_bytes  // (size_t) -1 to use strlen(code).
         );
 extern utf8lex_error_t utf8lex_rule_clear(
         utf8lex_rule_t *self

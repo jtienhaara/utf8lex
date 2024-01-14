@@ -63,6 +63,8 @@ utf8lex_error_t utf8lex_definition_find(
       is_infinite_loop = false;
       break;
     }
+
+    definition = definition->next;
   }
 
   if (is_infinite_loop == true)
@@ -109,6 +111,8 @@ utf8lex_error_t utf8lex_definition_find_by_id(
       is_infinite_loop = false;
       break;
     }
+
+    definition = definition->next;
   }
 
   if (is_infinite_loop == true)

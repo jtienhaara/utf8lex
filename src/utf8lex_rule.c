@@ -19,7 +19,7 @@
 
 #include <inttypes.h>  // For uint32_t.
 #include <stdbool.h>  // For bool, true, false.
-#include <string.h>  // For strcmp()
+#include <string.h>  // For strcmp(), strlen()
 
 #include "utf8lex.h"
 
@@ -37,7 +37,7 @@ utf8lex_error_t utf8lex_rule_init(
         unsigned char *name,
         utf8lex_definition_t *definition,
         unsigned char *code,
-        size_t code_length_bytes
+        size_t code_length_bytes  // (size_t) -1 to use strlen(code).
         )
 {
   if (self == NULL
@@ -54,10 +54,6 @@ utf8lex_error_t utf8lex_rule_init(
   {
     return UTF8LEX_ERROR_CHAIN_INSERT;
   }
-  else if (code_length_bytes < (size_t) 0)
-  {
-    return UTF8LEX_ERROR_BAD_LENGTH;
-  }
 
   self->next = NULL;
   self->prev = prev;
@@ -65,7 +61,14 @@ utf8lex_error_t utf8lex_rule_init(
   self->name = name;
   self->definition = definition;
   self->code = code;
-  self->code_length_bytes = code_length_bytes;
+  if (code_length_bytes < (size_t) 0)
+  {
+    self->code_length_bytes = strlen(self->code);
+  }
+  else
+  {
+    self->code_length_bytes = code_length_bytes;
+  }
   if (self->prev != NULL)
   {
     self->id = self->prev->id + 1;
@@ -153,6 +156,8 @@ utf8lex_error_t utf8lex_rule_find(
       is_infinite_loop = false;
       break;
     }
+
+    rule = rule->next;
   }
 
   if (is_infinite_loop == true)
@@ -199,6 +204,8 @@ utf8lex_error_t utf8lex_rule_find_by_id(
       is_infinite_loop = false;
       break;
     }
+
+    rule = rule->next;
   }
 
   if (is_infinite_loop == true)
