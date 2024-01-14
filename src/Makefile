@@ -13,15 +13,20 @@ LDFLAGS = -shared
 BUILD_DIR = ../build
 
 SOURCE_FILES = \
+	utf8lex_buffer.c \
 	utf8lex_cat.c \
+	utf8lex_definition.c \
+	utf8lex_definition_cat.c \
+	utf8lex_definition_literal.c \
+	utf8lex_definition_regex.c \
+	utf8lex_error.c \
 	utf8lex_file.c \
+	utf8lex_generate.c \
 	utf8lex_lex.c \
-	utf8lex_location.c \
-	utf8lex_pattern_cat.c \
-	utf8lex_pattern_literal.c \
-	utf8lex_pattern_regex.c \
 	utf8lex_read.c \
+	utf8lex_rule.c \
 	utf8lex_string.c \
+	utf8lex_target_language_c.c \
 	utf8lex_token.c
 
 OBJECT_FILES = \

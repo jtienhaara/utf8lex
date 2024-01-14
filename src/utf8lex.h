@@ -28,19 +28,20 @@
 // Maximum number of bytes in one UTF-8 character:
 #define UTF8LEX_MAX_BYTES_PER_CHAR 6
 
-typedef struct _STRUCT_utf8lex_abstract_pattern utf8lex_abstract_pattern_t;
 typedef struct _STRUCT_utf8lex_buffer           utf8lex_buffer_t;
 typedef uint32_t                                utf8lex_cat_t;
-typedef struct _STRUCT_utf8lex_cat_pattern      utf8lex_cat_pattern_t;
+typedef struct _STRUCT_utf8lex_cat_definition   utf8lex_cat_definition_t;
+typedef struct _STRUCT_utf8lex_definition       utf8lex_definition_t;
 typedef enum _ENUM_utf8lex_error                utf8lex_error_t;
-typedef struct _STRUCT_utf8lex_literal_pattern  utf8lex_literal_pattern_t;
+typedef struct _STRUCT_utf8lex_literal_definition utf8lex_literal_definition_t;
 typedef struct _STRUCT_utf8lex_location         utf8lex_location_t;
-typedef struct _STRUCT_utf8lex_pattern_type     utf8lex_pattern_type_t;
-typedef struct _STRUCT_utf8lex_regex_pattern    utf8lex_regex_pattern_t;
+typedef struct _STRUCT_utf8lex_definition_type  utf8lex_definition_type_t;
+typedef struct _STRUCT_utf8lex_regex_definition utf8lex_regex_definition_t;
+typedef struct _STRUCT_utf8lex_rule             utf8lex_rule_t;
 typedef struct _STRUCT_ut8lex_state             utf8lex_state_t;
 typedef struct _STRUCT_utf8lex_string           utf8lex_string_t;
+typedef struct _STRUCT_utf8lex_target_language  utf8lex_target_language_t;
 typedef struct _STRUCT_utf8lex_token            utf8lex_token_t;
-typedef struct _STRUCT_utf8lex_token_type       utf8lex_token_type_t;
 typedef enum _ENUM_utf8lex_unit                 utf8lex_unit_t;
 
 
@@ -56,7 +57,7 @@ typedef enum _ENUM_utf8lex_unit                 utf8lex_unit_t;
 // Start / continue lexing from the specified table and state.
 //
 extern utf8lex_error_t utf8lex_lex(
-        utf8lex_token_type_t * first_token_type,
+        utf8lex_rule_t * first_rule,
         utf8lex_state_t *state,
         utf8lex_token_t *token_pointer
         );
@@ -68,7 +69,7 @@ enum _ENUM_utf8lex_error
   UTF8LEX_EOF,  // Lexing completed successfully.
 
   UTF8LEX_MORE,  // Need to read in more bytes from the source.
-  UTF8LEX_NO_MATCH,  // Could not match bytes against any pattern(s).
+  UTF8LEX_NO_MATCH,  // Could not match bytes against any definition(s).
 
   UTF8LEX_ERROR_NULL_POINTER,
 
@@ -78,12 +79,15 @@ enum _ENUM_utf8lex_error
   UTF8LEX_ERROR_FILE_MMAP,  // Could not mmap() a file.
   UTF8LEX_ERROR_FILE_READ,  // Could not read() from an open file descriptor.
   UTF8LEX_ERROR_FILE_SIZE,  // Could not use fstat for file size.
+  UTF8LEX_ERROR_FILE_WRITE,  // Could not write() to an open file descriptor.
 
   UTF8LEX_ERROR_BUFFER_INITIALIZED,  // Buffer has non-NULL str->bytes.
   UTF8LEX_ERROR_CHAIN_INSERT,  // Can't insert links into the chain, only append
   UTF8LEX_ERROR_CAT,  // Invalid cat (category id) NONE < cat < MAX / not found.
-  UTF8LEX_ERROR_PATTERN_TYPE,  // pattern_type mismatch (eg cat vs. regex).
+  UTF8LEX_ERROR_DEFINITION_TYPE,  // definition_type mismatch (eg cat / regex).
   UTF8LEX_ERROR_EMPTY_LITERAL,  // Literals cannot be "".
+  UTF8LEX_ERROR_MAX_LENGTH,  // Too many (rules, definitions, ...) in database.
+  UTF8LEX_ERROR_NOT_FOUND,  // ..._find() did not match any objects.
   UTF8LEX_ERROR_REGEX,  // Matching against a regular expression failed.
   UTF8LEX_ERROR_UNIT,  // Invalid unit must be NONE < unit < MAX.
   UTF8LEX_ERROR_INFINITE_LOOP,  // Aborted, possible infinite loop detected.
@@ -91,11 +95,15 @@ enum _ENUM_utf8lex_error
   UTF8LEX_ERROR_BAD_LENGTH,  // Negative length, < start, too close to end.
   UTF8LEX_ERROR_BAD_OFFSET,  // Negative offset, or too close to end of string.
   UTF8LEX_ERROR_BAD_START,  // Negative start, or too close to end of string.
+  UTF8LEX_ERROR_BAD_AFTER,  // After is neither reset (-1) nor valid new start.
   UTF8LEX_ERROR_BAD_MIN,  // Min must be 1 or greater.
   UTF8LEX_ERROR_BAD_MAX,  // Max must be >= min, or -1 for no limit.
-  UTF8LEX_ERROR_BAD_REGEX,  // Could not compile regex pattern.
+  UTF8LEX_ERROR_BAD_REGEX,  // Could not compile regex definition.
   UTF8LEX_ERROR_BAD_UTF8,  // Could not process the UTF-8 text.
   UTF8LEX_ERROR_BAD_ERROR,  // Invalid error NONE <= e <= MAX.
+
+  UTF8LEX_ERROR_TOKEN,  // Unexpected token, while in some lexer state or other.
+  UTF8LEX_ERROR_STATE,  // Some other bad state that is not captured above.
 
   UTF8LEX_ERROR_MAX
 };
@@ -117,16 +125,8 @@ struct _STRUCT_utf8lex_location
 {
   int start;  // First byte / char / grapheme / and so on of a token.
   int length;  // # of bytes / chars / graphemes / and so on of a token.
+  int after;  // Either -1, or reset the start location to this, if >= 0.
 };
-
-extern utf8lex_error_t utf8lex_location_init(
-        utf8lex_location_t *self,
-        int start,
-        int length
-        );
-extern utf8lex_error_t utf8lex_location_clear(
-        utf8lex_location_t *self
-        );
 
 
 struct _STRUCT_utf8lex_string
@@ -278,14 +278,26 @@ extern const utf8lex_cat_t UTF8LEX_EXT_SEP_LINE;  // Unicode line separators
 // can be upper, lower or title case, etc.:
 //
 extern const utf8lex_cat_t UTF8LEX_GROUP_OTHER;  // Other (control, format, etc)
+extern const utf8lex_cat_t UTF8LEX_GROUP_NOT_OTHER;  // All but OTHER
 extern const utf8lex_cat_t UTF8LEX_GROUP_LETTER;  // Letters
+extern const utf8lex_cat_t UTF8LEX_GROUP_NOT_LETTER;  // All but LETTER
 extern const utf8lex_cat_t UTF8LEX_GROUP_MARK;  // Marks
+extern const utf8lex_cat_t UTF8LEX_GROUP_NOT_MARK;  // All but MARK
 extern const utf8lex_cat_t UTF8LEX_GROUP_NUM;  // Numbers
+extern const utf8lex_cat_t UTF8LEX_GROUP_NOT_NUM;  // All but NUM
 extern const utf8lex_cat_t UTF8LEX_GROUP_PUNCT;  // Punctuation
+extern const utf8lex_cat_t UTF8LEX_GROUP_NOT_PUNCT;  // All but PUNCT
 extern const utf8lex_cat_t UTF8LEX_GROUP_SYM;  // Symbols
+extern const utf8lex_cat_t UTF8LEX_GROUP_NOT_SYM;  // All but SYM
 // Warning: Unicode considers \n, \r, \t, etc to be control characters!
 //     https://www.unicode.org/charts/PDF/U0000.pdf
 extern const utf8lex_cat_t UTF8LEX_GROUP_WHITESPACE;  // CAT_SEPs + EXT_SEPs
+extern const utf8lex_cat_t UTF8LEX_GROUP_NOT_WHITESPACE;  // All but WHITESPACE
+extern const utf8lex_cat_t UTF8LEX_GROUP_HSPACE;  // space, tab, ...
+extern const utf8lex_cat_t UTF8LEX_GROUP_NOT_HSPACE;  // All but HSPACE
+extern const utf8lex_cat_t UTF8LEX_GROUP_VSPACE;  // LF, CR, paragraph sep, ...
+extern const utf8lex_cat_t UTF8LEX_GROUP_NOT_VSPACE;  // All but VSPACE
+extern const utf8lex_cat_t UTF8LEX_GROUP_ALL;  // All categories
 extern const utf8lex_cat_t UTF8LEX_CAT_MAX;
 
 // Formats the specified OR'ed category/ies as a string,
@@ -301,62 +313,86 @@ extern utf8lex_error_t utf8lex_parse_cat(
         unsigned char *str
         );
 
-struct _STRUCT_utf8lex_pattern_type
+struct _STRUCT_utf8lex_definition_type
 {
   char *name;  // Such as "CATEGORY", "LITERAL" or "REGEX".
 
-  // During lexing, utf8lex_lex() will invoke this pattern_type's
+  // During lexing, utf8lex_lex() will invoke this definition_type's
   // lex() function to determine 1) whether the text in the lexing
-  // buffer matches this pattern_type and, if so, then also
+  // buffer matches this definition_type and, if so, then also
   // 2) initialize the specified token_pointer
   // (optionally updating the buffer and state lengths in the process).
   //
-  // The token_type containers the pattern to use for lexing;
-  // token_type->pattern is of type utf8lex_abstract_pattern_t *,
-  // so utf8lex_lex() calls token_type->pattern->pattern_type->lex(...).
+  // The rule contains the definition to use for lexing;
+  // rule->definition is of type utf8lex_definition_t *,
+  // so utf8lex_lex() calls rule->definition->definition_type->lex(...).
   //
-  // The builtin cat, literal and regex pattern types
-  // provide this functionality; other pattern types can be added,
+  // The builtin cat, literal and regex definition types
+  // provide this functionality; other definition types can be added,
   // if desired.
   utf8lex_error_t (*lex)(
-          utf8lex_token_type_t *token_type,
+          utf8lex_rule_t *rule,
           utf8lex_state_t *state,
           utf8lex_token_t *token_pointer
           );
 
-  // When a token_type is cleared, its pattern_type will free any
-  // memory used by its pattern (such as a compiled regular expression).
+  // When a rule is cleared, its definition_type will free any
+  // memory used by its definition (such as a compiled regular expression).
   utf8lex_error_t (*clear)(
-          utf8lex_abstract_pattern_t *pattern
+          utf8lex_definition_t *definition
           );
 };
 
-// A token pattern that matches a sequence of N characters
+// A token definition that matches a sequence of N characters
 // of a specific utf8lex_cat_t categpru, such as UTF8LEX_GROUP_WHITESPACE:
-extern utf8lex_pattern_type_t *UTF8LEX_PATTERN_TYPE_CAT;
+extern utf8lex_definition_type_t *UTF8LEX_DEFINITION_TYPE_CAT;
 
-// A token pattern that matches a literal string,
+// A token definition that matches a literal string,
 // such as "int" or "==" or "proc" and so on:
-extern utf8lex_pattern_type_t *UTF8LEX_PATTERN_TYPE_LITERAL;
+extern utf8lex_definition_type_t *UTF8LEX_DEFINITION_TYPE_LITERAL;
 
-// A token pattern that matches a regular expression,
+// A token definition that matches a regular expression,
 // such as "^[0-9]+" or "[\\p{N}]+" or "[_\\p{L}][_\\p{L}\\p{N}]*" or "[\\s]+"
 // and so on:
-extern utf8lex_pattern_type_t *UTF8LEX_PATTERN_TYPE_REGEX;
+extern utf8lex_definition_type_t *UTF8LEX_DEFINITION_TYPE_REGEX;
 
-struct _STRUCT_utf8lex_abstract_pattern
+// No more than (this many) utf8lex_definition_t's can be in a database.
+extern const uint32_t UTF8LEX_DEFINITIONS_DB_LENGTH_MAX;
+
+struct _STRUCT_utf8lex_definition
 {
-  // The pattern_type must always be the first field in every
-  // utf8lex_abstract_pattern_t implementation (e.g. cat, literal, regex).
-  utf8lex_pattern_type_t *pattern_type;
+  // The definition_type must always be the first field in every
+  // utf8lex_definition_t implementation (e.g. cat, literal, regex).
+  utf8lex_definition_type_t *definition_type;
+
+  // Unique id in the definitions database (0, 1, 2, ...).
+  uint32_t id;
+
+  // A name for this definition, typically all uppercase.
+  unsigned char *name;
+
+  // Next and previous definitions in the database (if any).  Can be NULL.
+  utf8lex_definition_t *next;
+  utf8lex_definition_t *prev;
 };
+
+extern utf8lex_error_t utf8lex_definition_find(
+        utf8lex_definition_t *first_definition,  // Database to search.
+        unsigned char *name,  // Name of definition to search for.
+        utf8lex_definition_t ** found_pointer  // Gets set when found.
+        );
+extern utf8lex_error_t utf8lex_definition_find_by_id(
+        utf8lex_definition_t *first_definition,  // Database to search.
+        uint32_t id,  // The id of the definition to search for.
+        utf8lex_definition_t ** found_pointer  // Gets set when found.
+        );
+
 
 #define UTF8LEX_CAT_FORMAT_MAX_LENGTH 512
 
-struct _STRUCT_utf8lex_cat_pattern
+struct _STRUCT_utf8lex_cat_definition
 {
-  // utf8lex_abstract_pattern_t field(s):
-  utf8lex_pattern_type_t *pattern_type;
+  utf8lex_definition_t base;
 
   utf8lex_cat_t cat;  // The category, such as UTF8LEX_GROUP_LETTER.
   char str[UTF8LEX_CAT_FORMAT_MAX_LENGTH];  // e.g. "LETTER_UPPER|LETTER_LOWER".
@@ -364,77 +400,104 @@ struct _STRUCT_utf8lex_cat_pattern
   int max;  // Maximum consecutive occurrences of the cat (-1 for no limit).
 };
 
-extern utf8lex_error_t utf8lex_cat_pattern_init(
-        utf8lex_cat_pattern_t *self,
+extern utf8lex_error_t utf8lex_cat_definition_init(
+        utf8lex_cat_definition_t *self,
+        utf8lex_definition_t *prev,  // Previous definition in DB, or NULL.
+        unsigned char *name,  // Usually all uppercase name of definition.
         utf8lex_cat_t cat,  // The category, such as UTF8LEX_GROUP_LETTER.
         int min,  // Minimum consecutive occurrences of the cat (1 or more).
         int max  // Maximum consecutive occurrences (-1 = no limit).
         );
-extern utf8lex_error_t utf8lex_cat_pattern_clear(
-        utf8lex_abstract_pattern_t *self  // Must be utf8lex_cat_pattern_t *
+extern utf8lex_error_t utf8lex_cat_definition_clear(
+        // self must be utf8lex_cat_definition_t *:
+        utf8lex_definition_t *self
         );
 
-struct _STRUCT_utf8lex_literal_pattern
+struct _STRUCT_utf8lex_literal_definition
 {
-  // utf8lex_abstract_pattern_t field(s):
-  utf8lex_pattern_type_t *pattern_type;
+  utf8lex_definition_t base;
 
   unsigned char *str;
-  int length[UTF8LEX_UNIT_MAX];  // Literal # of bytes, chars, graphemes, ...
+  // # bytes, chars, graphemes and lines in this literal,
+  // plus char and grapheme resets to account for newlines
+  // (after == -1 -> no reset; after >= 0 -> reset state, buffer positions
+  // to the specified char, grapheme locations):
+  utf8lex_location_t loc[UTF8LEX_UNIT_MAX];
 };
 
-extern utf8lex_error_t utf8lex_literal_pattern_init(
-        utf8lex_literal_pattern_t *self,
+extern utf8lex_error_t utf8lex_literal_definition_init(
+        utf8lex_literal_definition_t *self,
+        utf8lex_definition_t *prev,  // Previous definition in DB, or NULL.
+        unsigned char *name,  // Usually all uppercase name of definition.
         unsigned char *str
         );
-extern utf8lex_error_t utf8lex_literal_pattern_clear(
-        utf8lex_abstract_pattern_t *self  // Must be utf8lex_literal_pattern_t *
+extern utf8lex_error_t utf8lex_literal_definition_clear(
+        // self must be utf8lex_literal_definition_t *:
+        utf8lex_definition_t *self
         );
 
-struct _STRUCT_utf8lex_regex_pattern
+struct _STRUCT_utf8lex_regex_definition
 {
-  // utf8lex_abstract_pattern_t field(s):
-  utf8lex_pattern_type_t *pattern_type;
+  utf8lex_definition_t base;
 
   unsigned char *pattern;
   pcre2_code *regex;
 };
 
-// PCRE2 regex pattern language:
-//     https://pcre2project.github.io/pcre2/doc/html/pcre2pattern.html
-extern utf8lex_error_t utf8lex_regex_pattern_init(
-        utf8lex_regex_pattern_t *self,
+// PCRE2 regex definition language:
+//     https://pcre2project.github.io/pcre2/doc/html/pcre2definition.html
+extern utf8lex_error_t utf8lex_regex_definition_init(
+        utf8lex_regex_definition_t *self,
+        utf8lex_definition_t *prev,  // Previous definition in DB, or NULL.
+        unsigned char *name,  // Usually all uppercase name of definition.
         unsigned char *pattern
         );
-extern utf8lex_error_t utf8lex_regex_pattern_clear(
-        utf8lex_abstract_pattern_t *self  // Must be utf8lex_regex_pattern_t *
+extern utf8lex_error_t utf8lex_regex_definition_clear(
+        // self must be utf8lex_regex_definition_t *:
+        utf8lex_definition_t *self
         );
 
-struct _STRUCT_utf8lex_token_type
+// No more than (this many) utf8lex_rule_t's can be in a database.
+extern const uint32_t UTF8LEX_RULES_DB_LENGTH_MAX;
+
+struct _STRUCT_utf8lex_rule
 {
-  utf8lex_token_type_t *prev;
-  utf8lex_token_type_t *next;
+  utf8lex_rule_t *prev;
+  utf8lex_rule_t *next;
 
   uint32_t id;
   unsigned char *name;
-  utf8lex_abstract_pattern_t *pattern;  // Such as cat, literal, regex.
+  utf8lex_definition_t *definition;  // Such as cat, literal, regex.
   unsigned char *code;
+  size_t code_length_bytes;
 };
 
-extern utf8lex_error_t utf8lex_token_type_init(
-        utf8lex_token_type_t *self,
-        utf8lex_token_type_t *prev,
+extern utf8lex_error_t utf8lex_rule_init(
+        utf8lex_rule_t *self,
+        utf8lex_rule_t *prev,
         unsigned char *name,
-        utf8lex_abstract_pattern_t *pattern,  // Such as cat, literal, regex.
-        unsigned char *code
+        utf8lex_definition_t *definition,  // Such as cat, literal, regex.
+        unsigned char *code,
+        size_t code_length_bytes  // (size_t) -1 to use strlen(code).
         );
-extern utf8lex_error_t utf8lex_token_type_clear(
-        utf8lex_token_type_t *self
+extern utf8lex_error_t utf8lex_rule_clear(
+        utf8lex_rule_t *self
+        );
+
+extern utf8lex_error_t utf8lex_rule_find(
+        utf8lex_rule_t *first_rule,  // Database to search.
+        unsigned char *name,  // Name of rule to search for.
+        utf8lex_rule_t ** found_pointer  // Gets set when found.
+        );
+extern utf8lex_error_t utf8lex_rule_find_by_id(
+        utf8lex_rule_t *first_rule,  // Database to search.
+        uint32_t id,  // The id of the rule to search for.
+        utf8lex_rule_t ** found_pointer  // Gets set when found.
         );
 
 struct _STRUCT_utf8lex_token
 {
-  utf8lex_token_type_t *token_type;
+  utf8lex_rule_t *rule;
 
   int start_byte;  // Bytes offset into str where token starts.
   int length_bytes;  // # bytes in token.
@@ -445,7 +508,8 @@ struct _STRUCT_utf8lex_token
 
 extern utf8lex_error_t utf8lex_token_init(
         utf8lex_token_t *self,
-        utf8lex_token_type_t *token_type,
+        utf8lex_rule_t *rule,
+        utf8lex_location_t token_loc[UTF8LEX_UNIT_MAX],  // Resets, lengths.
         utf8lex_state_t *state  // For buffer and absolute location.
         );
 extern utf8lex_error_t utf8lex_token_clear(
@@ -490,12 +554,33 @@ extern utf8lex_error_t utf8lex_cat_codepoint(
 // not for its location info.
 // The offset, lengths, codepoint and cat are all set upon
 // successfully reading one complete grapheme cluster.
+// loc[*].after will be -1 if no newlines were encountered, or 0
+// or more if the character / grapheme positions were reset to 0 at newline.
+// (Bytes and lines will never have their after locations reset, always -1.)
 extern utf8lex_error_t utf8lex_read_grapheme(
         utf8lex_state_t *state,
         off_t *offset_pointer,  // Mutable.
-        size_t lengths_pointer[UTF8LEX_UNIT_MAX],  // Mutable.
+        utf8lex_location_t loc_pointer[UTF8LEX_UNIT_MAX], // Mutable
         int32_t *codepoint_pointer,  // Mutable.
         utf8lex_cat_t *cat_pointer  // Mutable.
+        );
+
+
+struct _STRUCT_utf8lex_target_language
+{
+  unsigned char *name;
+  unsigned char *extension;
+};
+
+extern const utf8lex_target_language_t *TARGET_LANGUAGE_C;
+
+
+extern utf8lex_error_t utf8lex_generate(
+        const utf8lex_target_language_t *target_language,
+        unsigned char *lex_file_path,
+        unsigned char *template_dir_path,
+        unsigned char *generated_file_path,
+        utf8lex_state_t *state_pointer  // Will be initialized.
         );
 
 #endif  // UTF8LEX_H_INCLUDED

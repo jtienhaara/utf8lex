@@ -79,6 +79,7 @@ utf8lex_error_t utf8lex_state_init(
   {
     self->loc[unit].start = -1;
     self->loc[unit].length = -1;
+    self->loc[unit].after = -2;
   }
 
   return UTF8LEX_OK;
@@ -100,6 +101,7 @@ utf8lex_error_t utf8lex_state_clear(
   {
     self->loc[unit].start = -1;
     self->loc[unit].length = -1;
+    self->loc[unit].after = -2;
   }
 
   return UTF8LEX_OK;
@@ -110,12 +112,12 @@ utf8lex_error_t utf8lex_state_clear(
 // ---------------------------------------------------------------------
 
 utf8lex_error_t utf8lex_lex(
-        utf8lex_token_type_t *first_token_type,
+        utf8lex_rule_t *first_rule,
         utf8lex_state_t *state,
         utf8lex_token_t *token_pointer
         )
 {
-  if (first_token_type == NULL
+  if (first_rule == NULL
       || state == NULL
       || token_pointer == NULL)
   {
@@ -130,6 +132,7 @@ utf8lex_error_t utf8lex_lex(
     {
       state->loc[unit].start = 0;
       state->loc[unit].length = 0;
+      state->loc[unit].after = -1;
     }
   }
   // EOF check:
@@ -155,32 +158,32 @@ utf8lex_error_t utf8lex_lex(
     state->buffer = state->buffer->next;
   }
 
-  utf8lex_token_type_t *matched = NULL;
-  for (utf8lex_token_type_t *token_type = first_token_type;
-       token_type != NULL;
-       token_type = token_type->next)
+  utf8lex_rule_t *matched = NULL;
+  for (utf8lex_rule_t *rule = first_rule;
+       rule != NULL;
+       rule = rule->next)
   {
     utf8lex_error_t error;
-    if (token_type->pattern == NULL
-        || token_type->pattern->pattern_type == NULL
-        || token_type->pattern->pattern_type->lex == NULL)
+    if (rule->definition == NULL
+        || rule->definition->definition_type == NULL
+        || rule->definition->definition_type->lex == NULL)
     {
       error = UTF8LEX_ERROR_NULL_POINTER;
       break;
     }
 
-    // Call the pattern_type's lexer.  On successful tokenization,
+    // Call the definition_type's lexer.  On successful tokenization,
     // it will set the absolute offset and lengths of the token
     // (and optionally update the lengths stored in the buffer
     // and absolute state).
-    error = token_type->pattern->pattern_type->lex(
-        token_type,
+    error = rule->definition->definition_type->lex(
+        rule,
         state,
         token_pointer);
 
     if (error == UTF8LEX_NO_MATCH)
     {
-      // Did not match this one token type.  Carry on with the loop.
+      // Did not match this one rule.  Carry on with the loop.
       continue;
     }
     else if (error == UTF8LEX_MORE)
@@ -190,8 +193,8 @@ utf8lex_error_t utf8lex_lex(
     }
     else if (error == UTF8LEX_OK)
     {
-      // Matched the token type.  Break out of the loop.
-      matched = token_type;
+      // Matched the rule.  Break out of the loop.
+      matched = rule;
       break;
     }
     else
@@ -201,8 +204,8 @@ utf8lex_error_t utf8lex_lex(
     }
   }
 
-  // If we get this far, we've either 1) matched a token type,
-  // or 2) not matched any token type.
+  // If we get this far, we've either 1) matched a rule,
+  // or 2) not matched any rule.
   if (matched == NULL)
   {
     return UTF8LEX_NO_MATCH;
@@ -213,14 +216,25 @@ utf8lex_error_t utf8lex_lex(
        unit < UTF8LEX_UNIT_MAX;
        unit ++)
   {
-    int length_units = token_pointer->loc[unit].length;
+    int after = token_pointer->loc[unit].after;
 
-    // Update buffer locations past end of this token:
-    state->buffer->loc[unit].start += length_units;
+    // Update buffer and absolute state locations past end of this token:
+    if (token_pointer->loc[unit].after == -1)
+    {
+      int length_units = token_pointer->loc[unit].length;
+      state->buffer->loc[unit].start += length_units;
+      state->loc[unit].start += length_units;
+    }
+    else
+    {
+      // Chars, graphemes reset at newline:
+      state->buffer->loc[unit].start = token_pointer->loc[unit].after;
+      state->loc[unit].start = token_pointer->loc[unit].after;
+    }
     state->buffer->loc[unit].length = 0;
-    // Update absolute locations past end of this token:
-    state->loc[unit].start += length_units;
     state->loc[unit].length = 0;
+    state->buffer->loc[unit].after = -1;
+    state->loc[unit].after = -1;
   }
 
   return UTF8LEX_OK;

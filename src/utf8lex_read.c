@@ -34,17 +34,20 @@
 // not for its location info.
 // The offset, lengths, codepoint and cat are all set upon
 // successfully reading one complete grapheme cluster.
+// loc[*].after will be -1 if no newlines were encountered, or 0
+// or more if the character / grapheme positions were reset to 0 at newline.
+// (Bytes and lines will never have their after locations reset, always -1.)
 utf8lex_error_t utf8lex_read_grapheme(
         utf8lex_state_t *state,
         off_t *offset_pointer,  // Mutable.
-        size_t lengths_pointer[UTF8LEX_UNIT_MAX],  // Mutable.
+        utf8lex_location_t loc_pointer[UTF8LEX_UNIT_MAX], // Mutable
         int32_t *codepoint_pointer,  // Mutable.
         utf8lex_cat_t *cat_pointer  // Mutable.
         )
 {
   if (state == NULL
       || offset_pointer == NULL
-      || lengths_pointer == NULL
+      || loc_pointer == NULL
       || codepoint_pointer == NULL
       || cat_pointer == NULL)
   {
@@ -65,6 +68,8 @@ utf8lex_error_t utf8lex_read_grapheme(
   size_t total_bytes_read = (size_t) 0;
   size_t total_chars_read = (size_t) 0;
   size_t total_lines_read = (size_t) 0;
+  off_t after_char = (off_t) -1;
+  off_t after_grapheme = (off_t) -1;
   for (int u8c = 0; ; u8c ++)
   {
     unsigned char *str_pointer = (unsigned char *)
@@ -203,6 +208,12 @@ utf8lex_error_t utf8lex_read_grapheme(
         || (cat & UTF8LEX_EXT_SEP_LINE))
     {
       num_lines_read ++;
+      after_char = (off_t) 0;
+      after_grapheme = (off_t) 0;
+    }
+    else if (after_char >= (off_t) 0)
+    {
+      after_char ++;
     }
 
     curr_offset += (off_t) utf8proc_num_bytes_read;
@@ -223,10 +234,18 @@ utf8lex_error_t utf8lex_read_grapheme(
 
   // Success.
   *offset_pointer += (off_t) total_bytes_read;
-  lengths_pointer[UTF8LEX_UNIT_BYTE] = (size_t) total_bytes_read;
-  lengths_pointer[UTF8LEX_UNIT_CHAR] = (size_t) total_chars_read;
-  lengths_pointer[UTF8LEX_UNIT_GRAPHEME] = (size_t) 1;
-  lengths_pointer[UTF8LEX_UNIT_LINE] = (size_t) total_lines_read;
+  // Do not change: loc_pointer[UTF8LEX_UNIT_BYTE].start
+  loc_pointer[UTF8LEX_UNIT_BYTE].length = (int) total_bytes_read;
+  loc_pointer[UTF8LEX_UNIT_BYTE].after = (int) -1;  // Never reset.
+  // Do not change: loc_pointer[UTF8LEX_UNIT_CHAR].start
+  loc_pointer[UTF8LEX_UNIT_CHAR].length = (int) total_chars_read;
+  loc_pointer[UTF8LEX_UNIT_CHAR].after = (int) after_char;
+  // Do not change: loc_pointer[UTF8LEX_UNIT_GRAPHEME].start
+  loc_pointer[UTF8LEX_UNIT_GRAPHEME].length = (int) 1;
+  loc_pointer[UTF8LEX_UNIT_GRAPHEME].after = (int) after_grapheme;  // -1 or 0
+  // Do not change: loc_pointer[UTF8LEX_UNIT_LINE].start
+  loc_pointer[UTF8LEX_UNIT_LINE].length = (int) total_lines_read;
+  loc_pointer[UTF8LEX_UNIT_LINE].after = (int) -1;  // Never reset.
   *codepoint_pointer = first_codepoint;
   // We only set the category/ies according to the first codepoint
   // of the grapheme cluster.  The remainder of the characters

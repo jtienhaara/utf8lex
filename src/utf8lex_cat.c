@@ -84,6 +84,38 @@ const utf8lex_cat_t UTF8LEX_CAT_OTHER_PRIVATE = 0x20000000;
 //
 const utf8lex_cat_t UTF8LEX_EXT_SEP_LINE = 0x40000000;
 
+const utf8lex_cat_t UTF8LEX_GROUP_ALL =
+  UTF8LEX_CAT_OTHER_NA
+  | UTF8LEX_CAT_LETTER_UPPER
+  | UTF8LEX_CAT_LETTER_LOWER
+  | UTF8LEX_CAT_LETTER_TITLE
+  | UTF8LEX_CAT_LETTER_MODIFIER
+  | UTF8LEX_CAT_LETTER_OTHER
+  | UTF8LEX_CAT_MARK_NON_SPACING
+  | UTF8LEX_CAT_MARK_SPACING_COMBINING
+  | UTF8LEX_CAT_MARK_ENCLOSING
+  | UTF8LEX_CAT_NUM_DECIMAL
+  | UTF8LEX_CAT_NUM_LETTER
+  | UTF8LEX_CAT_NUM_OTHER
+  | UTF8LEX_CAT_PUNCT_CONNECTOR
+  | UTF8LEX_CAT_PUNCT_DASH
+  | UTF8LEX_CAT_PUNCT_OPEN
+  | UTF8LEX_CAT_PUNCT_CLOSE
+  | UTF8LEX_CAT_PUNCT_QUOTE_OPEN
+  | UTF8LEX_CAT_PUNCT_QUOTE_CLOSE
+  | UTF8LEX_CAT_PUNCT_OTHER
+  | UTF8LEX_CAT_SYM_MATH
+  | UTF8LEX_CAT_SYM_CURRENCY
+  | UTF8LEX_CAT_SYM_MODIFIER
+  | UTF8LEX_CAT_SYM_OTHER
+  | UTF8LEX_CAT_SEP_SPACE
+  | UTF8LEX_CAT_SEP_LINE
+  | UTF8LEX_CAT_SEP_PARAGRAPH
+  | UTF8LEX_CAT_OTHER_CONTROL
+  | UTF8LEX_CAT_OTHER_FORMAT
+  | UTF8LEX_CAT_OTHER_SURROGATE
+  | UTF8LEX_CAT_OTHER_PRIVATE
+  | UTF8LEX_EXT_SEP_LINE;
 const utf8lex_cat_t UTF8LEX_CAT_MAX = 0x80000000;
 
 //
@@ -96,20 +128,28 @@ const utf8lex_cat_t UTF8LEX_GROUP_OTHER =
   | UTF8LEX_CAT_OTHER_FORMAT
   | UTF8LEX_CAT_OTHER_SURROGATE
   | UTF8LEX_CAT_OTHER_PRIVATE;
+const utf8lex_cat_t UTF8LEX_GROUP_NOT_OTHER =
+  UTF8LEX_GROUP_ALL & (~UTF8LEX_GROUP_OTHER);
 const utf8lex_cat_t UTF8LEX_GROUP_LETTER =
   UTF8LEX_CAT_LETTER_UPPER
   | UTF8LEX_CAT_LETTER_LOWER
   | UTF8LEX_CAT_LETTER_TITLE
   | UTF8LEX_CAT_LETTER_MODIFIER
   | UTF8LEX_CAT_LETTER_OTHER;
+const utf8lex_cat_t UTF8LEX_GROUP_NOT_LETTER =
+  UTF8LEX_GROUP_ALL & (~UTF8LEX_GROUP_LETTER);
 const utf8lex_cat_t UTF8LEX_GROUP_MARK =
   UTF8LEX_CAT_MARK_NON_SPACING
   | UTF8LEX_CAT_MARK_SPACING_COMBINING
   | UTF8LEX_CAT_MARK_ENCLOSING;
+const utf8lex_cat_t UTF8LEX_GROUP_NOT_MARK =
+  UTF8LEX_GROUP_ALL & (~UTF8LEX_GROUP_MARK);
 const utf8lex_cat_t UTF8LEX_GROUP_NUM =
   UTF8LEX_CAT_NUM_DECIMAL
   | UTF8LEX_CAT_NUM_LETTER
   | UTF8LEX_CAT_NUM_OTHER;
+const utf8lex_cat_t UTF8LEX_GROUP_NOT_NUM =
+  UTF8LEX_GROUP_ALL & (~UTF8LEX_GROUP_NUM);
 const utf8lex_cat_t UTF8LEX_GROUP_PUNCT =
   UTF8LEX_CAT_PUNCT_CONNECTOR
   | UTF8LEX_CAT_PUNCT_DASH
@@ -118,16 +158,34 @@ const utf8lex_cat_t UTF8LEX_GROUP_PUNCT =
   | UTF8LEX_CAT_PUNCT_QUOTE_OPEN
   | UTF8LEX_CAT_PUNCT_QUOTE_CLOSE
   | UTF8LEX_CAT_PUNCT_OTHER;
+const utf8lex_cat_t UTF8LEX_GROUP_NOT_PUNCT =
+  UTF8LEX_GROUP_ALL & (~UTF8LEX_GROUP_PUNCT);
 const utf8lex_cat_t UTF8LEX_GROUP_SYM =
   UTF8LEX_CAT_SYM_MATH
   | UTF8LEX_CAT_SYM_CURRENCY
   | UTF8LEX_CAT_SYM_MODIFIER
   | UTF8LEX_CAT_SYM_OTHER;
-const utf8lex_cat_t UTF8LEX_GROUP_WHITESPACE =
-  UTF8LEX_CAT_SEP_SPACE
-  | UTF8LEX_CAT_SEP_LINE
+const utf8lex_cat_t UTF8LEX_GROUP_NOT_SYM =
+  UTF8LEX_GROUP_ALL & (~UTF8LEX_GROUP_SYM);
+const utf8lex_cat_t UTF8LEX_GROUP_HSPACE =
+  UTF8LEX_CAT_SEP_SPACE;
+const utf8lex_cat_t UTF8LEX_GROUP_NOT_HSPACE =
+  UTF8LEX_GROUP_ALL & (~UTF8LEX_GROUP_HSPACE);
+const utf8lex_cat_t UTF8LEX_GROUP_VSPACE =
+  UTF8LEX_CAT_SEP_LINE
   | UTF8LEX_CAT_SEP_PARAGRAPH
   | UTF8LEX_EXT_SEP_LINE;
+const utf8lex_cat_t UTF8LEX_GROUP_NOT_VSPACE =
+  UTF8LEX_GROUP_ALL & (~UTF8LEX_GROUP_VSPACE)
+  // Unfortunately we have to remove LF, CR, etc this way:
+  & (~UTF8LEX_CAT_OTHER_CONTROL);
+const utf8lex_cat_t UTF8LEX_GROUP_WHITESPACE =
+  UTF8LEX_GROUP_HSPACE
+  | UTF8LEX_GROUP_VSPACE;
+const utf8lex_cat_t UTF8LEX_GROUP_NOT_WHITESPACE =
+  UTF8LEX_GROUP_ALL & (~UTF8LEX_GROUP_WHITESPACE)
+  // Unfortunately we have to remove LF, CR, etc this way:
+  & (~UTF8LEX_CAT_OTHER_CONTROL);
 
 
 // Formats the specified OR'ed category/ies as a string,
@@ -147,7 +205,8 @@ utf8lex_error_t utf8lex_format_cat(
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
-  // Curently can format up to 386 bytes.
+  // Curently can format up to 404 bytes.
+  // (All 40 possible tokens 284 bytes + 40 * 3 chars (" | ") / 120 bytes.)
 
   char *or = " | ";
   char *first = "";
@@ -243,6 +302,30 @@ utf8lex_error_t utf8lex_format_cat(
                                         "%sWHITESPACE",
                                         maybe_or);
     remaining_cat = remaining_cat & (~ UTF8LEX_GROUP_WHITESPACE);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_GROUP_HSPACE) == UTF8LEX_GROUP_HSPACE)
+  {
+    // 10-13 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sHSPACE",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_GROUP_HSPACE);
+    remaining_num_bytes -= num_bytes_written;
+    total_bytes_written += num_bytes_written;
+    maybe_or = or;
+  }
+  if ((remaining_cat & UTF8LEX_GROUP_VSPACE) == UTF8LEX_GROUP_VSPACE)
+  {
+    // 10-13 bytes.
+    size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
+                                        remaining_num_bytes,
+                                        "%sVSPACE",
+                                        maybe_or);
+    remaining_cat = remaining_cat & (~ UTF8LEX_GROUP_VSPACE);
     remaining_num_bytes -= num_bytes_written;
     total_bytes_written += num_bytes_written;
     maybe_or = or;
@@ -529,7 +612,7 @@ utf8lex_error_t utf8lex_format_cat(
     // 6-9 bytes.
     size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
                                         remaining_num_bytes,
-                                        "%sHSPACE",
+                                        "%sSPACE",
                                         maybe_or);
     remaining_cat = remaining_cat & (~ UTF8LEX_CAT_SEP_SPACE);
     remaining_num_bytes -= num_bytes_written;
@@ -541,7 +624,7 @@ utf8lex_error_t utf8lex_format_cat(
     // 6-9 bytes.
     size_t num_bytes_written = snprintf(str_pointer + total_bytes_written,
                                         remaining_num_bytes,
-                                        "%sVSPACE",
+                                        "%sLINE",
                                         maybe_or);
     remaining_cat = remaining_cat & (~ UTF8LEX_CAT_SEP_LINE);
     remaining_num_bytes -= num_bytes_written;
@@ -695,7 +778,7 @@ utf8lex_error_t utf8lex_parse_cat(
     }
     else if (strncmp("HSPACE", ptr, (size_t) 6) == 0)
     {
-      cat |= UTF8LEX_CAT_SEP_SPACE;
+      cat |= UTF8LEX_GROUP_HSPACE;
       c += (off_t) 6;
     }
     else if (strncmp("LETTER_OTHER", ptr, (size_t) 12) == 0)
@@ -707,6 +790,11 @@ utf8lex_error_t utf8lex_parse_cat(
     {
       cat |= UTF8LEX_GROUP_LETTER;
       c += (off_t) 6;
+    }
+    else if (strncmp("LINE", ptr, (size_t) 4) == 0)
+    {
+      cat |= UTF8LEX_CAT_SEP_LINE;
+      c += (off_t) 4;
     }
     else if (strncmp("LOWER", ptr, (size_t) 5) == 0)
     {
@@ -813,6 +901,11 @@ utf8lex_error_t utf8lex_parse_cat(
       cat |= UTF8LEX_CAT_PUNCT_QUOTE_OPEN;
       c += (off_t) 10;
     }
+    else if (strncmp("SPACE", ptr, (size_t) 5) == 0)
+    {
+      cat |= UTF8LEX_CAT_SEP_SPACE;
+      c += (off_t) 6;
+    }
     else if (strncmp("SURROGATE", ptr, (size_t) 9) == 0)
     {
       cat |= UTF8LEX_CAT_OTHER_SURROGATE;
@@ -845,7 +938,7 @@ utf8lex_error_t utf8lex_parse_cat(
     }
     else if (strncmp("VSPACE", ptr, (size_t) 6) == 0)
     {
-      cat |= UTF8LEX_CAT_SEP_LINE;
+      cat |= UTF8LEX_GROUP_VSPACE;
       c += (off_t) 6;
     }
     else if (strncmp("WHITESPACE", ptr, (size_t) 10) == 0)

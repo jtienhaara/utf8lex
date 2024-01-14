@@ -24,18 +24,26 @@
 
 
 // ---------------------------------------------------------------------
-//                      utf8lex_literal_pattern_t
+//                      utf8lex_literal_definition_t
 // ---------------------------------------------------------------------
 
-utf8lex_error_t utf8lex_literal_pattern_init(
-        utf8lex_literal_pattern_t *self,
+utf8lex_error_t utf8lex_literal_definition_init(
+        utf8lex_literal_definition_t *self,
+        utf8lex_definition_t *prev,  // Previous definition in DB, or NULL.
+        unsigned char *name,  // Usually all uppercase name of definition.
         unsigned char *str
         )
 {
   if (self == NULL
+      || name == NULL
       || str == NULL)
   {
     return UTF8LEX_ERROR_NULL_POINTER;
+  }
+  else if (prev != NULL
+           && prev->next != NULL)
+  {
+    return UTF8LEX_ERROR_CHAIN_INSERT;
   }
 
   size_t num_bytes = strlen(str);
@@ -44,9 +52,11 @@ utf8lex_error_t utf8lex_literal_pattern_init(
     return UTF8LEX_ERROR_EMPTY_LITERAL;
   }
 
-  self->pattern_type = UTF8LEX_PATTERN_TYPE_LITERAL;
+  self->base.definition_type = UTF8LEX_DEFINITION_TYPE_LITERAL;
+  self->base.name = name;
+  self->base.next = NULL;
+  self->base.prev = prev;
   self->str = str;
-  self->length[UTF8LEX_UNIT_BYTE] = (int) num_bytes;
 
   // We know how many bytes the ltieral is.
   // Now we'll now use utf8proc to count how many characters,
@@ -71,31 +81,34 @@ utf8lex_error_t utf8lex_literal_pattern_init(
   {
     state.loc[unit].start = 0;
     state.loc[unit].length = 0;
+    state.loc[unit].after = -1;
   }
 
   off_t offset = (off_t) 0;
-  size_t length[UTF8LEX_UNIT_MAX];
+  utf8lex_location_t literal_loc[UTF8LEX_UNIT_MAX];
   for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
        unit < UTF8LEX_UNIT_MAX;
        unit ++)
   {
-    length[unit] = (size_t) 0;
+    literal_loc[unit].start = (int) 0;
+    literal_loc[unit].length = (int) 0;
+    literal_loc[unit].after = (int) -1;  // No reset.
   }
 
   // Keep reading graphemes until we've reached the end of the literal string:
   for (int ug = 0;
-       length[UTF8LEX_UNIT_BYTE] < self->length[UTF8LEX_UNIT_BYTE];
+       literal_loc[UTF8LEX_UNIT_BYTE].length < (int) num_bytes;
        ug ++)
   {
     // Read in one UTF-8 grapheme cluster per loop iteration:
     off_t grapheme_offset = offset;
-    size_t grapheme_length[UTF8LEX_UNIT_MAX];  // Uninitialized is fine.
+    utf8lex_location_t grapheme_loc[UTF8LEX_UNIT_MAX];  // Unitialized is fine.
     int32_t codepoint = (int32_t) -1;
     utf8lex_cat_t cat = UTF8LEX_CAT_NONE;
     utf8lex_error_t error = utf8lex_read_grapheme(
         &state,  // state, including absolute locations.
         &grapheme_offset,  // start byte, relative to start of buffer string.
-        grapheme_length,  // size_t[] # bytes, chars, etc read.
+        grapheme_loc,  // Char, grapheme newline resets, and grapheme lengths
         &codepoint,  // codepoint
         &cat  //cat
         );
@@ -114,31 +127,51 @@ utf8lex_error_t utf8lex_literal_pattern_init(
          unit < UTF8LEX_UNIT_MAX;
          unit ++)
     {
-      length[unit] += grapheme_length[unit];
+      // Ignore the grapheme's start location.
+      // Add to length (bytes, chars, graphemes, lines):
+      literal_loc[unit].length += grapheme_loc[unit].length;
+      // Possible resets to char, grapheme position due to newlines:
+      literal_loc[unit].after = grapheme_loc[unit].after;
     }
   }
 
   // Check to make sure strlen and utf8proc agree on # bytes.  (They should.)
-  if (length[UTF8LEX_UNIT_BYTE] != self->length[UTF8LEX_UNIT_BYTE])
+  if (literal_loc[UTF8LEX_UNIT_BYTE].length != (int) num_bytes)
   {
     fprintf(stderr,
             "*** strlen and utf8proc disagree: strlen = %d vs utf8proc = %d\n",
-            self->length[UTF8LEX_UNIT_BYTE],
-            length[UTF8LEX_UNIT_BYTE]);
+            (int) num_bytes,
+            literal_loc[UTF8LEX_UNIT_BYTE].length);
   }
 
   for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
        unit < UTF8LEX_UNIT_MAX;
        unit ++)
   {
-    self->length[unit] = (int) length[unit];
+    self->loc[unit].start = literal_loc[unit].start;
+    self->loc[unit].length = literal_loc[unit].length;
+    self->loc[unit].after = literal_loc[unit].after;
+  }
+
+  if (self->base.prev == NULL)
+  {
+    self->base.id = (uint32_t) 0;
+  }
+  else
+  {
+    self->base.id = self->base.prev->id + 1;
+    if (self->base.id >= UTF8LEX_DEFINITIONS_DB_LENGTH_MAX)
+    {
+      return UTF8LEX_ERROR_MAX_LENGTH;
+    }
+    self->base.prev->next = (utf8lex_definition_t *) self;
   }
 
   return UTF8LEX_OK;
 }
 
-utf8lex_error_t utf8lex_literal_pattern_clear(
-        utf8lex_abstract_pattern_t *self  // Must be utf8lex_literal_pattern_t *
+utf8lex_error_t utf8lex_literal_definition_clear(
+        utf8lex_definition_t *self  // Must be utf8lex_literal_definition_t *
         )
 {
   if (self == NULL)
@@ -146,16 +179,29 @@ utf8lex_error_t utf8lex_literal_pattern_clear(
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
-  utf8lex_literal_pattern_t *literal_pattern =
-    (utf8lex_literal_pattern_t *) self;
+  utf8lex_literal_definition_t *literal_definition =
+    (utf8lex_literal_definition_t *) self;
 
-  literal_pattern->pattern_type = NULL;
-  literal_pattern->str = NULL;
+  if (literal_definition->base.next != NULL)
+  {
+    literal_definition->base.next->prev = literal_definition->base.prev;
+  }
+  if (literal_definition->base.prev != NULL)
+  {
+    literal_definition->base.prev->next = literal_definition->base.next;
+  }
+
+  literal_definition->base.definition_type = NULL;
+  literal_definition->base.id = (uint32_t) 0;
+  literal_definition->base.name = NULL;
+  literal_definition->str = NULL;
   for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
        unit < UTF8LEX_UNIT_MAX;
        unit ++)
   {
-    literal_pattern->length[unit] = -1;
+    literal_definition->loc[unit].start = -1;
+    literal_definition->loc[unit].length = -1;
+    literal_definition->loc[unit].after = -2;
   }
 
   return UTF8LEX_OK;
@@ -163,14 +209,15 @@ utf8lex_error_t utf8lex_literal_pattern_clear(
 
 
 static utf8lex_error_t utf8lex_lex_literal(
-        utf8lex_token_type_t *token_type,
+        utf8lex_rule_t *rule,
         utf8lex_state_t *state,
         utf8lex_token_t *token_pointer
         )
 {
-  if (token_type == NULL
-      || token_type->pattern == NULL
-      || token_type->pattern->pattern_type == NULL
+  if (rule == NULL
+      || rule->definition == NULL
+      || rule->definition->definition_type == NULL
+      || rule->definition->name == NULL
       || state == NULL
       || state->buffer == NULL
       || state->buffer->str == NULL
@@ -178,17 +225,18 @@ static utf8lex_error_t utf8lex_lex_literal(
   {
     return UTF8LEX_ERROR_NULL_POINTER;
   }
-  else if (token_type->pattern->pattern_type != UTF8LEX_PATTERN_TYPE_LITERAL)
+  else if (rule->definition->definition_type
+           != UTF8LEX_DEFINITION_TYPE_LITERAL)
   {
-    return UTF8LEX_ERROR_PATTERN_TYPE;
+    return UTF8LEX_ERROR_DEFINITION_TYPE;
   }
 
   off_t offset = (off_t) state->buffer->loc[UTF8LEX_UNIT_BYTE].start;
   size_t remaining_bytes = state->buffer->str->length_bytes - (size_t) offset;
 
-  utf8lex_literal_pattern_t *literal =
-    (utf8lex_literal_pattern_t *) token_type->pattern;
-  size_t token_length_bytes = literal->length[UTF8LEX_UNIT_BYTE];
+  utf8lex_literal_definition_t *literal =
+    (utf8lex_literal_definition_t *) rule->definition;
+  size_t token_length_bytes = literal->loc[UTF8LEX_UNIT_BYTE].length;
 
   for (off_t c = (off_t) 0;
        (size_t) c < remaining_bytes && (size_t) c < token_length_bytes;
@@ -217,19 +265,20 @@ static utf8lex_error_t utf8lex_lex_literal(
   }
 
   // Matched the literal exactly.
-
-  // Update buffer locations and absolute locations:
+  utf8lex_location_t token_loc[UTF8LEX_UNIT_MAX];
   for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
        unit < UTF8LEX_UNIT_MAX;
        unit ++)
   {
-    state->buffer->loc[unit].length = literal->length[unit];
-    state->loc[unit].length = literal->length[unit];
+    token_loc[unit].start = state->loc[unit].start;
+    token_loc[unit].length = literal->loc[unit].length;
+    token_loc[unit].after = literal->loc[unit].after;  // -1 or new location.
   }
 
   utf8lex_error_t error = utf8lex_token_init(
       token_pointer,
-      token_type,
+      rule,
+      token_loc,  // Resets for newlines, and lengths in bytes, chars, etc.
       state);  // For buffer and absolute location.
   if (error != UTF8LEX_OK)
   {
@@ -240,13 +289,13 @@ static utf8lex_error_t utf8lex_lex_literal(
 }
 
 
-// A token pattern that matches a literal string,
+// A token definition that matches a literal string,
 // such as "int" or "==" or "proc" and so on:
-static utf8lex_pattern_type_t UTF8LEX_PATTERN_TYPE_LITERAL_INTERNAL =
+static utf8lex_definition_type_t UTF8LEX_DEFINITION_TYPE_LITERAL_INTERNAL =
   {
     .name = "LITERAL",
     .lex = utf8lex_lex_literal,
-    .clear = utf8lex_literal_pattern_clear
+    .clear = utf8lex_literal_definition_clear
   };
-utf8lex_pattern_type_t *UTF8LEX_PATTERN_TYPE_LITERAL =
-  &UTF8LEX_PATTERN_TYPE_LITERAL_INTERNAL;
+utf8lex_definition_type_t *UTF8LEX_DEFINITION_TYPE_LITERAL =
+  &UTF8LEX_DEFINITION_TYPE_LITERAL_INTERNAL;
