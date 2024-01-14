@@ -93,6 +93,10 @@ utf8lex_error_t utf8lex_cat_definition_clear(
   {
     return UTF8LEX_ERROR_NULL_POINTER;
   }
+  else if (self->definition_type != UTF8LEX_DEFINITION_TYPE_CAT)
+  {
+    return UTF8LEX_ERROR_DEFINITION_TYPE;
+  }
 
   utf8lex_cat_definition_t *cat_definition =
     (utf8lex_cat_definition_t *) self;

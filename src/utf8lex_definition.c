@@ -29,7 +29,7 @@
 // ---------------------------------------------------------------------
 
 // No more than (this many) utf8lex_definition_t's can be in a database.
-const uint32_t UTF8LEX_DEFINITIONS_DB_LENGTH_MAX = 16384;
+const uint32_t UTF8LEX_DEFINITIONS_DB_LENGTH_MAX = 16384;  // Ridiculously high.
 
 utf8lex_error_t utf8lex_definition_find(
         utf8lex_definition_t *first_definition,  // Database to search.

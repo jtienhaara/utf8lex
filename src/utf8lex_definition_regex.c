@@ -104,6 +104,10 @@ utf8lex_error_t utf8lex_regex_definition_clear(
   {
     return UTF8LEX_ERROR_NULL_POINTER;
   }
+  else if (self->definition_type != UTF8LEX_DEFINITION_TYPE_REGEX)
+  {
+    return UTF8LEX_ERROR_DEFINITION_TYPE;
+  }
 
   utf8lex_regex_definition_t *regex_definition =
     (utf8lex_regex_definition_t *) self;

@@ -18,6 +18,7 @@ SOURCE_FILES = \
 	utf8lex_definition.c \
 	utf8lex_definition_cat.c \
 	utf8lex_definition_literal.c \
+	utf8lex_definition_multi.c \
 	utf8lex_definition_regex.c \
 	utf8lex_error.c \
 	utf8lex_file.c \
