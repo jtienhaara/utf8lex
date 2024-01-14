@@ -183,7 +183,7 @@ utf8lex_error_t utf8lex_lex(
 
     if (error == UTF8LEX_NO_MATCH)
     {
-      // Did not match this one token type.  Carry on with the loop.
+      // Did not match this one rule.  Carry on with the loop.
       continue;
     }
     else if (error == UTF8LEX_MORE)
@@ -193,7 +193,7 @@ utf8lex_error_t utf8lex_lex(
     }
     else if (error == UTF8LEX_OK)
     {
-      // Matched the token type.  Break out of the loop.
+      // Matched the rule.  Break out of the loop.
       matched = rule;
       break;
     }
@@ -204,8 +204,8 @@ utf8lex_error_t utf8lex_lex(
     }
   }
 
-  // If we get this far, we've either 1) matched a token type,
-  // or 2) not matched any token type.
+  // If we get this far, we've either 1) matched a rule,
+  // or 2) not matched any rule.
   if (matched == NULL)
   {
     return UTF8LEX_NO_MATCH;

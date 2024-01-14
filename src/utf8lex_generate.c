@@ -243,8 +243,8 @@ static utf8lex_error_t utf8lex_generate_setup(
 
     error = utf8lex_literal_definition_init(&(lex->cat_definitions[num_cats]),
                                             prev_definition,  // prev
-                                            lex->cat_names[num_cats],  // name  // name
-                                            lex->cat_names[num_cats]);
+                                            lex->cat_names[num_cats],  // name
+                                            lex->cat_names[num_cats]);  // str
     if (error != UTF8LEX_OK) { return error; }
     prev_definition = (utf8lex_definition_t *) &(lex->cat_definitions[num_cats]);
     error = utf8lex_rule_init(&(lex->cats[num_cats]),
@@ -306,7 +306,7 @@ static utf8lex_error_t utf8lex_generate_setup(
   if (error != UTF8LEX_OK) { return error; }
   prev_definition = (utf8lex_definition_t *) &(lex->to_eol_definition);
   error = utf8lex_rule_init(&(lex->to_eol),
-                            NULL,  // Do not link to other token types.
+                            NULL,  // Do not link to other rules.
                             "to_eol",  // name
                             (utf8lex_definition_t *)
                             &(lex->to_eol_definition),  // definition
@@ -705,7 +705,7 @@ static utf8lex_error_t utf8lex_generate_parse(
             &(token.str->bytes[token.start_byte]),
             token.length_bytes);
     token_string[token.length_bytes] = 0;
-    printf("!!! YAY definitions got token type id %d '%s' = '%s'\n",
+    printf("!!! YAY definitions lexed rule id %d '%s' = '%s'\n",
            token.rule->id,
            token.rule->name,
            token_string);
@@ -890,7 +890,7 @@ static utf8lex_error_t utf8lex_generate_parse(
             &(token.str->bytes[token.start_byte]),
             token.length_bytes);
     token_string[token.length_bytes] = 0;
-    printf("!!! YAY rules got token type id %d '%s' = '%s'\n",
+    printf("!!! YAY rules got rule id %d '%s' = '%s'\n",
            token.rule->id,
            token.rule->name,
            token_string);

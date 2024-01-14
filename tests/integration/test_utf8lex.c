@@ -43,7 +43,7 @@ static utf8lex_error_t test_utf8lex(
   // regular expression matches the first byte (and only the first byte)
   // of the 3-byte UTF number '⅒' (1/10, 0xe2 0x85 0x92), leaving
   // two useless bytes (0x85 0x92) by themselves to be unmatched
-  // by all token types.  So until I can figure out why pcre2 is behaving
+  // by all rules.  So until I can figure out why pcre2 is behaving
   // this way, and make it stop:
   //
   //     ALL lexical cat definitions MUST appear before ANY regular expression
