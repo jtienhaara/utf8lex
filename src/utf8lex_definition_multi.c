@@ -155,7 +155,9 @@ utf8lex_error_t utf8lex_reference_resolve(
 
     if (ancestor->db == NULL)
     {
-      return UTF8LEX_ERROR_NULL_POINTER;
+      // Only references here, no definitions.
+      ancestor = ancestor->parent;
+      continue;
     }
 
     error = utf8lex_definition_find(
