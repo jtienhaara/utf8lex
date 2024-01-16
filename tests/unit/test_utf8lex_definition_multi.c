@@ -26,6 +26,9 @@ typedef struct _STRUCT_utf8lex_test_db
   utf8lex_definition_t *definitions_db;
   utf8lex_rule_t *rules_db;
 
+  utf8lex_definition_t *last_definition;
+  utf8lex_rule_t *last_rule;
+
   // NUMBER
   utf8lex_cat_definition_t number_definition;
   utf8lex_rule_t number_rule;
@@ -55,7 +58,7 @@ typedef struct _STRUCT_utf8lex_test_db
   utf8lex_rule_t space_rule;
 } utf8lex_test_db_t;
 
-typedef struct _STRUCT_utf8lex_test_multi_operator
+typedef struct _STRUCT_utf8lex_test_operator
 {
   // OPERATOR = EQUALS3 | EQUALS | PLUS | MINUS
   utf8lex_multi_definition_t operator_definition;
@@ -66,7 +69,38 @@ typedef struct _STRUCT_utf8lex_test_multi_operator
   utf8lex_reference_t ref_minus;
 } utf8lex_test_operator_t;
 
+typedef struct _STRUCT_utf8lex_test_declaration
+{
+  // DECLARATION = ID SPACE ID
+  utf8lex_multi_definition_t declaration_definition;
 
+  utf8lex_reference_t ref_id1;
+  utf8lex_reference_t ref_space;
+  utf8lex_reference_t ref_id2;
+} utf8lex_test_declaration_t;
+
+typedef struct _STRUCT_utf8lex_test_operand
+{
+  // OPERAND = NUMBER | ID
+  utf8lex_multi_definition_t operand_definition;
+
+  utf8lex_reference_t ref_number;
+  utf8lex_reference_t ref_id;
+} utf8lex_test_operand_t;
+
+typedef struct _STRUCT_utf8lex_test_expression
+{
+  // EXPRESSION = DECLARATION OPERATOR OPERAND
+  //     = ( ID SPACE ID ) ( EQUALS3 | EQUALS | PLUS | MINUS ) ( NUMBER | ID )
+  utf8lex_multi_definition_t expression_definition;
+
+  utf8lex_test_operator_t declaration;
+  utf8lex_test_operator_t operator;
+  utf8lex_test_operand_t operand;
+} utf8lex_test_expression_t;
+
+
+// NUMBER, ID, EQUALS3, EQUALS, PLUS, MINUS, SPACE:
 static utf8lex_error_t test_utf8lex_create_db(
         utf8lex_test_db_t *db
         )
@@ -224,14 +258,68 @@ static utf8lex_error_t test_utf8lex_create_db(
   prev_rule = &(db->space_rule);
 
   db->definitions_db = (utf8lex_definition_t *) &(db->number_definition);
-  db->rules_db = (utf8lex_rule_t *) &(db->number_rule);
+  db->rules_db = &(db->number_rule);
+
+  db->last_definition = prev_definition;
+  db->last_rule = prev_rule;
 
   return UTF8LEX_OK;
 }
 
 
+static utf8lex_error_t test_utf8lex_find_prev(
+        utf8lex_test_db_t *db,
+        utf8lex_multi_definition_t *parent,
+        utf8lex_definition_t **prev_definition_pointer
+        )
+{
+  if (db == NULL
+      || prev_definition_pointer == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  if (parent == NULL)
+  {
+    // Add to the toplevel definitions db.
+    *prev_definition_pointer = db->last_definition;
+  }
+  else if (parent->db == NULL)
+  {
+    *prev_definition_pointer = NULL;
+  }
+  else
+  {
+    // Add to the parent multi-definition's own db.
+    *prev_definition_pointer = parent->db;
+    bool is_infinite_loop = true;
+    for (int infinite_loop = 0;
+         infinite_loop < UTF8LEX_DEFINITIONS_DB_LENGTH_MAX;
+         infinite_loop ++)
+    {
+      if ((*prev_definition_pointer)->next == NULL)
+      {
+        is_infinite_loop = false;
+        break;
+      }
+
+      *prev_definition_pointer = (*prev_definition_pointer)->next;
+    }
+
+    if (is_infinite_loop == true)
+    {
+      return UTF8LEX_ERROR_INFINITE_LOOP;
+    }
+  }
+
+  return UTF8LEX_OK;
+}
+
+
+// OPERATOR = EQUALS3 | EQUALS | PLUS | MINUS
 static utf8lex_error_t test_utf8lex_create_operator(
         utf8lex_test_db_t *db,
+        utf8lex_multi_definition_t *parent,  // Or NULL for toplevel definition.
         utf8lex_test_operator_t *operator
         )
 {
@@ -241,16 +329,26 @@ static utf8lex_error_t test_utf8lex_create_operator(
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
+  utf8lex_definition_t *prev_definition = NULL;
   utf8lex_error_t error = UTF8LEX_OK;
+
+  error = test_utf8lex_find_prev(db, parent, &prev_definition);
+  if (error != UTF8LEX_OK) { return error; }
 
   printf("  Building multi-definition 'operator':\n");  fflush(stdout);
   error = utf8lex_multi_definition_init(
               &(operator->operator_definition),  // self
-              (utf8lex_definition_t *) &(db->space_definition),  // prev
+              prev_definition,  // prev
               "operator",  // name
-              NULL,  // parent
+              parent,  // parent
               UTF8LEX_MULTI_TYPE_OR);  // multi_type
   if (error != UTF8LEX_OK) { return error; }
+  prev_definition = (utf8lex_definition_t *)
+    &(operator->operator_definition);
+  if (parent == NULL)
+  {
+    db->last_definition = prev_definition;
+  }
 
   printf("    Adding EQUALS3 | EQUALS | PLUS | MINUS:\n");  fflush(stdout);
   utf8lex_reference_t *prev_ref = NULL;
@@ -310,7 +408,165 @@ static utf8lex_error_t test_utf8lex_create_operator(
 }
 
 
-static utf8lex_error_t test_utf8lex_multi_definitions()
+// DECLARATION = ID SPACE ID
+static utf8lex_error_t test_utf8lex_create_declaration(
+        utf8lex_test_db_t *db,
+        utf8lex_multi_definition_t *parent,  // Or NULL for toplevel definition.
+        utf8lex_test_declaration_t *declaration
+        )
+{
+  if (db == NULL
+      || declaration == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  utf8lex_definition_t *prev_definition = NULL;
+  utf8lex_error_t error = UTF8LEX_OK;
+
+  error = test_utf8lex_find_prev(db, parent, &prev_definition);
+  if (error != UTF8LEX_OK) { return error; }
+
+  printf("  Building multi-definition 'declaration':\n");  fflush(stdout);
+  error = utf8lex_multi_definition_init(
+              &(declaration->declaration_definition),  // self
+              prev_definition,  // prev
+              "declaration",  // name
+              NULL,  // parent
+              UTF8LEX_MULTI_TYPE_SEQUENCE);  // multi_type
+  if (error != UTF8LEX_OK) { return error; }
+  prev_definition = (utf8lex_definition_t *)
+    &(declaration->declaration_definition);
+  if (parent == NULL)
+  {
+    db->last_definition = prev_definition;
+  }
+
+  printf("    Adding ID SPACE ID:\n");  fflush(stdout);
+  utf8lex_reference_t *prev_ref = NULL;
+  error = utf8lex_reference_init(
+              &(declaration->ref_id1),  // self
+              prev_ref,  // prev
+              db->id_definition.base.name,  // name
+              1,  // min
+              1,  // max
+              &(declaration->declaration_definition));  // parent
+  if (error != UTF8LEX_OK) { return error; }
+  prev_ref = &(declaration->ref_id1);
+  error = utf8lex_reference_init(
+              &(declaration->ref_space),  // self
+              prev_ref,  // prev
+              db->space_definition.base.name,  // name
+              1,  // min
+              1,  // max
+              &(declaration->declaration_definition));  // parent
+  if (error != UTF8LEX_OK) { return error; }
+  prev_ref = &(declaration->ref_space);
+  error = utf8lex_reference_init(
+              &(declaration->ref_id2),  // self
+              prev_ref,  // prev
+              db->id_definition.base.name,  // name
+              1,  // min
+              1,  // max
+              &(declaration->declaration_definition));  // parent
+  if (error != UTF8LEX_OK) { return error; }
+  prev_ref = &(declaration->ref_id2);
+
+  // Just test resolving one of the references, to detect
+  // any bugs in reference-resolving before resolving
+  // the whole multi-definition:
+  printf("  Resolving reference 'ID':\n");  fflush(stdout);
+  error = utf8lex_reference_resolve(
+              &(declaration->ref_id1),  // self
+              db->definitions_db);  // db
+  if (error != UTF8LEX_OK) { return error; }
+
+  printf("  Resolving multi-definition 'declaration':\n");  fflush(stdout);
+  error = utf8lex_multi_definition_resolve(
+              &(declaration->declaration_definition),  // self
+              db->definitions_db);  // db
+  if (error != UTF8LEX_OK) { return error; }
+
+  return UTF8LEX_OK;
+}
+
+
+// OPERAND = NUMBER | ID
+static utf8lex_error_t test_utf8lex_create_operand(
+        utf8lex_test_db_t *db,
+        utf8lex_multi_definition_t *parent,  // Or NULL for toplevel definition.
+        utf8lex_test_operand_t *operand
+        )
+{
+  if (db == NULL
+      || operand == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  utf8lex_definition_t *prev_definition = NULL;
+  utf8lex_error_t error = UTF8LEX_OK;
+
+  error = test_utf8lex_find_prev(db, parent, &prev_definition);
+  if (error != UTF8LEX_OK) { return error; }
+
+  printf("  Building multi-definition 'operand':\n");  fflush(stdout);
+  error = utf8lex_multi_definition_init(
+              &(operand->operand_definition),  // self
+              prev_definition,  // prev
+              "operand",  // name
+              NULL,  // parent
+              UTF8LEX_MULTI_TYPE_OR);  // multi_type
+  if (error != UTF8LEX_OK) { return error; }
+  prev_definition = (utf8lex_definition_t *)
+    &(operand->operand_definition);
+  if (parent == NULL)
+  {
+    db->last_definition = prev_definition;
+  }
+
+  printf("    Adding NUMBER | ID:\n");  fflush(stdout);
+  utf8lex_reference_t *prev_ref = NULL;
+  error = utf8lex_reference_init(
+              &(operand->ref_number),  // self
+              prev_ref,  // prev
+              db->number_definition.base.name,  // name
+              1,  // min
+              1,  // max
+              &(operand->operand_definition));  // parent
+  if (error != UTF8LEX_OK) { return error; }
+  prev_ref = &(operand->ref_number);
+  error = utf8lex_reference_init(
+              &(operand->ref_id),  // self
+              prev_ref,  // prev
+              db->id_definition.base.name,  // name
+              1,  // min
+              1,  // max
+              &(operand->operand_definition));  // parent
+  if (error != UTF8LEX_OK) { return error; }
+  prev_ref = &(operand->ref_id);
+
+  // Just test resolving one of the references, to detect
+  // any bugs in reference-resolving before resolving
+  // the whole multi-definition:
+  printf("  Resolving reference 'NUMBER':\n");  fflush(stdout);
+  error = utf8lex_reference_resolve(
+              &(operand->ref_number),  // self
+              db->definitions_db);  // db
+  if (error != UTF8LEX_OK) { return error; }
+
+  printf("  Resolving multi-definition 'operand':\n");  fflush(stdout);
+  error = utf8lex_multi_definition_resolve(
+              &(operand->operand_definition),  // self
+              db->definitions_db);  // db
+  if (error != UTF8LEX_OK) { return error; }
+
+  return UTF8LEX_OK;
+}
+
+
+// OPERATOR = EQUALS3 | EQUALS | PLUS | MINUS
+static utf8lex_error_t test_utf8lex_operator()
 {
   utf8lex_error_t error = UTF8LEX_OK;
 
@@ -322,7 +578,10 @@ static utf8lex_error_t test_utf8lex_multi_definitions()
   }
 
   utf8lex_test_operator_t operator;
-  error = test_utf8lex_create_operator(&db, &operator);
+  error = test_utf8lex_create_operator(
+              &db,  // db
+              NULL,  // parent
+              &operator);  // operator
   if (error != UTF8LEX_OK)
   {
     return error;
@@ -337,6 +596,132 @@ static utf8lex_error_t test_utf8lex_multi_definitions()
 }
 
 
+// DECLARATION = ID SPACE ID
+static utf8lex_error_t test_utf8lex_declaration()
+{
+  utf8lex_error_t error = UTF8LEX_OK;
+
+  utf8lex_test_db_t db;
+  error = test_utf8lex_create_db(&db);
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+
+  utf8lex_test_declaration_t declaration;
+  error = test_utf8lex_create_declaration(
+              &db,  // db
+              NULL,  // parent
+              &declaration);  // declaration
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+
+  printf("  Clearing multi-definition 'declaration':\n");  fflush(stdout);
+  error = utf8lex_multi_definition_clear(
+              (utf8lex_definition_t *) &(declaration.declaration_definition));  // self
+  if (error != UTF8LEX_OK) { return error; }
+
+  return UTF8LEX_OK;
+}
+
+
+// OPERAND = NUMBER | ID
+static utf8lex_error_t test_utf8lex_operand()
+{
+  utf8lex_error_t error = UTF8LEX_OK;
+
+  utf8lex_test_db_t db;
+  error = test_utf8lex_create_db(&db);
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+
+  utf8lex_test_operand_t operand;
+  error = test_utf8lex_create_operand(
+              &db,  // db
+              NULL,  // parent
+              &operand);  // operand
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+
+  printf("  Clearing multi-definition 'operand':\n");  fflush(stdout);
+  error = utf8lex_multi_definition_clear(
+              (utf8lex_definition_t *) &(operand.operand_definition));  // self
+  if (error != UTF8LEX_OK) { return error; }
+
+  return UTF8LEX_OK;
+}
+
+
+// EXPRESSION = DECLARATION OPERATOR OPERAND
+//     = ( ID SPACE ID ) ( EQUALS3 | EQUALS | PLUS | MINUS ) ( NUMBER | ID )
+static utf8lex_error_t test_utf8lex_expression()
+{
+  utf8lex_error_t error = UTF8LEX_OK;
+
+  utf8lex_test_db_t db;
+  error = test_utf8lex_create_db(&db);
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+
+  utf8lex_test_expression_t expression;
+
+  printf("  Building multi-definition 'expression':\n");  fflush(stdout);
+  error = utf8lex_multi_definition_init(
+              &(expression.expression_definition),  // self
+              db.last_definition,  // prev
+              "expression",  // name
+              NULL,  // parent
+              UTF8LEX_MULTI_TYPE_SEQUENCE);  // multi_type
+  if (error != UTF8LEX_OK) { return error; }
+  db.last_definition = (utf8lex_definition_t *)
+    &(expression.expression_definition);
+
+  // Nest the child multi-definitions inside expression:
+  // DECLARATION = ID SPACE ID
+  utf8lex_test_declaration_t declaration;
+  error = test_utf8lex_create_declaration(
+              &db,  // db
+              &(expression.expression_definition),  // parent
+              &declaration);  // declaration
+  if (error != UTF8LEX_OK) { return error; }
+  // OPERATOR = EQUALS3 | EQUALS | PLUS | MINUS
+  utf8lex_test_operator_t operator;
+  error = test_utf8lex_create_operator(
+              &db,  // db
+              &(expression.expression_definition),  // parent
+              &operator);  // operator
+  if (error != UTF8LEX_OK) { return error; }
+  // OPERAND = EQUALS3 | EQUALS | PLUS | MINUS
+  utf8lex_test_operand_t operand;
+  error = test_utf8lex_create_operand(
+              &db,  // db
+              &(expression.expression_definition),  // parent
+              &operand);  // operand
+  if (error != UTF8LEX_OK) { return error; }
+
+  printf("  Resolving multi-definition 'expression':\n");  fflush(stdout);
+  error = utf8lex_multi_definition_resolve(
+              &(expression.expression_definition),  // self
+              db.definitions_db);  // db
+  if (error != UTF8LEX_OK) { return error; }
+
+  printf("  Clearing multi-definition 'expression':\n");  fflush(stdout);
+  error = utf8lex_multi_definition_clear(
+              (utf8lex_definition_t *) &(expression.expression_definition));  // self
+  if (error != UTF8LEX_OK) { return error; }
+
+  return UTF8LEX_OK;
+}
+
+
 int main(
         int argc,
         char *argv[]
@@ -344,7 +729,31 @@ int main(
 {
   printf("Testing utf8lex_definition_multi...\n");  fflush(stdout);
 
-  utf8lex_error_t error = test_utf8lex_multi_definitions();
+  // Test a logical "OR" multi-definition:
+  // OPERATOR = EQUALS3 | EQUALS | PLUS | MINUS
+  utf8lex_error_t error = test_utf8lex_operator();
+
+  // Test a sequence multi-definition:
+  // DECLARATION = ID SPACE ID
+  if (error == UTF8LEX_OK)
+  {
+    error = test_utf8lex_declaration();
+  } // else if (error != UTF8LEX_OK) then fall through, below.
+
+  // Test another logical 'OR' multi-definition:
+  // OPERAND = NUMBER | ID
+  if (error == UTF8LEX_OK)
+  {
+    error = test_utf8lex_operand();
+  } // else if (error != UTF8LEX_OK) then fall through, below.
+
+  // Test a sequence of OR'ed sub-multi-definitions:
+  // EXPRESSION = DECLARATION OPERATOR OPERAND
+  //     = ( ID SPACE ID ) ( EQUALS3 | EQUALS | PLUS | MINUS ) ( NUMBER | ID )
+  if (error == UTF8LEX_OK)
+  {
+    error = test_utf8lex_expression();
+  } // else if (error != UTF8LEX_OK) then fall through, below.
 
   if (error == UTF8LEX_OK)
   {
