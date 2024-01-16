@@ -26,6 +26,7 @@ SOURCE_FILES = \
 	utf8lex_lex.c \
 	utf8lex_read.c \
 	utf8lex_rule.c \
+	utf8lex_state.c \
 	utf8lex_string.c \
 	utf8lex_target_language_c.c \
 	utf8lex_token.c

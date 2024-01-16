@@ -97,6 +97,10 @@ typedef struct _STRUCT_utf8lex_test_expression
   utf8lex_test_operator_t declaration;
   utf8lex_test_operator_t operator;
   utf8lex_test_operand_t operand;
+
+  utf8lex_reference_t ref_declaration;
+  utf8lex_reference_t ref_operator;
+  utf8lex_reference_t ref_operand;
 } utf8lex_test_expression_t;
 
 
@@ -432,7 +436,7 @@ static utf8lex_error_t test_utf8lex_create_declaration(
               &(declaration->declaration_definition),  // self
               prev_definition,  // prev
               "declaration",  // name
-              NULL,  // parent
+              parent,  // parent
               UTF8LEX_MULTI_TYPE_SEQUENCE);  // multi_type
   if (error != UTF8LEX_OK) { return error; }
   prev_definition = (utf8lex_definition_t *)
@@ -515,7 +519,7 @@ static utf8lex_error_t test_utf8lex_create_operand(
               &(operand->operand_definition),  // self
               prev_definition,  // prev
               "operand",  // name
-              NULL,  // parent
+              parent,  // parent
               UTF8LEX_MULTI_TYPE_OR);  // multi_type
   if (error != UTF8LEX_OK) { return error; }
   prev_definition = (utf8lex_definition_t *)
@@ -565,6 +569,64 @@ static utf8lex_error_t test_utf8lex_create_operand(
 }
 
 
+static utf8lex_error_t test_utf8lex_init_state(
+        utf8lex_state_t *state,
+        utf8lex_buffer_t *buffer,
+        utf8lex_string_t *str,
+        unsigned char *bytes
+        )
+{
+  utf8lex_error_t error = UTF8LEX_OK;
+
+  size_t length_bytes = strlen(bytes);
+  error = utf8lex_string_init(str,  // self
+                              length_bytes,  // max_length_bytes
+                              length_bytes,  // length_bytes
+                              bytes);
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_buffer_init(buffer,  // self
+                              NULL,  // prev
+                              str,  // str
+                              true);  // is_eof
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_state_init(state,  // self
+                             buffer);  // buffer
+  if (error != UTF8LEX_OK) { return error; }
+
+  return UTF8LEX_OK;
+}
+
+
+static utf8lex_error_t test_utf8lex_clear_state(
+        utf8lex_state_t *state
+        )
+{
+  if (state == NULL
+      || state->buffer == NULL
+      || state->buffer->str == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  utf8lex_error_t error = UTF8LEX_OK;
+
+  utf8lex_buffer_t *buffer = state->buffer;
+  utf8lex_string_t *str = state->buffer->str;
+
+  error = utf8lex_state_clear(state);  // self
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_buffer_clear(buffer);  // self
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_string_clear(str);  // self
+  if (error != UTF8LEX_OK) { return error; }
+
+  return UTF8LEX_OK;
+}
+
 // OPERATOR = EQUALS3 | EQUALS | PLUS | MINUS
 static utf8lex_error_t test_utf8lex_operator()
 {
@@ -587,9 +649,183 @@ static utf8lex_error_t test_utf8lex_operator()
     return error;
   }
 
-  printf("  Clearing multi-definition 'operator':\n");  fflush(stdout);
-  error = utf8lex_multi_definition_clear(
-              (utf8lex_definition_t *) &(operator.operator_definition));  // self
+  // Now we'll try lexing with the 'operator' definition.
+  utf8lex_state_t state;
+  utf8lex_buffer_t buffer;
+  utf8lex_string_t str;
+  unsigned char *to_lex;
+
+  utf8lex_rule_t lex_rule;
+  utf8lex_token_t token;
+
+  printf("  Setting up rule for 'operator' definition:\n");
+  error = utf8lex_rule_init(&lex_rule,  // self
+                            NULL,  // prev
+                            "operator",  // name
+                            (utf8lex_definition_t *)
+                            &(operator.operator_definition),  // definition
+                            "return $$;",  // code
+                            (size_t) -1);  // code_length_bytes
+  if (error != UTF8LEX_OK) { return error; }
+
+  to_lex = "===";  // EQUALS3
+  printf("  Lexing '%s' with 'operator' definition:",
+         to_lex);
+  error == test_utf8lex_init_state(&state,  // state
+                                   &buffer,  // buffer
+                                   &str,  // str
+                                   to_lex);
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_lex(&lex_rule,  // first_rule
+                      &state,  // state
+                      &token);
+  if (error == UTF8LEX_OK) {
+    printf(" OK\n");
+    fflush(stdout);
+  }
+  else if (error == UTF8LEX_NO_MATCH) {
+    printf(" FAILED - no match\n");
+    fflush(stdout);
+    return UTF8LEX_ERROR_STATE;
+  }
+  else
+  {
+    printf(" FAILED\n");
+    fflush(stdout);
+    return error;
+  }
+
+  error = test_utf8lex_clear_state(&state);  // state
+  if (error != UTF8LEX_OK) { return error; }
+
+  to_lex = "=";  // EQUALS
+  printf("  Lexing '%s' with 'operator' definition:",
+         to_lex);
+  error == test_utf8lex_init_state(&state,  // state
+                                   &buffer,  // buffer
+                                   &str,  // str
+                                   to_lex);
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_lex(&lex_rule,  // first_rule
+                      &state,  // state
+                      &token);
+  if (error == UTF8LEX_OK) {
+    printf(" OK\n");
+    fflush(stdout);
+  }
+  else if (error == UTF8LEX_NO_MATCH) {
+    printf(" FAILED - no match\n");
+    fflush(stdout);
+    return UTF8LEX_ERROR_STATE;
+  }
+  else
+  {
+    printf(" FAILED\n");
+    fflush(stdout);
+    return error;
+  }
+
+  error = test_utf8lex_clear_state(&state);  // state
+  if (error != UTF8LEX_OK) { return error; }
+
+  to_lex = "+";  // PLUS
+  printf("  Lexing '%s' with 'operator' definition:",
+         to_lex);
+  error == test_utf8lex_init_state(&state,  // state
+                                   &buffer,  // buffer
+                                   &str,  // str
+                                   to_lex);
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_lex(&lex_rule,  // first_rule
+                      &state,  // state
+                      &token);
+  if (error == UTF8LEX_OK) {
+    printf(" OK\n");
+    fflush(stdout);
+  }
+  else if (error == UTF8LEX_NO_MATCH) {
+    printf(" FAILED - no match\n");
+    fflush(stdout);
+    return UTF8LEX_ERROR_STATE;
+  }
+  else
+  {
+    printf(" FAILED\n");
+    fflush(stdout);
+    return error;
+  }
+
+  error = test_utf8lex_clear_state(&state);  // state
+  if (error != UTF8LEX_OK) { return error; }
+
+  to_lex = "-";  // MINUS
+  printf("  Lexing '%s' with 'operator' definition:",
+         to_lex);
+  error == test_utf8lex_init_state(&state,  // state
+                                   &buffer,  // buffer
+                                   &str,  // str
+                                   to_lex);
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_lex(&lex_rule,  // first_rule
+                      &state,  // state
+                      &token);
+  if (error == UTF8LEX_OK) {
+    printf(" OK\n");
+    fflush(stdout);
+  }
+  else if (error == UTF8LEX_NO_MATCH) {
+    printf(" FAILED - no match\n");
+    fflush(stdout);
+    return UTF8LEX_ERROR_STATE;
+  }
+  else
+  {
+    printf(" FAILED\n");
+    fflush(stdout);
+    return error;
+  }
+
+  error = test_utf8lex_clear_state(&state);  // state
+  if (error != UTF8LEX_OK) { return error; }
+
+  to_lex = "foobar";  // no match.
+  printf("  Lexing '%s' with 'operator' definition:",
+         to_lex);
+  error == test_utf8lex_init_state(&state,  // state
+                                   &buffer,  // buffer
+                                   &str,  // str
+                                   to_lex);
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_lex(&lex_rule,  // first_rule
+                      &state,  // state
+                      &token);
+  if (error == UTF8LEX_OK) {
+    printf(" FAILED - should not match but did\n");
+    fflush(stdout);
+    return UTF8LEX_ERROR_STATE;
+  }
+  else if (error == UTF8LEX_NO_MATCH) {
+    printf(" OK - unmatched as expected\n");
+    fflush(stdout);
+  }
+  else
+  {
+    printf(" FAILED\n");
+    fflush(stdout);
+    return error;
+  }
+
+  error = test_utf8lex_clear_state(&state);  // state
+  if (error != UTF8LEX_OK) { return error; }
+
+
+  printf("  Tearing down 'operator' rule and definition:\n");
+  error = utf8lex_rule_clear(&lex_rule);
   if (error != UTF8LEX_OK) { return error; }
 
   return UTF8LEX_OK;
@@ -618,9 +854,90 @@ static utf8lex_error_t test_utf8lex_declaration()
     return error;
   }
 
-  printf("  Clearing multi-definition 'declaration':\n");  fflush(stdout);
-  error = utf8lex_multi_definition_clear(
-              (utf8lex_definition_t *) &(declaration.declaration_definition));  // self
+  // Now we'll try lexing with the 'declaration' definition.
+  utf8lex_state_t state;
+  utf8lex_buffer_t buffer;
+  utf8lex_string_t str;
+  unsigned char *to_lex;
+
+  utf8lex_rule_t lex_rule;
+  utf8lex_token_t token;
+
+  printf("  Setting up rule for 'declaration' definition:\n");
+  error = utf8lex_rule_init(&lex_rule,  // self
+                            NULL,  // prev
+                            "declaration",  // name
+                            (utf8lex_definition_t *)
+                            &(declaration.declaration_definition), // definition
+                            "return $$;",  // code
+                            (size_t) -1);  // code_length_bytes
+  if (error != UTF8LEX_OK) { return error; }
+
+  to_lex = "int   count";  // ID SPACE ID
+  printf("  Lexing '%s' with 'declaration' definition:",
+         to_lex);
+  error == test_utf8lex_init_state(&state,  // state
+                                   &buffer,  // buffer
+                                   &str,  // str
+                                   to_lex);
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_lex(&lex_rule,  // first_rule
+                      &state,  // state
+                      &token);
+  if (error == UTF8LEX_OK) {
+    printf(" OK\n");
+    fflush(stdout);
+  }
+  else if (error == UTF8LEX_NO_MATCH) {
+    printf(" FAILED - no match\n");
+    fflush(stdout);
+    return UTF8LEX_ERROR_STATE;
+  }
+  else
+  {
+    printf(" FAILED\n");
+    fflush(stdout);
+    return error;
+  }
+
+  error = test_utf8lex_clear_state(&state);  // state
+  if (error != UTF8LEX_OK) { return error; }
+
+  to_lex = "foobar";  // no match.
+  printf("  Lexing '%s' with 'declaration' definition:",
+         to_lex);
+  error == test_utf8lex_init_state(&state,  // state
+                                   &buffer,  // buffer
+                                   &str,  // str
+                                   to_lex);
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_lex(&lex_rule,  // first_rule
+                      &state,  // state
+                      &token);
+  if (error == UTF8LEX_OK) {
+    printf(" FAILED - should not match but did\n");
+    fflush(stdout);
+    return UTF8LEX_ERROR_STATE;
+  }
+  else if (error == UTF8LEX_NO_MATCH) {
+    printf(" OK - unmatched as expected\n");
+    fflush(stdout);
+  }
+  else
+  {
+    printf(" FAILED\n");
+    fflush(stdout);
+    return error;
+  }
+
+  error = test_utf8lex_clear_state(&state);  // state
+  if (error != UTF8LEX_OK) { return error; }
+
+
+  printf("  Tearing down 'declaration' rule and definition:\n");
+  error = utf8lex_rule_clear(&lex_rule);
   if (error != UTF8LEX_OK) { return error; }
 
   return UTF8LEX_OK;
@@ -649,9 +966,121 @@ static utf8lex_error_t test_utf8lex_operand()
     return error;
   }
 
-  printf("  Clearing multi-definition 'operand':\n");  fflush(stdout);
-  error = utf8lex_multi_definition_clear(
-              (utf8lex_definition_t *) &(operand.operand_definition));  // self
+  // Now we'll try lexing with the 'operand' definition.
+  utf8lex_state_t state;
+  utf8lex_buffer_t buffer;
+  utf8lex_string_t str;
+  unsigned char *to_lex;
+
+  utf8lex_rule_t lex_rule;
+  utf8lex_token_t token;
+
+  printf("  Setting up rule for 'operand' definition:\n");
+  error = utf8lex_rule_init(&lex_rule,  // self
+                            NULL,  // prev
+                            "operand",  // name
+                            (utf8lex_definition_t *)
+                            &(operand.operand_definition),  // definition
+                            "return $$;",  // code
+                            (size_t) -1);  // code_length_bytes
+  if (error != UTF8LEX_OK) { return error; }
+
+  to_lex = "1132";  // NUMBER
+  printf("  Lexing '%s' with 'operand' definition:",
+         to_lex);
+  error == test_utf8lex_init_state(&state,  // state
+                                   &buffer,  // buffer
+                                   &str,  // str
+                                   to_lex);
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_lex(&lex_rule,  // first_rule
+                      &state,  // state
+                      &token);
+  if (error == UTF8LEX_OK) {
+    printf(" OK\n");
+    fflush(stdout);
+  }
+  else if (error == UTF8LEX_NO_MATCH) {
+    printf(" FAILED - no match\n");
+    fflush(stdout);
+    return UTF8LEX_ERROR_STATE;
+  }
+  else
+  {
+    printf(" FAILED\n");
+    fflush(stdout);
+    return error;
+  }
+
+  error = test_utf8lex_clear_state(&state);  // state
+  if (error != UTF8LEX_OK) { return error; }
+
+  to_lex = "xyz";  // ID
+  printf("  Lexing '%s' with 'operand' definition:",
+         to_lex);
+  error == test_utf8lex_init_state(&state,  // state
+                                   &buffer,  // buffer
+                                   &str,  // str
+                                   to_lex);
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_lex(&lex_rule,  // first_rule
+                      &state,  // state
+                      &token);
+  if (error == UTF8LEX_OK) {
+    printf(" OK\n");
+    fflush(stdout);
+  }
+  else if (error == UTF8LEX_NO_MATCH) {
+    printf(" FAILED - no match\n");
+    fflush(stdout);
+    return UTF8LEX_ERROR_STATE;
+  }
+  else
+  {
+    printf(" FAILED\n");
+    fflush(stdout);
+    return error;
+  }
+
+  error = test_utf8lex_clear_state(&state);  // state
+  if (error != UTF8LEX_OK) { return error; }
+
+  to_lex = "+";  // no match.
+  printf("  Lexing '%s' with 'operand' definition:",
+         to_lex);
+  error == test_utf8lex_init_state(&state,  // state
+                                   &buffer,  // buffer
+                                   &str,  // str
+                                   to_lex);
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_lex(&lex_rule,  // first_rule
+                      &state,  // state
+                      &token);
+  if (error == UTF8LEX_OK) {
+    printf(" FAILED - should not match but did\n");
+    fflush(stdout);
+    return UTF8LEX_ERROR_STATE;
+  }
+  else if (error == UTF8LEX_NO_MATCH) {
+    printf(" OK - unmatched as expected\n");
+    fflush(stdout);
+  }
+  else
+  {
+    printf(" FAILED\n");
+    fflush(stdout);
+    return error;
+  }
+
+  error = test_utf8lex_clear_state(&state);  // state
+  if (error != UTF8LEX_OK) { return error; }
+
+
+  printf("  Tearing down 'operand' rule and definition:\n");
+  error = utf8lex_rule_clear(&lex_rule);
   if (error != UTF8LEX_OK) { return error; }
 
   return UTF8LEX_OK;
@@ -707,15 +1136,160 @@ static utf8lex_error_t test_utf8lex_expression()
               &operand);  // operand
   if (error != UTF8LEX_OK) { return error; }
 
+  // Now refer to the child multi-definitions (DECLARATION, OPERATOR, OPERAND):
+  utf8lex_reference_t *prev_ref = NULL;
+  printf("    Referring to DECLARATION:\n");  fflush(stdout);
+  error = utf8lex_reference_init(
+              &(expression.ref_declaration),  // self
+              prev_ref,  // prev
+              declaration.declaration_definition.base.name,  // name
+              1,  // min
+              1,  // max
+              &(expression.expression_definition));  // parent
+  if (error != UTF8LEX_OK) { return error; }
+  prev_ref = &(expression.ref_declaration);
+  printf("    Referring to OPERATOR:\n");  fflush(stdout);
+  error = utf8lex_reference_init(
+              &(expression.ref_operator),  // self
+              prev_ref,  // prev
+              operator.operator_definition.base.name,  // name
+              1,  // min
+              1,  // max
+              &(expression.expression_definition));  // parent
+  if (error != UTF8LEX_OK) { return error; }
+  prev_ref = &(expression.ref_operator);
+  printf("    Referring to OPERAND:\n");  fflush(stdout);
+  error = utf8lex_reference_init(
+              &(expression.ref_operand),  // self
+              prev_ref,  // prev
+              operand.operand_definition.base.name,  // name
+              1,  // min
+              1,  // max
+              &(expression.expression_definition));  // parent
+  if (error != UTF8LEX_OK) { return error; }
+  prev_ref = &(expression.ref_operand);
+
   printf("  Resolving multi-definition 'expression':\n");  fflush(stdout);
   error = utf8lex_multi_definition_resolve(
               &(expression.expression_definition),  // self
               db.definitions_db);  // db
   if (error != UTF8LEX_OK) { return error; }
 
-  printf("  Clearing multi-definition 'expression':\n");  fflush(stdout);
-  error = utf8lex_multi_definition_clear(
-              (utf8lex_definition_t *) &(expression.expression_definition));  // self
+  // Now we'll try lexing with the 'expression' definition.
+  utf8lex_state_t state;
+  utf8lex_buffer_t buffer;
+  utf8lex_string_t str;
+  unsigned char *to_lex;
+
+  utf8lex_rule_t lex_rule;
+  utf8lex_token_t token;
+
+  printf("  Setting up rule for 'expression' definition:\n");
+  error = utf8lex_rule_init(&lex_rule,  // self
+                            NULL,  // prev
+                            "expression",  // name
+                            (utf8lex_definition_t *)
+                            &(expression.expression_definition),  // definition
+                            "return $$;",  // code
+                            (size_t) -1);  // code_length_bytes
+  if (error != UTF8LEX_OK) { return error; }
+
+  to_lex = "string     first_name===42";  // DECLARATION OPERATOR OPERAND
+  printf("  Lexing '%s' with 'expression' definition:",
+         to_lex);
+  error == test_utf8lex_init_state(&state,  // state
+                                   &buffer,  // buffer
+                                   &str,  // str
+                                   to_lex);
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_lex(&lex_rule,  // first_rule
+                      &state,  // state
+                      &token);
+  if (error == UTF8LEX_OK) {
+    printf(" OK\n");
+    fflush(stdout);
+  }
+  else if (error == UTF8LEX_NO_MATCH) {
+    printf(" FAILED - no match\n");
+    fflush(stdout);
+    return UTF8LEX_ERROR_STATE;
+  }
+  else
+  {
+    printf(" FAILED\n");
+    fflush(stdout);
+    return error;
+  }
+
+  error = test_utf8lex_clear_state(&state);  // state
+  if (error != UTF8LEX_OK) { return error; }
+
+  to_lex = "int counter+999";  // DECLARATION OPERATOR OPERAND
+  printf("  Lexing '%s' with 'expression' definition:",
+         to_lex);
+  error == test_utf8lex_init_state(&state,  // state
+                                   &buffer,  // buffer
+                                   &str,  // str
+                                   to_lex);
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_lex(&lex_rule,  // first_rule
+                      &state,  // state
+                      &token);
+  if (error == UTF8LEX_OK) {
+    printf(" OK\n");
+    fflush(stdout);
+  }
+  else if (error == UTF8LEX_NO_MATCH) {
+    printf(" FAILED - no match\n");
+    fflush(stdout);
+    return UTF8LEX_ERROR_STATE;
+  }
+  else
+  {
+    printf(" FAILED\n");
+    fflush(stdout);
+    return error;
+  }
+
+  error = test_utf8lex_clear_state(&state);  // state
+  if (error != UTF8LEX_OK) { return error; }
+
+  to_lex = "foobar +";  // no match.
+  printf("  Lexing '%s' with 'expression' definition:",
+         to_lex);
+  error == test_utf8lex_init_state(&state,  // state
+                                   &buffer,  // buffer
+                                   &str,  // str
+                                   to_lex);
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_lex(&lex_rule,  // first_rule
+                      &state,  // state
+                      &token);
+  if (error == UTF8LEX_OK) {
+    printf(" FAILED - should not match but did\n");
+    fflush(stdout);
+    return UTF8LEX_ERROR_STATE;
+  }
+  else if (error == UTF8LEX_NO_MATCH) {
+    printf(" OK - unmatched as expected\n");
+    fflush(stdout);
+  }
+  else
+  {
+    printf(" FAILED\n");
+    fflush(stdout);
+    return error;
+  }
+
+  error = test_utf8lex_clear_state(&state);  // state
+  if (error != UTF8LEX_OK) { return error; }
+
+
+  printf("  Tearing down 'expression' rule and definition:\n");
+  error = utf8lex_rule_clear(&lex_rule);
   if (error != UTF8LEX_OK) { return error; }
 
   return UTF8LEX_OK;

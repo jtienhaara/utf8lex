@@ -384,8 +384,7 @@ utf8lex_error_t utf8lex_multi_definition_resolve(
   {
     return UTF8LEX_ERROR_NULL_POINTER;
   }
-  else if (self->references == NULL
-           && self->db == NULL)
+  else if (self->references == NULL)
   {
     return UTF8LEX_ERROR_EMPTY_DEFINITION;
   }
@@ -485,19 +484,36 @@ static utf8lex_error_t utf8lex_lex_multi(
   utf8lex_multi_definition_t *multi =
     (utf8lex_multi_definition_t *) rule->definition;
 
+  if (multi->references == NULL)
+  {
+    return UTF8LEX_ERROR_EMPTY_DEFINITION;
+  }
+
   // We need to push our own state, and pop on either success or error,
   // so that we do not update the state's location until
   // the entire multi-definition has been completely matched.
   utf8lex_state_t multi_state;
-  utf8lex_error_t error = utf8lex_state_init(
-                                             &multi_state,  // self
-                                             state->buffer);  // buffer
+  utf8lex_buffer_t multi_buffer;
+  utf8lex_error_t error = utf8lex_buffer_init(&multi_buffer,  // self
+                                              NULL,  // prev
+                                              state->buffer->str,  // str
+                                              state->buffer->is_eof);  // is_eof
+  error = utf8lex_state_init(&multi_state,  // self
+                             &multi_buffer);  // buffer
 
   utf8lex_location_t sequence_loc[UTF8LEX_UNIT_MAX];
   for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
        unit < UTF8LEX_UNIT_MAX;
        unit ++)
   {
+    multi_state.loc[unit].start = state->loc[unit].start;
+    multi_state.loc[unit].length = 0;
+    multi_state.loc[unit].after = -1;
+
+    multi_buffer.loc[unit].start = state->buffer->loc[unit].start;
+    multi_buffer.loc[unit].length = 0;
+    multi_buffer.loc[unit].after = -1;
+
     sequence_loc[unit].start = state->loc[unit].start;
     sequence_loc[unit].length = (int) 0;
     sequence_loc[unit].after = (int) -1;  // No reset after token.
@@ -546,7 +562,7 @@ static utf8lex_error_t utf8lex_lex_multi(
           &child_rule,
           &multi_state,
           &child_token);
-      if (error == UTF8LEX_ERROR_NOT_FOUND)
+      if (error == UTF8LEX_NO_MATCH)
       {
         break;
       }
@@ -559,18 +575,38 @@ static utf8lex_error_t utf8lex_lex_multi(
            unit < UTF8LEX_UNIT_MAX;
            unit ++)
       {
+        multi_buffer.loc[unit].start += child_token.loc[unit].length;
+        multi_buffer.loc[unit].length = 0;
+        multi_buffer.loc[unit].after = child_token.loc[unit].after;
+
+        multi_state.loc[unit].start += child_token.loc[unit].length;
+        multi_state.loc[unit].length = 0;
+        multi_state.loc[unit].after = child_token.loc[unit].after;
+
         sequence_loc[unit].length += child_token.loc[unit].length;
         sequence_loc[unit].after = child_token.loc[unit].after;
       }
     }
 
-    if (m < reference->min)
-    {
-      return UTF8LEX_ERROR_NOT_FOUND;
-    }
-    else if (m == UTF8LEX_REFERENCES_LENGTH_MAX)
+    if (m == UTF8LEX_REFERENCES_LENGTH_MAX)
     {
       return UTF8LEX_ERROR_INFINITE_LOOP;
+    }
+    else if (m < reference->min
+             && multi->multi_type == UTF8LEX_MULTI_TYPE_OR)
+    {
+      // Carry on searching for a definition that matches the incoming text.
+      if (reference->next == NULL)
+      {
+        return UTF8LEX_NO_MATCH;
+      }
+
+      reference = reference->next;
+      continue;
+    }
+    else if (m < reference->min)
+    {
+      return UTF8LEX_NO_MATCH;
     }
     else if (multi->multi_type == UTF8LEX_MULTI_TYPE_OR)
     {
