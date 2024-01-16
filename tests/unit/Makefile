@@ -15,6 +15,7 @@ TEST_BUILD_DIR = ../build
 SOURCE_FILES = \
 	test_utf8lex_cat.c \
 	test_utf8lex_definition.c \
+	test_utf8lex_definition_multi.c \
 	test_utf8lex_rule.c \
 	test_utf8lex_string.c
 

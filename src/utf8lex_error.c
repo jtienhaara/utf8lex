@@ -108,9 +108,9 @@ utf8lex_error_t utf8lex_error_string(
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
                                  "UTF8LEX_ERROR_DEFINITION_TYPE");
     break;
-  case UTF8LEX_ERROR_EMPTY_LITERAL:
+  case UTF8LEX_ERROR_EMPTY_DEFINITION:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
-                                 "UTF8LEX_ERROR_EMPTY_LITERAL");
+                                 "UTF8LEX_ERROR_EMPTY_DEFINITION");
     break;
   case UTF8LEX_ERROR_MAX_LENGTH:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
@@ -127,6 +127,10 @@ utf8lex_error_t utf8lex_error_string(
   case UTF8LEX_ERROR_UNIT:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
                                  "UTF8LEX_ERROR_UNIT");
+    break;
+  case UTF8LEX_ERROR_UNRESOLVED_DEFINITION:
+    num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
+                                 "UTF8LEX_ERROR_UNRESOLVED_DEFINITION");
     break;
   case UTF8LEX_ERROR_INFINITE_LOOP:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
@@ -155,6 +159,10 @@ utf8lex_error_t utf8lex_error_string(
   case UTF8LEX_ERROR_BAD_MAX:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
                                  "UTF8LEX_ERROR_BAD_MAX");
+    break;
+  case UTF8LEX_ERROR_BAD_MULTI_TYPE:
+    num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
+                                 "UTF8LEX_ERROR_BAD_MULTI_TYPE");
     break;
   case UTF8LEX_ERROR_BAD_REGEX:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,

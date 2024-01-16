@@ -32,10 +32,13 @@ typedef struct _STRUCT_utf8lex_buffer           utf8lex_buffer_t;
 typedef uint32_t                                utf8lex_cat_t;
 typedef struct _STRUCT_utf8lex_cat_definition   utf8lex_cat_definition_t;
 typedef struct _STRUCT_utf8lex_definition       utf8lex_definition_t;
+typedef struct _STRUCT_utf8lex_definition_type  utf8lex_definition_type_t;
 typedef enum _ENUM_utf8lex_error                utf8lex_error_t;
 typedef struct _STRUCT_utf8lex_literal_definition utf8lex_literal_definition_t;
 typedef struct _STRUCT_utf8lex_location         utf8lex_location_t;
-typedef struct _STRUCT_utf8lex_definition_type  utf8lex_definition_type_t;
+typedef struct _STRUCT_utf8lex_multi_definition utf8lex_multi_definition_t;
+typedef enum _ENUM_utf8lex_multi_type           utf8lex_multi_type_t;
+typedef struct _STRUCT_utf8lex_reference        utf8lex_reference_t;
 typedef struct _STRUCT_utf8lex_regex_definition utf8lex_regex_definition_t;
 typedef struct _STRUCT_utf8lex_rule             utf8lex_rule_t;
 typedef struct _STRUCT_ut8lex_state             utf8lex_state_t;
@@ -85,11 +88,12 @@ enum _ENUM_utf8lex_error
   UTF8LEX_ERROR_CHAIN_INSERT,  // Can't insert links into the chain, only append
   UTF8LEX_ERROR_CAT,  // Invalid cat (category id) NONE < cat < MAX / not found.
   UTF8LEX_ERROR_DEFINITION_TYPE,  // definition_type mismatch (eg cat / regex).
-  UTF8LEX_ERROR_EMPTY_LITERAL,  // Literals cannot be "".
+  UTF8LEX_ERROR_EMPTY_DEFINITION,  // Literals cannot be "", multis cannot be []
   UTF8LEX_ERROR_MAX_LENGTH,  // Too many (rules, definitions, ...) in database.
   UTF8LEX_ERROR_NOT_FOUND,  // ..._find() did not match any objects.
   UTF8LEX_ERROR_REGEX,  // Matching against a regular expression failed.
   UTF8LEX_ERROR_UNIT,  // Invalid unit must be NONE < unit < MAX.
+  UTF8LEX_ERROR_UNRESOLVED_DEFINITION,  // Multi definitions must be resove()d.
   UTF8LEX_ERROR_INFINITE_LOOP,  // Aborted, possible infinite loop detected.
 
   UTF8LEX_ERROR_BAD_LENGTH,  // Negative length, < start, too close to end.
@@ -98,6 +102,7 @@ enum _ENUM_utf8lex_error
   UTF8LEX_ERROR_BAD_AFTER,  // After is neither reset (-1) nor valid new start.
   UTF8LEX_ERROR_BAD_MIN,  // Min must be 1 or greater.
   UTF8LEX_ERROR_BAD_MAX,  // Max must be >= min, or -1 for no limit.
+  UTF8LEX_ERROR_BAD_MULTI_TYPE,  // Multi type must be sequence, OR, etc.
   UTF8LEX_ERROR_BAD_REGEX,  // Could not compile regex definition.
   UTF8LEX_ERROR_BAD_UTF8,  // Could not process the UTF-8 text.
   UTF8LEX_ERROR_BAD_ERROR,  // Invalid error NONE <= e <= MAX.
@@ -343,19 +348,6 @@ struct _STRUCT_utf8lex_definition_type
           );
 };
 
-// A token definition that matches a sequence of N characters
-// of a specific utf8lex_cat_t categpru, such as UTF8LEX_GROUP_WHITESPACE:
-extern utf8lex_definition_type_t *UTF8LEX_DEFINITION_TYPE_CAT;
-
-// A token definition that matches a literal string,
-// such as "int" or "==" or "proc" and so on:
-extern utf8lex_definition_type_t *UTF8LEX_DEFINITION_TYPE_LITERAL;
-
-// A token definition that matches a regular expression,
-// such as "^[0-9]+" or "[\\p{N}]+" or "[_\\p{L}][_\\p{L}\\p{N}]*" or "[\\s]+"
-// and so on:
-extern utf8lex_definition_type_t *UTF8LEX_DEFINITION_TYPE_REGEX;
-
 // No more than (this many) utf8lex_definition_t's can be in a database.
 extern const uint32_t UTF8LEX_DEFINITIONS_DB_LENGTH_MAX;
 
@@ -388,6 +380,10 @@ extern utf8lex_error_t utf8lex_definition_find_by_id(
         );
 
 
+// A token definition that matches a sequence of N characters
+// of a specific utf8lex_cat_t categpru, such as UTF8LEX_GROUP_WHITESPACE:
+extern utf8lex_definition_type_t *UTF8LEX_DEFINITION_TYPE_CAT;
+
 #define UTF8LEX_CAT_FORMAT_MAX_LENGTH 512
 
 struct _STRUCT_utf8lex_cat_definition
@@ -413,6 +409,11 @@ extern utf8lex_error_t utf8lex_cat_definition_clear(
         utf8lex_definition_t *self
         );
 
+
+// A token definition that matches a literal string,
+// such as "int" or "==" or "proc" and so on:
+extern utf8lex_definition_type_t *UTF8LEX_DEFINITION_TYPE_LITERAL;
+
 struct _STRUCT_utf8lex_literal_definition
 {
   utf8lex_definition_t base;
@@ -435,6 +436,137 @@ extern utf8lex_error_t utf8lex_literal_definition_clear(
         // self must be utf8lex_literal_definition_t *:
         utf8lex_definition_t *self
         );
+
+
+// A token definition that matches one or more other definitions,
+// in sequence and/or logically grouped.
+//
+// For example, the following:
+//
+//     LETTER | UNDERSCORE (LETTER | UNDERSCORE | NUMBER)*
+//
+// might represent a definition comprising the following sequence:
+//
+//     1. Either a token matching the LETTER definition,
+//        or a token matching the UNDERSCORE definition; followed by
+//     2. 0 or more, in sequence, of:
+//        Either a token matching the LETTER definition,
+//        or a token matching the UNDERSCORE definition,
+//        or a token matching the NUMBER definition.
+//
+// So if the LETTER definition covers a single ASCii character in 'a' - 'z'
+// or 'A' - 'Z', and UNDERSCORE matches exactly "_", and NUMBER
+// matches a single ASCii character in '0' - '9', then the above
+// multi definition would be equivalent to:
+//
+//     ^[a-zA-Z_][a-zA-Z_0-9]*$
+//
+// The multi-definition expression is comprised of:
+//
+//     - Names of other definitions, D1, D2, and so on;
+//     - (): Parenthetical expressions, "(x1)";
+//     - *: 0 or more of a given expression, "x1*";
+//     - +: 1 or more of a given expression, "x1+";
+//     - |: Logically ORed expressions, "x1 | x2" (either x1 or x2, not both);
+//     - Sequences of expressions, "x1 x2".
+//
+// Order of operations is above, so:
+//
+//     D1 D2 | D3    == D1 followed by (D2 or D3)
+//     D1 D2* | D3+  == D1 followed by ((or or more D2) or (1 or more D3))
+//     D1 (D2 | D3)* == D1 followed by (0 or more D2s and/or D3s)
+//
+extern utf8lex_definition_type_t *UTF8LEX_DEFINITION_TYPE_MULTI;
+
+// No more than (this many) utf8lex_multi_definition_t's can be
+// nested using |, (), and so on.
+extern const uint32_t UTF8LEX_MULTI_DEFINITION_DEPTH_MAX;
+
+// No more than (this many) utf8lex_reference_t's can be in
+// a multi-definition's references.
+extern const uint32_t UTF8LEX_REFERENCES_LENGTH_MAX;
+
+struct _STRUCT_utf8lex_reference
+{
+  // References are NOT thread-safe, because they can be resolved
+  // at any time, without locking.  Do NOT share a reference across
+  // multiple threads until it has been resolved.
+
+  unsigned char *definition_name;
+  utf8lex_definition_t *definition_or_null;  // NULL until resolved.
+
+  int min;  // Minimum number of tokens matching this definition.
+  int max;  // Maximum tokens matching, or -1 for no limit.
+
+  utf8lex_reference_t *next;  // Next in a sequence or logical OR of references.
+  utf8lex_reference_t *prev;  // Previous in a sequence or logical OR etc.
+
+  utf8lex_multi_definition_t *parent;  // Parent multi-definition, or NULL.
+};
+
+extern utf8lex_error_t utf8lex_reference_init(
+        utf8lex_reference_t *self,
+        utf8lex_reference_t *prev,  // Previous reference, or NULL.
+        unsigned char *name,  // Usually all uppercase name of definition.
+        int min,  // Minimum number of tokens (0 or more).
+        int max,  // Maximum tokens, or -1 for no limit.
+        utf8lex_multi_definition_t *parent  // Parent multi-definition.
+        );
+extern utf8lex_error_t utf8lex_reference_clear(
+        utf8lex_reference_t *self
+        );
+
+extern utf8lex_error_t utf8lex_reference_resolve(
+        utf8lex_reference_t *self,
+        utf8lex_definition_t *db  // The main database to resolve references.
+        );
+
+enum _ENUM_utf8lex_multi_type
+{
+  UTF8LEX_MULTI_TYPE_NONE = 0,
+  UTF8LEX_MULTI_TYPE_SEQUENCE,
+  UTF8LEX_MULTI_TYPE_OR,
+  UTF8LEX_MULTI_TYPE_MAX
+};
+
+struct _STRUCT_utf8lex_multi_definition
+{
+  // A multi-definition is NOT thread-safe, since the references and db
+  // are built up by adding one reference at a time.  Do not share
+  // a multi-definition across multiple threads until after the
+  // definition is complete and has been resolved.
+
+  utf8lex_definition_t base;
+
+  utf8lex_multi_type_t multi_type;  // Sequence or ORed references, and so on.
+  utf8lex_reference_t *references;  // Sequence / ORed definition names.
+  utf8lex_definition_t *db;  // Logical | () etc sub-expression definitions.
+
+  utf8lex_multi_definition_t *parent;  // Parent multi-definition, or NULL.
+};
+
+extern utf8lex_error_t utf8lex_multi_definition_init(
+        utf8lex_multi_definition_t *self,
+        utf8lex_definition_t *prev,  // Previous definition in DB, or NULL.
+        unsigned char *name,  // Usually all uppercase name of definition.
+        utf8lex_multi_definition_t *parent,  // Parent or NULL.
+        utf8lex_multi_type_t multi_type  // Sequence or ORed references, etc.
+        );
+extern utf8lex_error_t utf8lex_multi_definition_clear(
+        // self must be utf8lex_multi_definition_t *:
+        utf8lex_definition_t *self
+        );
+
+extern utf8lex_error_t utf8lex_multi_definition_resolve(
+        utf8lex_multi_definition_t *self,
+        utf8lex_definition_t *db  // The main database to resolve references.
+        );
+
+
+// A token definition that matches a regular expression,
+// such as "^[0-9]+" or "[\\p{N}]+" or "[_\\p{L}][_\\p{L}\\p{N}]*" or "[\\s]+"
+// and so on:
+extern utf8lex_definition_type_t *UTF8LEX_DEFINITION_TYPE_REGEX;
 
 struct _STRUCT_utf8lex_regex_definition
 {

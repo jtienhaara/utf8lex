@@ -49,7 +49,7 @@ utf8lex_error_t utf8lex_literal_definition_init(
   size_t num_bytes = strlen(str);
   if (num_bytes == (size_t) 0)
   {
-    return UTF8LEX_ERROR_EMPTY_LITERAL;
+    return UTF8LEX_ERROR_EMPTY_DEFINITION;
   }
 
   self->base.definition_type = UTF8LEX_DEFINITION_TYPE_LITERAL;
@@ -177,6 +177,10 @@ utf8lex_error_t utf8lex_literal_definition_clear(
   if (self == NULL)
   {
     return UTF8LEX_ERROR_NULL_POINTER;
+  }
+  else if (self->definition_type != UTF8LEX_DEFINITION_TYPE_LITERAL)
+  {
+    return UTF8LEX_ERROR_DEFINITION_TYPE;
   }
 
   utf8lex_literal_definition_t *literal_definition =
