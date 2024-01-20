@@ -28,9 +28,6 @@
 //                        utf8lex_rule_t
 // ---------------------------------------------------------------------
 
-// No more than (this many) utf8lex_rule_t's can be in a database.
-const uint32_t UTF8LEX_RULES_DB_LENGTH_MAX = 16384;
-
 utf8lex_error_t utf8lex_rule_init(
         utf8lex_rule_t *self,
         utf8lex_rule_t *prev,

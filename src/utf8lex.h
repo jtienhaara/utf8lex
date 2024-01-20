@@ -164,7 +164,7 @@ utf8lex_error_t utf8lex_error_string(
         );
 
 // No more than (this many) buffers can be chained together:
-extern const uint32_t UTF8LEX_BUFFER_STRINGS_MAX;
+#define UTF8LEX_BUFFER_STRINGS_MAX 16384
 
 struct _STRUCT_utf8lex_buffer
 {
@@ -305,6 +305,10 @@ extern const utf8lex_cat_t UTF8LEX_GROUP_NOT_VSPACE;  // All but VSPACE
 extern const utf8lex_cat_t UTF8LEX_GROUP_ALL;  // All categories
 extern const utf8lex_cat_t UTF8LEX_CAT_MAX;
 
+// All explicitly defined CATs and GROUPs:
+#define UTF8LEX_NUM_CATEGORIES 50
+extern const utf8lex_cat_t UTF8LEX_CATEGORIES[];
+
 // Formats the specified OR'ed category/ies as a string,
 // overwriting the specified str_pointer.
 extern utf8lex_error_t utf8lex_format_cat(
@@ -348,8 +352,9 @@ struct _STRUCT_utf8lex_definition_type
           );
 };
 
-// No more than (this many) utf8lex_definition_t's can be in a database.
-extern const uint32_t UTF8LEX_DEFINITIONS_DB_LENGTH_MAX;
+// No more than (this many) utf8lex_definition_t's can be in a database
+// (to prevent infinite loops due to adding the same definition twice etc).
+#define UTF8LEX_DEFINITIONS_DB_LENGTH_MAX 16384
 
 struct _STRUCT_utf8lex_definition
 {
@@ -479,12 +484,14 @@ extern utf8lex_error_t utf8lex_literal_definition_clear(
 extern utf8lex_definition_type_t *UTF8LEX_DEFINITION_TYPE_MULTI;
 
 // No more than (this many) utf8lex_multi_definition_t's can be
-// nested using |, (), and so on.
-extern const uint32_t UTF8LEX_MULTI_DEFINITION_DEPTH_MAX;
+// nested using |, (), and so on
+// (to prevent infinite loops due to adding the same definition twice etc).
+#define UTF8LEX_MULTI_DEFINITION_DEPTH_MAX 4096
 
 // No more than (this many) utf8lex_reference_t's can be in
 // a multi-definition's references.
-extern const uint32_t UTF8LEX_REFERENCES_LENGTH_MAX;
+// (to prevent infinite loops due to adding the same reference twice etc).
+#define UTF8LEX_REFERENCES_LENGTH_MAX 4096
 
 struct _STRUCT_utf8lex_reference
 {
@@ -590,7 +597,8 @@ extern utf8lex_error_t utf8lex_regex_definition_clear(
         );
 
 // No more than (this many) utf8lex_rule_t's can be in a database.
-extern const uint32_t UTF8LEX_RULES_DB_LENGTH_MAX;
+// (to prevent infinite loops due to adding the same rule twice etc).
+#define UTF8LEX_RULES_DB_LENGTH_MAX 16384
 
 struct _STRUCT_utf8lex_rule
 {

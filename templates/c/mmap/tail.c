@@ -63,14 +63,14 @@ static int yylex (
 
   int token_code = (int) token.rule->id;
 
-  llocp->first_line = state->loc[UTF8LEX_UNIT_LINE].start;
-  llocp->first_column = state->loc[UTF8LEX_UNIT_BYTE].start;
+  llocp->first_line = token.loc[UTF8LEX_UNIT_LINE].start;
+  llocp->first_column = token.loc[UTF8LEX_UNIT_GRAPHEME].start;
   llocp->last_line =
-    state->loc[UTF8LEX_UNIT_LINE].start
-    + state->loc[UTF8LEX_UNIT_LINE].length;
+    token.loc[UTF8LEX_UNIT_LINE].start
+    + token.loc[UTF8LEX_UNIT_LINE].length;
   llocp->last_column =
-    state->loc[UTF8LEX_UNIT_BYTE].start
-    + state->loc[UTF8LEX_UNIT_BYTE].length;
+    token.loc[UTF8LEX_UNIT_GRAPHEME].start
+    + token.loc[UTF8LEX_UNIT_GRAPHEME].length;
 
   return token_code;
 }

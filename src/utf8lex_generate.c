@@ -25,10 +25,41 @@
 #include "utf8lex.h"
 
 
-typedef struct _STRUCT_utf8lex_definition       utf8lex_definition_t;
+typedef struct _STRUCT_utf8lex_db               utf8lex_db_t;
 typedef struct _STRUCT_utf8lex_generate_lexicon utf8lex_generate_lexicon_t;
 
-#define UTF8LEX_MAX_CATS 64
+
+struct _STRUCT_utf8lex_db
+{
+  // Pre-defined definitions (which can be overridden in the .l file):
+  // Literals matching the category names
+  // LETTER, LETTER_LOWER, NUM, HSPACE, VSPACE, and so on:
+  unsigned char cat_names[UTF8LEX_NUM_CATEGORIES][UTF8LEX_CAT_FORMAT_MAX_LENGTH];
+  utf8lex_cat_definition_t cat_definitions[UTF8LEX_NUM_CATEGORIES];
+  utf8lex_rule_t cats[UTF8LEX_NUM_CATEGORIES];
+
+  // Definitions from the .l file (NOT in any order -- use definitions_db):
+  uint32_t num_literal_definitions;
+  utf8lex_literal_definition_t literal_definitions[UTF8LEX_DEFINITIONS_DB_LENGTH_MAX];
+  uint32_t num_regex_definitions;
+  utf8lex_regex_definition_t regex_definitions[UTF8LEX_DEFINITIONS_DB_LENGTH_MAX];
+  uint32_t num_multi_definitions;
+  utf8lex_multi_definition_t multi_definitions[UTF8LEX_DEFINITIONS_DB_LENGTH_MAX];
+
+  // Rules from the .l file:
+  uint32_t num_rules;
+  utf8lex_rule_t rules[UTF8LEX_RULES_DB_LENGTH_MAX];
+
+  // The databases of definitions and rules:
+  utf8lex_definition_t *definitions_db;  // All pre-defined and .l definitions.
+  utf8lex_rule_t *rules_db;  // All .l file rules.  (Points to rules[0].)
+
+  // Where to append new definitions and rules (possibly also deleting
+  // existing ones, if the names overlap!).
+  utf8lex_definition_t *last_definition;
+  utf8lex_rule_t *last_rule;
+};
+
 struct _STRUCT_utf8lex_generate_lexicon
 {
   // Newline
@@ -56,16 +87,17 @@ struct _STRUCT_utf8lex_generate_lexicon
   // }
   utf8lex_literal_definition_t rule_close_definition;
   utf8lex_rule_t rule_close;
-
-  // Literals matching the category names
-  int num_cats;
-  char cat_names[UTF8LEX_MAX_CATS][UTF8LEX_CAT_FORMAT_MAX_LENGTH];
-  utf8lex_literal_definition_t cat_definitions[UTF8LEX_MAX_CATS];
-  utf8lex_rule_t cats[UTF8LEX_MAX_CATS];
+  // *
+  utf8lex_literal_definition_t star_definition;
+  utf8lex_rule_t star;
+  // +
+  utf8lex_literal_definition_t plus_definition;
+  utf8lex_rule_t plus;
 
   // definition ID
   utf8lex_regex_definition_t definition_definition;
   utf8lex_rule_t definition;
+
   // horizontal whitespace
   utf8lex_regex_definition_t space_definition;
   utf8lex_rule_t space;
@@ -77,8 +109,71 @@ struct _STRUCT_utf8lex_generate_lexicon
   // read to end of line
   utf8lex_cat_definition_t to_eol_definition;
   utf8lex_rule_t to_eol;
+
+  // Database of definitions and rules:
+  utf8lex_db_t db;
 };
 
+
+static utf8lex_error_t utf8lex_generate_setup_db(
+        utf8lex_db_t *db
+        )
+{
+  if (db == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  // Definitions and rules from the .l file (not including pre-defined
+  // cat definitions):
+  db->num_literal_definitions = (uint32_t) 0;
+  db->num_regex_definitions = (uint32_t) 0;
+  db->num_multi_definitions = (uint32_t) 0;
+
+  db->num_rules = (uint32_t) 0;
+
+  // Whole database:
+  db->definitions_db = NULL;
+  db->rules_db = NULL;
+
+  db->last_definition = NULL;
+  db->last_rule = NULL;
+
+  // Go through only the explicitly defined categories, don't define
+  // new ones here (like X | Y):
+  for (int c = 0; c < UTF8LEX_NUM_CATEGORIES; c ++)
+  {
+    utf8lex_cat_t cat = UTF8LEX_CATEGORIES[c];
+
+    // definition name = "LETTER_LOWER", "NUM", "HSPACE", and so on.
+    utf8lex_error_t error = utf8lex_format_cat(cat,
+                                               db->cat_names[c]);
+    if (error != UTF8LEX_OK)
+    {
+      return error;
+    }
+
+    // LETTER_LOWER or NUM etc definition (can be referenced or overridden):
+    error = utf8lex_cat_definition_init(
+                &(db->cat_definitions[c]),  // self
+                db->last_definition,  // pref
+                db->cat_names[c],  // name
+                cat,  // cat
+                1,  // min
+                1);  // max
+    if (error != UTF8LEX_OK) { return error; }
+
+    db->last_definition = (utf8lex_definition_t *)
+      &(db->cat_definitions[c]);
+    if (db->definitions_db == NULL)
+    {
+      // First definition in the database.
+      db->definitions_db = db->last_definition;
+    }
+  }
+
+  return UTF8LEX_OK;
+}
 
 static utf8lex_error_t utf8lex_generate_setup(
         utf8lex_generate_lexicon_t *lex
@@ -226,40 +321,38 @@ static utf8lex_error_t utf8lex_generate_setup(
                             (size_t) 0);  // code_length_bytes
   if (error != UTF8LEX_OK) { return error; }
   prev = &(lex->rule_close);
-
-  // Literals matching the category names
-  int num_cats = 0;
-  for (utf8lex_cat_t cat = UTF8LEX_CAT_NONE + (utf8lex_cat_t) 1;
-       cat < UTF8LEX_CAT_MAX;
-       cat *= 2)
-  {
-    strcpy(lex->cat_names[num_cats], ":");
-    error = utf8lex_format_cat(cat, &(lex->cat_names[num_cats][1]));
-    if (error != UTF8LEX_OK)
-    {
-      return error;
-    }
-    strcat(lex->cat_names[num_cats], ":");
-
-    error = utf8lex_literal_definition_init(&(lex->cat_definitions[num_cats]),
-                                            prev_definition,  // prev
-                                            lex->cat_names[num_cats],  // name
-                                            lex->cat_names[num_cats]);  // str
-    if (error != UTF8LEX_OK) { return error; }
-    prev_definition = (utf8lex_definition_t *) &(lex->cat_definitions[num_cats]);
-    error = utf8lex_rule_init(&(lex->cats[num_cats]),
-                              prev,
-                              lex->cat_names[num_cats],  // name
-                              (utf8lex_definition_t *)  // definition
-                              &(lex->cat_definitions[num_cats]),
-                              "",  // code
-                              (size_t) 0);  // code_length_bytes
-    if (error != UTF8LEX_OK) { return error; }
-    prev = &(lex->cats[num_cats]);
-
-    num_cats ++;
-  }
-  lex->num_cats = num_cats;
+  // *
+  error = utf8lex_literal_definition_init(&(lex->star_definition),
+                                          prev_definition,  // prev
+                                          "STAR",  // name
+                                          "*");
+  if (error != UTF8LEX_OK) { return error; }
+  prev_definition = (utf8lex_definition_t *) &(lex->star_definition);
+  error = utf8lex_rule_init(&(lex->star),
+                            prev,
+                            "star",  // name
+                            (utf8lex_definition_t *)
+                            &(lex->star_definition),  // definition
+                            "",  // code
+                            (size_t) 0);  // code_length_bytes
+  if (error != UTF8LEX_OK) { return error; }
+  prev = &(lex->star);
+  // plus
+  error = utf8lex_literal_definition_init(&(lex->plus_definition),
+                                          prev_definition,  // prev
+                                          "PLUS",  // name
+                                          "plus");
+  if (error != UTF8LEX_OK) { return error; }
+  prev_definition = (utf8lex_definition_t *) &(lex->plus_definition);
+  error = utf8lex_rule_init(&(lex->plus),
+                            prev,
+                            "plus",  // name
+                            (utf8lex_definition_t *)
+                            &(lex->plus_definition),  // definition
+                            "",  // code
+                            (size_t) 0);  // code_length_bytes
+  if (error != UTF8LEX_OK) { return error; }
+  prev = &(lex->plus);
 
   // definition ID
   error = utf8lex_regex_definition_init(&(lex->definition_definition),
@@ -312,6 +405,9 @@ static utf8lex_error_t utf8lex_generate_setup(
                             &(lex->to_eol_definition),  // definition
                             "",  // code
                             (size_t) 0);  // code_length_bytes
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_generate_setup_db(&(lex->db));
   if (error != UTF8LEX_OK) { return error; }
 
   return UTF8LEX_OK;

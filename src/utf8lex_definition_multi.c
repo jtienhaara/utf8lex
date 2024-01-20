@@ -27,14 +27,6 @@
 //                      utf8lex_multi_definition_t
 // ---------------------------------------------------------------------
 
-// No more than (this many) utf8lex_multi_definition_t's can be
-// nested using |, (), and so on.
-const uint32_t UTF8LEX_MULTI_DEFINITION_DEPTH_MAX = 4096;  // Ridiculously high.
-
-// No more than (this many) utf8lex_reference_t's can be in
-// a multi-definition's references.
-const uint32_t UTF8LEX_REFERENCES_LENGTH_MAX = 4096;  // Ridiculously high.
-
 utf8lex_error_t utf8lex_reference_init(
         utf8lex_reference_t *self,
         utf8lex_reference_t *prev,  // Previous reference, or NULL.
