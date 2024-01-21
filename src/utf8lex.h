@@ -90,6 +90,7 @@ enum _ENUM_utf8lex_error
   UTF8LEX_ERROR_DEFINITION_TYPE,  // definition_type mismatch (eg cat / regex).
   UTF8LEX_ERROR_EMPTY_DEFINITION,  // Literals cannot be "", multis cannot be []
   UTF8LEX_ERROR_MAX_LENGTH,  // Too many (rules, definitions, ...) in database.
+  UTF8LEX_ERROR_NOT_A_RULE,  // Cannot define rule code for e.g. a definition.
   UTF8LEX_ERROR_NOT_FOUND,  // ..._find() did not match any objects.
   UTF8LEX_ERROR_REGEX,  // Matching against a regular expression failed.
   UTF8LEX_ERROR_UNIT,  // Invalid unit must be NONE < unit < MAX.

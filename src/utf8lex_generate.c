@@ -31,13 +31,19 @@ typedef enum _ENUM_utf8lex_lex_state            utf8lex_lex_state_t;
 typedef struct _STRUCT_utf8lex_lex_transition   utf8lex_lex_transition_t;
 
 
-// Arbitrary maximum number of lines in a .l file, so that we don't
-// read forever and ever and ever and...  (That's a lot of lines of lex code.)
+// Arbitrary maximum number of lines in a .l file, used for infinite loop
+// prevention, so that we don't read forever and ever and ever and...
+// (That's a lot of lines of lex code.  I'm sure someone has done it, though...)
 #define UTF8LEX_LEX_FILE_NUM_LINES_MAX 65536
 
 // Arbitrary maximum definition / rule name length, so that we don't
 // have to malloc:
-#define UTF8LEX_NAME_LENGTH_MAX 256
+// WARNING Setting this too high leads to segfaults at static function start.
+#define UTF8LEX_NAME_LENGTH_MAX 64
+
+// Arbitrary maximum rule code length, so that we don't have to malloc:
+// WARNING Setting this too high leads to segfaults at static function start.
+#define UTF8LEX_RULE_CODE_LENGTH_MAX 1024
 
 struct _STRUCT_utf8lex_db
 {
@@ -64,7 +70,8 @@ struct _STRUCT_utf8lex_db
 
   // Rules from the .l file:
   uint32_t num_rules;
-  unsigned char rule_names[UTF8LEX_DEFINITIONS_DB_LENGTH_MAX][UTF8LEX_NAME_LENGTH_MAX];
+  unsigned char rule_names[UTF8LEX_RULES_DB_LENGTH_MAX][UTF8LEX_NAME_LENGTH_MAX];
+  unsigned char rule_code[UTF8LEX_RULES_DB_LENGTH_MAX][UTF8LEX_RULE_CODE_LENGTH_MAX];
   utf8lex_rule_t rules[UTF8LEX_RULES_DB_LENGTH_MAX];
 
   // The databases of definitions and rules:
@@ -782,8 +789,10 @@ enum _ENUM_utf8lex_lex_state
   UTF8LEX_LEX_STATE_LITERAL_BACKSLASH,
   UTF8LEX_LEX_STATE_LITERAL_COMPLETE,
   UTF8LEX_LEX_STATE_REGEX,
+  UTF8LEX_LEX_STATE_REGEX_SPACE,
+  UTF8LEX_LEX_STATE_RULE,  // DEF1 ... {rule}
 
-  UTF8LEX_LEX_STATE_COMPLETE,
+  UTF8LEX_LEX_STATE_COMPLETE,  // DEF1 ...\n
   UTF8LEX_LEX_STATE_ERROR,
 
   UTF8LEX_LEX_STATE_MAX
@@ -799,7 +808,7 @@ static utf8lex_error_t utf8lex_generate_definition(
         utf8lex_generate_lexicon_t *lex,  // .l file lexicon, this file's db.
         utf8lex_state_t *state,  // .l file current state.
         unsigned char *name,  // Name of (definition or rule).
-        utf8lex_rule_t *rule_or_null  // If rule's definition, write to rule.
+        bool is_rule  // true = rules section; false = definitions section.
         )
 {
   if (lex == NULL
@@ -812,110 +821,145 @@ static utf8lex_error_t utf8lex_generate_definition(
   utf8lex_lex_transition_t grammar[UTF8LEX_LEX_STATE_MAX][16] =
     {
       {
-        // UTF8LEX_LEX_STATE_DEFINITION:
+        // (0) UTF8LEX_LEX_STATE_DEFINITION:
         { .rule = &(lex->space),
           .to = UTF8LEX_LEX_STATE_DEFINITION_BODY },
+        { .rule = &(lex->rule_open),
+          .to = UTF8LEX_LEX_STATE_ERROR },
         { .rule = &(lex->newline),
           .to = UTF8LEX_LEX_STATE_ERROR },
         { .rule = NULL,
           .to = UTF8LEX_LEX_STATE_ERROR }
       },
       {
-        // UTF8LEX_LEX_STATE_DEFINITION_BODY:
+        // (1) UTF8LEX_LEX_STATE_DEFINITION_BODY:
         { .rule = &(lex->id),
           .to = UTF8LEX_LEX_STATE_MULTI_ID },
         { .rule = &(lex->quote),
           .to = UTF8LEX_LEX_STATE_LITERAL },
+        { .rule = &(lex->rule_open),
+          .to = UTF8LEX_LEX_STATE_REGEX },  // DEF1 {...regex...
         { .rule = &(lex->newline),
           .to = UTF8LEX_LEX_STATE_ERROR },
         { .rule = NULL,
           .to = UTF8LEX_LEX_STATE_REGEX }
       },
       {
-        // UTF8LEX_LEX_STATE_MULTI_ID:
+        // (2) UTF8LEX_LEX_STATE_MULTI_ID:
         { .rule = &(lex->space),
           .to = UTF8LEX_LEX_STATE_MULTI_ID },
         { .rule = &(lex->id),
           .to = UTF8LEX_LEX_STATE_MULTI_SEQUENCE_ID },
         { .rule = &(lex->or),
           .to = UTF8LEX_LEX_STATE_MULTI_OR },
+        { .rule = &(lex->rule_open),
+          .to = UTF8LEX_LEX_STATE_RULE },  // DEF1 REF1 {rule}
         { .rule = &(lex->newline),
           .to = UTF8LEX_LEX_STATE_COMPLETE },  // DEF1 REF1 (pointless but OK)
         { .rule = NULL,
           .to = UTF8LEX_LEX_STATE_ERROR }
       },
       {
-        // UTF8LEX_LEX_STATE_MULTI_SEQUENCE_ID:
+        // (3) UTF8LEX_LEX_STATE_MULTI_SEQUENCE_ID:
         { .rule = &(lex->space),
           .to = UTF8LEX_LEX_STATE_MULTI_SEQUENCE_ID },
         { .rule = &(lex->id),
           .to = UTF8LEX_LEX_STATE_MULTI_SEQUENCE_ID },
+        { .rule = &(lex->rule_open),
+          .to = UTF8LEX_LEX_STATE_RULE },  // DEF1 REF1 REF2 REF3 {rule}
         { .rule = &(lex->newline),
           .to = UTF8LEX_LEX_STATE_COMPLETE },  // DEF1 REF1 REF2 REF3...
         { .rule = NULL,
           .to = UTF8LEX_LEX_STATE_ERROR }
       },
       {
-        // UTF8LEX_LEX_STATE_MULTI_OR:
+        // (4) UTF8LEX_LEX_STATE_MULTI_OR:
         { .rule = &(lex->space),
           .to = UTF8LEX_LEX_STATE_MULTI_OR },
         { .rule = &(lex->id),
           .to = UTF8LEX_LEX_STATE_MULTI_OR_ID },
+        { .rule = &(lex->rule_open),
+          .to = UTF8LEX_LEX_STATE_ERROR },  // DEF1 REF1 | {rule} <- unclosed
         { .rule = &(lex->newline),
           .to = UTF8LEX_LEX_STATE_ERROR },  // DEF1 REF1 | <- unclosed
         { .rule = NULL,
           .to = UTF8LEX_LEX_STATE_ERROR }
       },
       {
-        // UTF8LEX_LEX_STATE_MULTI_OR_ID:
+        // (5) UTF8LEX_LEX_STATE_MULTI_OR_ID:
         { .rule = &(lex->space),
           .to = UTF8LEX_LEX_STATE_MULTI_OR_ID },
         { .rule = &(lex->or),
           .to = UTF8LEX_LEX_STATE_MULTI_OR },
+        { .rule = &(lex->rule_open),
+          .to = UTF8LEX_LEX_STATE_RULE },  // DEF1 REF1 | REF2 {rule}
         { .rule = &(lex->newline),
           .to = UTF8LEX_LEX_STATE_COMPLETE },  // DEF1 REF1 | REF2 ...
         { .rule = NULL,
           .to = UTF8LEX_LEX_STATE_ERROR }
       },
       {
-        // UTF8LEX_LEX_STATE_LITERAL:
+        // (6) UTF8LEX_LEX_STATE_LITERAL:
         { .rule = &(lex->backslash),
           .to = UTF8LEX_LEX_STATE_LITERAL_BACKSLASH },
         { .rule = &(lex->quote),
           .to = UTF8LEX_LEX_STATE_LITERAL_COMPLETE },
+        { .rule = &(lex->rule_open),
+          .to = UTF8LEX_LEX_STATE_LITERAL },  // DEF1 "...{ <- { part of literal
         { .rule = &(lex->newline),
           .to = UTF8LEX_LEX_STATE_ERROR },  // DEF1 "... <- unclosed quote
         { .rule = NULL,
           .to = UTF8LEX_LEX_STATE_LITERAL }
       },
       {
-        // UTF8LEX_LEX_STATE_LITERAL_BACKSLASH:
+        // (7) UTF8LEX_LEX_STATE_LITERAL_BACKSLASH:
         { .rule = NULL,
           .to = UTF8LEX_LEX_STATE_LITERAL }
       },
       {
-        // UTF8LEX_LEX_STATE_LITERAL_COMPLETE:
+        // (8) UTF8LEX_LEX_STATE_LITERAL_COMPLETE:
         { .rule = &(lex->space),
           .to = UTF8LEX_LEX_STATE_LITERAL_COMPLETE },
+        { .rule = &(lex->rule_open),
+          .to = UTF8LEX_LEX_STATE_RULE },  // DEF1 "..." {rule}
         { .rule = &(lex->newline),
           .to = UTF8LEX_LEX_STATE_COMPLETE },  // DEF1 "..."
         { .rule = NULL,
           .to = UTF8LEX_LEX_STATE_ERROR }
       },
       {
-        // UTF8LEX_LEX_STATE_REGEX:
+        // (9) UTF8LEX_LEX_STATE_REGEX:
+        { .rule = &(lex->space),
+          .to = UTF8LEX_LEX_STATE_REGEX_SPACE },  // DEF1 [a-z] \n
         { .rule = &(lex->newline),
           .to = UTF8LEX_LEX_STATE_COMPLETE },  // DEF1 ...anything...
         { .rule = NULL,
           .to = UTF8LEX_LEX_STATE_REGEX }
       },
       {
-        // UTF8LEX_LEX_STATE_COMPLETE:
+        // (10) UTF8LEX_LEX_STATE_REGEX_SPACE:
+        { .rule = &(lex->rule_open),
+          .to = UTF8LEX_LEX_STATE_RULE },  // DEF1 [a-z] (rule)
+        { .rule = &(lex->newline),
+          .to = UTF8LEX_LEX_STATE_COMPLETE },  // DEF1 [a-z] \n
+        { .rule = NULL,
+          .to = UTF8LEX_LEX_STATE_REGEX }  // DEF [a-z] ... (space in regex)
+      },
+      {
+        // (11) UTF8LEX_LEX_STATE_RULE:
+        { .rule = &(lex->rule_close),
+          .to = UTF8LEX_LEX_STATE_RULE },  // Once nested rules -> 0, COMPLETE.
+        // Do NOT stop for newline.
+        { .rule = NULL,
+          .to = UTF8LEX_LEX_STATE_RULE }
+      },
+      {
+        // (12) UTF8LEX_LEX_STATE_COMPLETE:
         { .rule = NULL,
           .to = UTF8LEX_LEX_STATE_COMPLETE }
       },
       {
-        // UTF8LEX_LEX_STATE_ERROR:
+        // (13) UTF8LEX_LEX_STATE_ERROR:
         { .rule = NULL,
             .to = UTF8LEX_LEX_STATE_ERROR }
       }
@@ -952,13 +996,25 @@ static utf8lex_error_t utf8lex_generate_definition(
     &(lex->db.multi_definitions[md]);
 
   // Now parse the definition.
+  // DEF1 ...defintiion... (space first).
   utf8lex_lex_state_t lex_state = UTF8LEX_LEX_STATE_DEFINITION;
+  if (is_rule == true)
+  {
+    // Just straight into ...definition, no DEF1 or space.
+    lex_state = UTF8LEX_LEX_STATE_DEFINITION_BODY;
+  }
+  utf8lex_lex_state_t prev_lex_state = lex_state;
   int infinite_loop_protector = 0;
   utf8lex_definition_type_t *definition_type = NULL;
   unsigned char literal_or_regex[4096];
   literal_or_regex[0] = 0;
+  unsigned char regex_space[256];
+  regex_space[0] = 0;
   utf8lex_multi_type_t multi_type = UTF8LEX_MULTI_TYPE_NONE;
   utf8lex_reference_t *last_reference = NULL;
+  utf8lex_token_t token;
+  int num_nested_rules = 0;
+  lex->db.rule_code[lex->db.num_rules][0] = 0; // No rule code defined yet.
   while (true)
   {
     if (lex_state == UTF8LEX_LEX_STATE_COMPLETE
@@ -985,7 +1041,6 @@ static utf8lex_error_t utf8lex_generate_definition(
       return UTF8LEX_ERROR_INFINITE_LOOP;
     }
 
-    utf8lex_token_t token;
     error = utf8lex_lex(lex->lex_rules,
                         state,
                         &token);
@@ -1006,14 +1061,11 @@ static utf8lex_error_t utf8lex_generate_definition(
 
       if (transition->rule == NULL)
       {
-        // !!! unsigned char token_str[1024]; utf8lex_token_copy_string(&token, token_str, (size_t) 1024); // !!!
-        // !!! printf("!!! generate definition 15 %d --(any)-> %d (via %s \"%s\")\n", (int) lex_state, (int) transition->to, token.rule->name, token_str); fflush(stdout);
         next_lex_state = transition->to;
         break;
       }
       else if (transition->rule->id == token.rule->id)
       {
-        // !!! printf("!!! generate definition 16 %d --%s-> %d\n", (int) lex_state, transition->rule->name, (int) transition->to); fflush(stdout);
         next_lex_state = transition->to;
         break;
       }
@@ -1030,14 +1082,34 @@ static utf8lex_error_t utf8lex_generate_definition(
                   (size_t) 4096);  // max_bytes
       if (error != UTF8LEX_OK) { return error; }
       break;
+
+    case UTF8LEX_LEX_STATE_REGEX_SPACE:
+      // Transitioning to either more REGEX or RULE or COMPLETE.
+      // Store this token's text in case we continue with the REGEX.
+      error = utf8lex_token_copy_string(
+                  &token,  // self
+                  regex_space,  // str
+                  (size_t) 256);  // max_bytes
+      if (error != UTF8LEX_OK) { return error; }
+      break;
+
     case UTF8LEX_LEX_STATE_REGEX:
       definition_type = UTF8LEX_DEFINITION_TYPE_REGEX;
+      if (lex_state == UTF8LEX_LEX_STATE_REGEX_SPACE)
+      {
+        // Transitioning back from a space to more regex
+        // e.g. DEF1 [a-z] [0-9] (space between [a-z] and [0-9]).
+        // Add the space to the regular expression pattern.
+        strcat(literal_or_regex,
+               regex_space);
+      }
       error = utf8lex_token_cat_string(
                   &token,  // self
                   literal_or_regex,  // str
                   (size_t) 4096);  // max_bytes
       if (error != UTF8LEX_OK) { return error; }
       break;
+
     case UTF8LEX_LEX_STATE_MULTI_ID:
     case UTF8LEX_LEX_STATE_MULTI_SEQUENCE_ID:
     case UTF8LEX_LEX_STATE_MULTI_OR_ID:
@@ -1077,14 +1149,68 @@ static utf8lex_error_t utf8lex_generate_definition(
         }
         last_reference = &(lex->db.references[rd]);
       }
+      break;
+
+    case UTF8LEX_LEX_STATE_RULE:
+      if (is_rule != true)
+      {
+        // Can't add rule code to a definition in the definitions section.
+        return UTF8LEX_ERROR_TOKEN;
+      }
+
+      if (token.rule->id == lex->rule_open.id)
+      {
+        num_nested_rules ++;
+      }
+      else if (token.rule->id == lex->rule_close.id)
+      {
+        num_nested_rules --;
+        if (num_nested_rules == 0)
+        {
+          next_lex_state = UTF8LEX_LEX_STATE_COMPLETE;
+          break;
+        }
+      }
+
+      // Now add the rule code, unless this is the very first "{" rule_open.
+      if (lex_state != UTF8LEX_LEX_STATE_RULE)
+      {
+        // We just started the rule, so its definition is complete.
+        // Do not store the rule_open ("{") character as part of the rule,
+        // but do finish anything up (e.g. resolve multi definition,
+        // if applicable).
+        if (definition_type == UTF8LEX_DEFINITION_TYPE_MULTI)
+        {
+          error = utf8lex_multi_definition_resolve(
+                      &(lex->db.multi_definitions[md]),  // self,
+                      lex->db.definitions_db);  // db
+          if (error != UTF8LEX_OK) { return error; }
+        }
+      }
+      else
+      {
+        int rn = lex->db.num_rules;
+        error = utf8lex_token_cat_string(
+                    &token,  // self
+                    lex->db.rule_code[rn],  // str
+                    (size_t) UTF8LEX_RULE_CODE_LENGTH_MAX);  // max_bytes
+        if (error != UTF8LEX_OK) { return error; }
+      }
+
+      break;
     }
 
+    prev_lex_state = lex_state;
     lex_state = next_lex_state;
   }
 
-  if (lex_state != UTF8LEX_LEX_STATE_COMPLETE)
+  if (lex_state == UTF8LEX_LEX_STATE_ERROR)
   {
     return UTF8LEX_ERROR_STATE;
+  }
+  else if (lex_state != UTF8LEX_LEX_STATE_COMPLETE)
+  {
+    return UTF8LEX_ERROR_UNRESOLVED_DEFINITION;
   }
 
   // If we do not need the multi definition, delete it.
@@ -1146,7 +1272,7 @@ static utf8lex_error_t utf8lex_generate_definition(
   {
     lex->db.multi_definitions[md].multi_type = multi_type;
     printf("!!! Create multi definition 1 \"%s\" multi-type %d (vs. SEQUENCE %d, OR %d) first reference %u\n", lex->db.definition_names[dn], (int) lex->db.multi_definitions[md].multi_type, (int) UTF8LEX_MULTI_TYPE_SEQUENCE, (int) UTF8LEX_MULTI_TYPE_OR, (unsigned long) lex->db.multi_definitions[md].references); fflush(stdout);
-    utf8lex_reference_t *ref = lex->db.multi_definitions[md].references; while (ref != NULL) { printf("!!! ref \"%s\"\n", ref->definition_name); fflush(stdout); ref = ref->next; } // !!!
+    utf8lex_reference_t *ref = lex->db.multi_definitions[md].references; while (ref != NULL) { printf("!!! ref \"%s\"\n", ref->definition_name); fflush(stdout); ref = ref->next; }
   }
   else
   {
@@ -1273,10 +1399,10 @@ static utf8lex_error_t utf8lex_generate_parse(
             &(token.str->bytes[token.start_byte]),
             token.length_bytes);
     token_string[token.length_bytes] = 0;
-    printf("!!! YAY definitions lexed rule id %d '%s' = '%s'\n",
-           token.rule->id,
-           token.rule->name,
-           token_string);
+    // !!! printf("!!! YAY definitions lexed token %d '%s' = '%s'\n",
+    // !!!        token.rule->id,
+    // !!!        token.rule->name,
+    // !!!        token_string);
 
     // Acceptable tokens in the definitions section:
     //   (newline)    Blank line, ignored.
@@ -1345,7 +1471,7 @@ static utf8lex_error_t utf8lex_generate_parse(
                   &lex,  // lex
                   state_pointer,  // state
                   lex.db.definition_names[d],  // name
-                  NULL);  // rule_or_null -- we're not in the rules section.
+                  false);  // is_rule -- we're not in the rules section.
       if (error != UTF8LEX_OK)
       {
         return error;
@@ -1410,6 +1536,18 @@ static utf8lex_error_t utf8lex_generate_parse(
   if (error != UTF8LEX_OK)
   {
     return error;
+  }
+
+
+  // Resolve all the multi-definitions from the definitions section
+  // (if any).
+  int num_multi_definitions = lex.db.num_multi_definitions;
+  for (int md = 0; md < num_multi_definitions; md ++)
+  {
+    error = utf8lex_multi_definition_resolve(
+                &(lex.db.multi_definitions[md]),  // self,
+                lex.db.definitions_db);  // db
+    if (error != UTF8LEX_OK) { return error; }
   }
 
 
@@ -1479,10 +1617,10 @@ static utf8lex_error_t utf8lex_generate_parse(
             &(token.str->bytes[token.start_byte]),
             token.length_bytes);
     token_string[token.length_bytes] = 0;
-    printf("!!! YAY rules got rule id %d '%s' = '%s'\n",
-           token.rule->id,
-           token.rule->name,
-           token_string);
+    // !!! printf("!!! YAY rules lexed token %d '%s' = '%s'\n",
+    // !!!        token.rule->id,
+    // !!!        token.rule->name,
+    // !!!        token_string);
 
     // Acceptable tokens in the rules section:
     //   (newline)                 Blank line, ignored.
@@ -1530,23 +1668,6 @@ static utf8lex_error_t utf8lex_generate_parse(
                                   state_pointer);
       error = UTF8LEX_OK;
     }
-    else if (lex.id.id == token.rule->id)
-    {
-      printf("!!! todo definition: start with id\n");
-      // !!! Read the rest of the current line as a single token:
-      utf8lex_token_t line_token;
-      utf8lex_token_t newline_token;
-      error = utf8lex_generate_read_to_eol(&lex,
-                                           state_pointer,
-                                           &line_token,
-                                           &newline_token);
-      if (error != UTF8LEX_OK)
-      {
-        return error;
-      }
-
-      error = UTF8LEX_OK;
-    }
     else if (lex.section_divider.id == token.rule->id)
     {
       error = utf8lex_lex(lex.lex_rules,
@@ -1583,8 +1704,61 @@ static utf8lex_error_t utf8lex_generate_parse(
     }
     else
     {
-      // OK let's try cats, regex...
-      // !!!
+      // rule: (definition-without-id) {rule} or just (definition-without-id).
+      // Note that the rule code could sprawl across multiple lines
+      // (not yet handled).
+      // Backup the buffer and state pointers to where the token pointer is:
+      for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
+           unit < UTF8LEX_UNIT_MAX;
+           unit ++)
+      {
+        if (token.loc[unit].after == -1)
+        {
+          int length_units = token.loc[unit].length;
+          state_pointer->buffer->loc[unit].start -= token.loc[unit].length;
+          state_pointer->loc[unit].start -= token.loc[unit].length;
+        }
+        else
+        {
+          state_pointer->buffer->loc[unit].start = token.loc[unit].start;
+          state_pointer->loc[unit].start = token.loc[unit].start;
+        }
+      }
+
+      uint32_t r = lex.db.num_rules;
+      int printed = snprintf(lex.db.rule_names[r],  // str
+                             (size_t) UTF8LEX_NAME_LENGTH_MAX,  // size
+                             "rule_%d",  // format
+                             (int) r + 1);
+      if (printed < 0)
+      {
+        return UTF8LEX_ERROR_TOKEN;
+      }
+
+      error = utf8lex_generate_definition(
+                  &lex,  // lex
+                  state_pointer,  // state
+                  lex.db.rule_names[r],  // name
+                  true);  // is_rule -- we're in the rules section.
+      if (error != UTF8LEX_OK)
+      {
+        return error;
+      }
+
+      error = utf8lex_rule_init(
+                  &(lex.db.rules[r]),  // self
+                  lex.db.last_rule,  // prev
+                  lex.db.rule_names[r],  // name
+                  lex.db.last_definition,  // definition
+                  lex.db.rule_code[r],  // code
+                  strlen(lex.db.rule_code[r]));  // code_length_bytes
+      if (error != UTF8LEX_OK)
+      {
+        return error;
+      }
+      printf("!!! created rule \"%s\" with definition \"%s\" and code \"%s\"\n", lex.db.rules[r].name, lex.db.rules[r].definition->name, lex.db.rules[r].code); fflush(stdout);
+
+      error = UTF8LEX_OK;
     }
 
     if (error != UTF8LEX_OK)
