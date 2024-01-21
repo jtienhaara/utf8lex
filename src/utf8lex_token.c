@@ -190,3 +190,32 @@ extern utf8lex_error_t utf8lex_token_copy_string(
 
   return UTF8LEX_OK;
 }
+
+// Returns UTF8LEX_MORE if the destination string truncates the token:
+utf8lex_error_t utf8lex_token_cat_string(
+        utf8lex_token_t *self,
+        unsigned char *str,  // Text will be concatenated starting at '\0'.
+        size_t max_bytes)
+{
+  if (self == NULL
+      || str == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  size_t length = strlen(str);
+  size_t reduced_max = max_bytes - length;
+  if (reduced_max <= (size_t) 0)
+  {
+    return UTF8LEX_MORE;
+  }
+
+  unsigned char *str_offset = &(str[length]);
+
+  utf8lex_error_t error = utf8lex_token_copy_string(
+                              self,  // self
+                              str_offset,  // str
+                              reduced_max);  // max_bytes
+
+  return error;
+}

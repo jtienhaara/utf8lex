@@ -27,7 +27,17 @@
 
 typedef struct _STRUCT_utf8lex_db               utf8lex_db_t;
 typedef struct _STRUCT_utf8lex_generate_lexicon utf8lex_generate_lexicon_t;
+typedef enum _ENUM_utf8lex_lex_state            utf8lex_lex_state_t;
+typedef struct _STRUCT_utf8lex_lex_transition   utf8lex_lex_transition_t;
 
+
+// Arbitrary maximum number of lines in a .l file, so that we don't
+// read forever and ever and ever and...  (That's a lot of lines of lex code.)
+#define UTF8LEX_LEX_FILE_NUM_LINES_MAX 65536
+
+// Arbitrary maximum definition / rule name length, so that we don't
+// have to malloc:
+#define UTF8LEX_NAME_LENGTH_MAX 256
 
 struct _STRUCT_utf8lex_db
 {
@@ -39,15 +49,22 @@ struct _STRUCT_utf8lex_db
   utf8lex_rule_t cats[UTF8LEX_NUM_CATEGORIES];
 
   // Definitions from the .l file (NOT in any order -- use definitions_db):
+  uint32_t num_definition_names;
+  unsigned char definition_names[UTF8LEX_DEFINITIONS_DB_LENGTH_MAX][UTF8LEX_NAME_LENGTH_MAX];
+
   uint32_t num_literal_definitions;
   utf8lex_literal_definition_t literal_definitions[UTF8LEX_DEFINITIONS_DB_LENGTH_MAX];
   uint32_t num_regex_definitions;
   utf8lex_regex_definition_t regex_definitions[UTF8LEX_DEFINITIONS_DB_LENGTH_MAX];
   uint32_t num_multi_definitions;
   utf8lex_multi_definition_t multi_definitions[UTF8LEX_DEFINITIONS_DB_LENGTH_MAX];
+  uint32_t num_references;
+  unsigned char reference_names[UTF8LEX_DEFINITIONS_DB_LENGTH_MAX][UTF8LEX_NAME_LENGTH_MAX];
+  utf8lex_reference_t references[UTF8LEX_DEFINITIONS_DB_LENGTH_MAX];
 
   // Rules from the .l file:
   uint32_t num_rules;
+  unsigned char rule_names[UTF8LEX_DEFINITIONS_DB_LENGTH_MAX][UTF8LEX_NAME_LENGTH_MAX];
   utf8lex_rule_t rules[UTF8LEX_RULES_DB_LENGTH_MAX];
 
   // The databases of definitions and rules:
@@ -62,6 +79,9 @@ struct _STRUCT_utf8lex_db
 
 struct _STRUCT_utf8lex_generate_lexicon
 {
+  utf8lex_definition_t *lex_definitions;
+  utf8lex_rule_t *lex_rules;
+
   // Newline
   utf8lex_cat_definition_t newline_definition;
   utf8lex_rule_t newline;
@@ -93,14 +113,25 @@ struct _STRUCT_utf8lex_generate_lexicon
   // +
   utf8lex_literal_definition_t plus_definition;
   utf8lex_rule_t plus;
+  // (backslash)
+  utf8lex_literal_definition_t backslash_definition;
+  utf8lex_rule_t backslash;
 
-  // definition ID
-  utf8lex_regex_definition_t definition_definition;
-  utf8lex_rule_t definition;
+  // ID
+  utf8lex_regex_definition_t id_definition;
+  utf8lex_rule_t id;
 
   // horizontal whitespace
   utf8lex_regex_definition_t space_definition;
   utf8lex_rule_t space;
+
+  // anything EXCEPT backslash.
+  utf8lex_regex_definition_t not_backslash_definition;
+  utf8lex_rule_t not_backslash;
+
+  // Any (regex .)
+  utf8lex_regex_definition_t any_definition;
+  utf8lex_rule_t any;
 
   // code
   utf8lex_regex_definition_t code_definition;
@@ -110,7 +141,8 @@ struct _STRUCT_utf8lex_generate_lexicon
   utf8lex_cat_definition_t to_eol_definition;
   utf8lex_rule_t to_eol;
 
-  // Database of definitions and rules:
+  // Database of definitions and rules in a specific .l file,
+  // which comes with pre-defined definitions for the categories:
   utf8lex_db_t db;
 };
 
@@ -126,9 +158,11 @@ static utf8lex_error_t utf8lex_generate_setup_db(
 
   // Definitions and rules from the .l file (not including pre-defined
   // cat definitions):
+  db->num_definition_names = (uint32_t) 0;
   db->num_literal_definitions = (uint32_t) 0;
   db->num_regex_definitions = (uint32_t) 0;
   db->num_multi_definitions = (uint32_t) 0;
+  db->num_references = (uint32_t) 0;
 
   db->num_rules = (uint32_t) 0;
 
@@ -199,6 +233,7 @@ static utf8lex_error_t utf8lex_generate_setup(
                                       -1);  // max
   if (error != UTF8LEX_OK) { return error; }
   prev_definition = (utf8lex_definition_t *) &(lex->newline_definition);
+  lex->lex_definitions = prev_definition;
   error = utf8lex_rule_init(&(lex->newline),
                             prev,
                             "newline",  // name
@@ -208,6 +243,7 @@ static utf8lex_error_t utf8lex_generate_setup(
                             (size_t) 0);  // code_length_bytes
   if (error != UTF8LEX_OK) { return error; }
   prev = &(lex->newline);
+  lex->lex_rules = prev;
 
   // %%
   error = utf8lex_literal_definition_init(&(lex->section_divider_definition),
@@ -337,11 +373,11 @@ static utf8lex_error_t utf8lex_generate_setup(
                             (size_t) 0);  // code_length_bytes
   if (error != UTF8LEX_OK) { return error; }
   prev = &(lex->star);
-  // plus
+  // +
   error = utf8lex_literal_definition_init(&(lex->plus_definition),
                                           prev_definition,  // prev
                                           "PLUS",  // name
-                                          "plus");
+                                          "+");
   if (error != UTF8LEX_OK) { return error; }
   prev_definition = (utf8lex_definition_t *) &(lex->plus_definition);
   error = utf8lex_rule_init(&(lex->plus),
@@ -353,23 +389,39 @@ static utf8lex_error_t utf8lex_generate_setup(
                             (size_t) 0);  // code_length_bytes
   if (error != UTF8LEX_OK) { return error; }
   prev = &(lex->plus);
-
-  // definition ID
-  error = utf8lex_regex_definition_init(&(lex->definition_definition),
-                                        prev_definition,  // prev
-                                        "DEFINITION",  // name
-                                        "[_\\p{L}][_\\p{L}\\p{N}]*");
+  // (backslash)
+  error = utf8lex_literal_definition_init(&(lex->backslash_definition),
+                                          prev_definition,  // prev
+                                          "BACKSLASH",  // name
+                                          "\\");
   if (error != UTF8LEX_OK) { return error; }
-  prev_definition = (utf8lex_definition_t *) &(lex->definition_definition);
-  error = utf8lex_rule_init(&(lex->definition),
+  prev_definition = (utf8lex_definition_t *) &(lex->backslash_definition);
+  error = utf8lex_rule_init(&(lex->backslash),
                             prev,
-                            "definition",  // name
+                            "backslash",  // name
                             (utf8lex_definition_t *)
-                            &(lex->definition_definition),  // definition
+                            &(lex->backslash_definition),  // definition
                             "",  // code
                             (size_t) 0);  // code_length_bytes
   if (error != UTF8LEX_OK) { return error; }
-  prev = &(lex->definition);
+  prev = &(lex->backslash);
+
+  // definition ID
+  error = utf8lex_regex_definition_init(&(lex->id_definition),
+                                        prev_definition,  // prev
+                                        "ID",  // name
+                                        "[_\\p{L}][_\\p{L}\\p{N}]*");
+  if (error != UTF8LEX_OK) { return error; }
+  prev_definition = (utf8lex_definition_t *) &(lex->id_definition);
+  error = utf8lex_rule_init(&(lex->id),
+                            prev,
+                            "id",  // name
+                            (utf8lex_definition_t *)
+                            &(lex->id_definition),  // definition
+                            "",  // code
+                            (size_t) 0);  // code_length_bytes
+  if (error != UTF8LEX_OK) { return error; }
+  prev = &(lex->id);
 
   // horizontal whitespace
   error = utf8lex_regex_definition_init(&(lex->space_definition),
@@ -387,6 +439,40 @@ static utf8lex_error_t utf8lex_generate_setup(
                             (size_t) 0);  // code_length_bytes
   if (error != UTF8LEX_OK) { return error; }
   prev = &(lex->space);
+
+  // anything EXCEPT backslash.
+  error = utf8lex_regex_definition_init(&(lex->not_backslash_definition),
+                                        prev_definition,  // prev
+                                        "NOT_BACKSLASH",  // name
+                                        "[^\\\\]");
+  if (error != UTF8LEX_OK) { return error; }
+  prev_definition = (utf8lex_definition_t *) &(lex->not_backslash_definition);
+  error = utf8lex_rule_init(&(lex->not_backslash),
+                            prev,
+                            "not_backslash",  // name
+                            (utf8lex_definition_t *)
+                            &(lex->not_backslash_definition),  // definition
+                            "",  // code
+                            (size_t) 0);  // code_length_bytes
+  if (error != UTF8LEX_OK) { return error; }
+  prev = &(lex->not_backslash);
+
+  // Any (regex .)
+  error = utf8lex_regex_definition_init(&(lex->any_definition),
+                                        prev_definition,  // prev
+                                        "ANY",  // name
+                                        ".");
+  if (error != UTF8LEX_OK) { return error; }
+  prev_definition = (utf8lex_definition_t *) &(lex->any_definition);
+  error = utf8lex_rule_init(&(lex->any),
+                            prev,
+                            "any",  // name
+                            (utf8lex_definition_t *)
+                            &(lex->any_definition),  // definition
+                            "",  // code
+                            (size_t) 0);  // code_length_bytes
+  if (error != UTF8LEX_OK) { return error; }
+  prev = &(lex->any);
 
 
   // Everything to the end of the line
@@ -682,6 +768,401 @@ static utf8lex_error_t utf8lex_generate_write_line(
   return UTF8LEX_OK;
 }
 
+enum _ENUM_utf8lex_lex_state
+{
+  UTF8LEX_LEX_STATE_NONE = -1,
+
+  UTF8LEX_LEX_STATE_DEFINITION,
+  UTF8LEX_LEX_STATE_DEFINITION_BODY,
+  UTF8LEX_LEX_STATE_MULTI_ID,
+  UTF8LEX_LEX_STATE_MULTI_SEQUENCE_ID,
+  UTF8LEX_LEX_STATE_MULTI_OR,
+  UTF8LEX_LEX_STATE_MULTI_OR_ID,
+  UTF8LEX_LEX_STATE_LITERAL,
+  UTF8LEX_LEX_STATE_LITERAL_BACKSLASH,
+  UTF8LEX_LEX_STATE_LITERAL_COMPLETE,
+  UTF8LEX_LEX_STATE_REGEX,
+
+  UTF8LEX_LEX_STATE_COMPLETE,
+  UTF8LEX_LEX_STATE_ERROR,
+
+  UTF8LEX_LEX_STATE_MAX
+};
+
+struct _STRUCT_utf8lex_lex_transition
+{
+  utf8lex_rule_t *rule;
+  utf8lex_lex_state_t to;
+};
+
+static utf8lex_error_t utf8lex_generate_definition(
+        utf8lex_generate_lexicon_t *lex,  // .l file lexicon, this file's db.
+        utf8lex_state_t *state,  // .l file current state.
+        unsigned char *name,  // Name of (definition or rule).
+        utf8lex_rule_t *rule_or_null  // If rule's definition, write to rule.
+        )
+{
+  if (lex == NULL
+      || state == NULL
+      || name == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  utf8lex_lex_transition_t grammar[UTF8LEX_LEX_STATE_MAX][16] =
+    {
+      {
+        // UTF8LEX_LEX_STATE_DEFINITION:
+        { .rule = &(lex->space),
+          .to = UTF8LEX_LEX_STATE_DEFINITION_BODY },
+        { .rule = &(lex->newline),
+          .to = UTF8LEX_LEX_STATE_ERROR },
+        { .rule = NULL,
+          .to = UTF8LEX_LEX_STATE_ERROR }
+      },
+      {
+        // UTF8LEX_LEX_STATE_DEFINITION_BODY:
+        { .rule = &(lex->id),
+          .to = UTF8LEX_LEX_STATE_MULTI_ID },
+        { .rule = &(lex->quote),
+          .to = UTF8LEX_LEX_STATE_LITERAL },
+        { .rule = &(lex->newline),
+          .to = UTF8LEX_LEX_STATE_ERROR },
+        { .rule = NULL,
+          .to = UTF8LEX_LEX_STATE_REGEX }
+      },
+      {
+        // UTF8LEX_LEX_STATE_MULTI_ID:
+        { .rule = &(lex->space),
+          .to = UTF8LEX_LEX_STATE_MULTI_ID },
+        { .rule = &(lex->id),
+          .to = UTF8LEX_LEX_STATE_MULTI_SEQUENCE_ID },
+        { .rule = &(lex->or),
+          .to = UTF8LEX_LEX_STATE_MULTI_OR },
+        { .rule = &(lex->newline),
+          .to = UTF8LEX_LEX_STATE_COMPLETE },  // DEF1 REF1 (pointless but OK)
+        { .rule = NULL,
+          .to = UTF8LEX_LEX_STATE_ERROR }
+      },
+      {
+        // UTF8LEX_LEX_STATE_MULTI_SEQUENCE_ID:
+        { .rule = &(lex->space),
+          .to = UTF8LEX_LEX_STATE_MULTI_SEQUENCE_ID },
+        { .rule = &(lex->id),
+          .to = UTF8LEX_LEX_STATE_MULTI_SEQUENCE_ID },
+        { .rule = &(lex->newline),
+          .to = UTF8LEX_LEX_STATE_COMPLETE },  // DEF1 REF1 REF2 REF3...
+        { .rule = NULL,
+          .to = UTF8LEX_LEX_STATE_ERROR }
+      },
+      {
+        // UTF8LEX_LEX_STATE_MULTI_OR:
+        { .rule = &(lex->space),
+          .to = UTF8LEX_LEX_STATE_MULTI_OR },
+        { .rule = &(lex->id),
+          .to = UTF8LEX_LEX_STATE_MULTI_OR_ID },
+        { .rule = &(lex->newline),
+          .to = UTF8LEX_LEX_STATE_ERROR },  // DEF1 REF1 | <- unclosed
+        { .rule = NULL,
+          .to = UTF8LEX_LEX_STATE_ERROR }
+      },
+      {
+        // UTF8LEX_LEX_STATE_MULTI_OR_ID:
+        { .rule = &(lex->space),
+          .to = UTF8LEX_LEX_STATE_MULTI_OR_ID },
+        { .rule = &(lex->or),
+          .to = UTF8LEX_LEX_STATE_MULTI_OR },
+        { .rule = &(lex->newline),
+          .to = UTF8LEX_LEX_STATE_COMPLETE },  // DEF1 REF1 | REF2 ...
+        { .rule = NULL,
+          .to = UTF8LEX_LEX_STATE_ERROR }
+      },
+      {
+        // UTF8LEX_LEX_STATE_LITERAL:
+        { .rule = &(lex->backslash),
+          .to = UTF8LEX_LEX_STATE_LITERAL_BACKSLASH },
+        { .rule = &(lex->quote),
+          .to = UTF8LEX_LEX_STATE_LITERAL_COMPLETE },
+        { .rule = &(lex->newline),
+          .to = UTF8LEX_LEX_STATE_ERROR },  // DEF1 "... <- unclosed quote
+        { .rule = NULL,
+          .to = UTF8LEX_LEX_STATE_LITERAL }
+      },
+      {
+        // UTF8LEX_LEX_STATE_LITERAL_BACKSLASH:
+        { .rule = NULL,
+          .to = UTF8LEX_LEX_STATE_LITERAL }
+      },
+      {
+        // UTF8LEX_LEX_STATE_LITERAL_COMPLETE:
+        { .rule = &(lex->space),
+          .to = UTF8LEX_LEX_STATE_LITERAL_COMPLETE },
+        { .rule = &(lex->newline),
+          .to = UTF8LEX_LEX_STATE_COMPLETE },  // DEF1 "..."
+        { .rule = NULL,
+          .to = UTF8LEX_LEX_STATE_ERROR }
+      },
+      {
+        // UTF8LEX_LEX_STATE_REGEX:
+        { .rule = &(lex->newline),
+          .to = UTF8LEX_LEX_STATE_COMPLETE },  // DEF1 ...anything...
+        { .rule = NULL,
+          .to = UTF8LEX_LEX_STATE_REGEX }
+      },
+      {
+        // UTF8LEX_LEX_STATE_COMPLETE:
+        { .rule = NULL,
+          .to = UTF8LEX_LEX_STATE_COMPLETE }
+      },
+      {
+        // UTF8LEX_LEX_STATE_ERROR:
+        { .rule = NULL,
+            .to = UTF8LEX_LEX_STATE_ERROR }
+      }
+    };
+
+  // Store the definition's / rule's name.
+  int dn = lex->db.num_definition_names;
+  strcpy(lex->db.definition_names[dn],
+         name);
+  lex->db.num_definition_names ++;
+  if (lex->db.num_definition_names >= UTF8LEX_DEFINITIONS_DB_LENGTH_MAX)
+  {
+    return UTF8LEX_ERROR_MAX_LENGTH;
+  }
+
+  utf8lex_error_t error = UTF8LEX_ERROR_STATE;
+
+  // Prepare a multi-definition IN CASE we need it.
+  // We'll remove it later if we do not need it.
+  int md = lex->db.num_multi_definitions;
+  error = utf8lex_multi_definition_init(
+              &(lex->db.multi_definitions[md]),  // self
+              lex->db.last_definition,  // prev
+              lex->db.definition_names[dn],  // name
+              NULL,  // parent
+              UTF8LEX_MULTI_TYPE_SEQUENCE);  // multi_type
+  if (error != UTF8LEX_OK) { return error; }
+  lex->db.num_multi_definitions ++;
+  if (lex->db.num_multi_definitions >= UTF8LEX_DEFINITIONS_DB_LENGTH_MAX)
+  {
+    return UTF8LEX_ERROR_MAX_LENGTH;
+  }
+  lex->db.last_definition = (utf8lex_definition_t *)
+    &(lex->db.multi_definitions[md]);
+
+  // Now parse the definition.
+  utf8lex_lex_state_t lex_state = UTF8LEX_LEX_STATE_DEFINITION;
+  int infinite_loop_protector = 0;
+  utf8lex_definition_type_t *definition_type = NULL;
+  unsigned char literal_or_regex[4096];
+  literal_or_regex[0] = 0;
+  utf8lex_multi_type_t multi_type = UTF8LEX_MULTI_TYPE_NONE;
+  utf8lex_reference_t *last_reference = NULL;
+  while (true)
+  {
+    if (lex_state == UTF8LEX_LEX_STATE_COMPLETE
+        || lex_state == UTF8LEX_LEX_STATE_ERROR)
+    {
+      break;
+    }
+
+    infinite_loop_protector ++;
+    if (infinite_loop_protector > UTF8LEX_LEX_FILE_NUM_LINES_MAX)
+    {
+      unsigned char some_of_remaining_buffer[32];
+      utf8lex_fill_some_of_remaining_buffer(
+          some_of_remaining_buffer,
+          state,
+          (size_t) state->buffer->loc[UTF8LEX_UNIT_BYTE].length,
+          (size_t) 32);
+      fprintf(stderr,
+              "ERROR utf8lex: Aborting \"%s\", possible infinite loop %d.%d: \"%s\"\n",
+              name,
+              state->loc[UTF8LEX_UNIT_LINE].start + 1,
+              state->loc[UTF8LEX_UNIT_CHAR].start,
+              some_of_remaining_buffer);
+      return UTF8LEX_ERROR_INFINITE_LOOP;
+    }
+
+    utf8lex_token_t token;
+    error = utf8lex_lex(lex->lex_rules,
+                        state,
+                        &token);
+    if (error != UTF8LEX_OK)
+    {
+      return error;
+    }
+
+    utf8lex_lex_state_t next_lex_state = UTF8LEX_LEX_STATE_NONE;
+    const int UTF8LEX_LINE_WIDTH_MAX = 65536;
+    for (int t = 0; t < UTF8LEX_LINE_WIDTH_MAX; t ++)
+    {
+      utf8lex_lex_transition_t *transition = &(grammar[lex_state][t]);
+      if (transition == NULL)
+      {
+        return UTF8LEX_ERROR_NULL_POINTER;
+      }
+
+      if (transition->rule == NULL)
+      {
+        // !!! unsigned char token_str[1024]; utf8lex_token_copy_string(&token, token_str, (size_t) 1024); // !!!
+        // !!! printf("!!! generate definition 15 %d --(any)-> %d (via %s \"%s\")\n", (int) lex_state, (int) transition->to, token.rule->name, token_str); fflush(stdout);
+        next_lex_state = transition->to;
+        break;
+      }
+      else if (transition->rule->id == token.rule->id)
+      {
+        // !!! printf("!!! generate definition 16 %d --%s-> %d\n", (int) lex_state, transition->rule->name, (int) transition->to); fflush(stdout);
+        next_lex_state = transition->to;
+        break;
+      }
+      // Else keep stepping through transitions.
+    }
+
+    switch (next_lex_state)
+    {
+    case UTF8LEX_LEX_STATE_LITERAL:
+      definition_type = UTF8LEX_DEFINITION_TYPE_LITERAL;
+      error = utf8lex_token_cat_string(
+                  &token,  // self
+                  literal_or_regex,  // str
+                  (size_t) 4096);  // max_bytes
+      if (error != UTF8LEX_OK) { return error; }
+      break;
+    case UTF8LEX_LEX_STATE_REGEX:
+      definition_type = UTF8LEX_DEFINITION_TYPE_REGEX;
+      error = utf8lex_token_cat_string(
+                  &token,  // self
+                  literal_or_regex,  // str
+                  (size_t) 4096);  // max_bytes
+      if (error != UTF8LEX_OK) { return error; }
+      break;
+    case UTF8LEX_LEX_STATE_MULTI_ID:
+    case UTF8LEX_LEX_STATE_MULTI_SEQUENCE_ID:
+    case UTF8LEX_LEX_STATE_MULTI_OR_ID:
+      definition_type = UTF8LEX_DEFINITION_TYPE_MULTI;
+
+      if (next_lex_state == UTF8LEX_LEX_STATE_MULTI_ID
+          || next_lex_state == UTF8LEX_LEX_STATE_MULTI_SEQUENCE_ID)
+      {
+        multi_type = UTF8LEX_MULTI_TYPE_SEQUENCE;
+      }
+      else if (next_lex_state == UTF8LEX_LEX_STATE_MULTI_OR_ID)
+      {
+        multi_type = UTF8LEX_MULTI_TYPE_OR;
+      }
+
+      if (token.rule->id == lex->id.id)
+      {
+        // Another reference.
+        int rd = lex->db.num_references;
+        error = utf8lex_token_copy_string(
+                    &token,  // self
+                    lex->db.reference_names[rd],  // str
+                    (size_t) UTF8LEX_NAME_LENGTH_MAX);  // max_bytes
+        if (error != UTF8LEX_OK) { return error; }
+        error = utf8lex_reference_init(
+                    &(lex->db.references[rd]),  // self
+                    last_reference,  // prev
+                    lex->db.reference_names[rd],  // name
+                    1,  // min
+                    1,  // max
+                    &(lex->db.multi_definitions[md]));  // parent
+        if (error != UTF8LEX_OK) { return error; }
+        lex->db.num_references ++;
+        if (lex->db.num_references >= UTF8LEX_DEFINITIONS_DB_LENGTH_MAX)
+        {
+          return UTF8LEX_ERROR_MAX_LENGTH;
+        }
+        last_reference = &(lex->db.references[rd]);
+      }
+    }
+
+    lex_state = next_lex_state;
+  }
+
+  if (lex_state != UTF8LEX_LEX_STATE_COMPLETE)
+  {
+    return UTF8LEX_ERROR_STATE;
+  }
+
+  // If we do not need the multi definition, delete it.
+  if (definition_type != UTF8LEX_DEFINITION_TYPE_MULTI)
+  {
+    if (lex->db.last_definition != (utf8lex_definition_t *)
+        &(lex->db.multi_definitions[md]))
+    {
+      return UTF8LEX_ERROR_STATE;
+    }
+    lex->db.last_definition = lex->db.last_definition->prev;
+    error = utf8lex_multi_definition_clear(
+                (utf8lex_definition_t *)
+                &(lex->db.multi_definitions[md])  // self
+                );
+    if (error != UTF8LEX_OK) { return error; }
+    lex->db.num_multi_definitions --;
+  }
+
+  // Now store the definition.
+  error = UTF8LEX_OK;
+  if (definition_type == UTF8LEX_DEFINITION_TYPE_LITERAL)
+  {
+    printf("!!! Create literal definition \"%s\" = \"%s\"\n", lex->db.definition_names[dn], literal_or_regex); fflush(stdout);
+    int ld = lex->db.num_literal_definitions;
+    error = utf8lex_literal_definition_init(
+                &(lex->db.literal_definitions[ld]),  // self
+                lex->db.last_definition,  // prev
+                lex->db.definition_names[dn],  // name
+                literal_or_regex);  // str
+    if (error != UTF8LEX_OK) { return error; }
+    lex->db.num_literal_definitions ++;
+    if (lex->db.num_literal_definitions >= UTF8LEX_DEFINITIONS_DB_LENGTH_MAX)
+    {
+      return UTF8LEX_ERROR_MAX_LENGTH;
+    }
+    lex->db.last_definition = (utf8lex_definition_t *)
+      &(lex->db.literal_definitions[ld]);
+  }
+  else if (definition_type == UTF8LEX_DEFINITION_TYPE_REGEX)
+  {
+    printf("!!! Create regex definition 1 \"%s\" = \"%s\"\n", lex->db.definition_names[dn], literal_or_regex); fflush(stdout);
+    int rd = lex->db.num_regex_definitions;
+    error = utf8lex_regex_definition_init(
+                &(lex->db.regex_definitions[rd]),  // self
+                lex->db.last_definition,  // prev
+                lex->db.definition_names[dn],  // name
+                literal_or_regex);  // pattern
+    if (error != UTF8LEX_OK) { return error; }
+    lex->db.num_regex_definitions ++;
+    if (lex->db.num_regex_definitions >= UTF8LEX_DEFINITIONS_DB_LENGTH_MAX)
+    {
+      return UTF8LEX_ERROR_MAX_LENGTH;
+    }
+    lex->db.last_definition = (utf8lex_definition_t *)
+      &(lex->db.regex_definitions[rd]);
+  }
+  else if (definition_type == UTF8LEX_DEFINITION_TYPE_MULTI)
+  {
+    lex->db.multi_definitions[md].multi_type = multi_type;
+    printf("!!! Create multi definition 1 \"%s\" multi-type %d (vs. SEQUENCE %d, OR %d) first reference %u\n", lex->db.definition_names[dn], (int) lex->db.multi_definitions[md].multi_type, (int) UTF8LEX_MULTI_TYPE_SEQUENCE, (int) UTF8LEX_MULTI_TYPE_OR, (unsigned long) lex->db.multi_definitions[md].references); fflush(stdout);
+    utf8lex_reference_t *ref = lex->db.multi_definitions[md].references; while (ref != NULL) { printf("!!! ref \"%s\"\n", ref->definition_name); fflush(stdout); ref = ref->next; } // !!!
+  }
+  else
+  {
+    // Incomplete parse or something.
+    return UTF8LEX_ERROR_STATE;
+  }
+
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+
+  return UTF8LEX_OK;
+}
+
+
 static utf8lex_error_t utf8lex_generate_parse(
         const utf8lex_target_language_t *target_language,
         utf8lex_state_t *state_pointer,
@@ -689,6 +1170,7 @@ static utf8lex_error_t utf8lex_generate_parse(
         int fd_out
         )
 {
+  int i = 5;
   if (target_language == NULL
       || state_pointer == NULL)
   {
@@ -701,6 +1183,11 @@ static utf8lex_error_t utf8lex_generate_parse(
 
   utf8lex_error_t error;
 
+  // lex: the tokens that we parse in every .l file, as well as
+  // lex.db, the database of definitions that this particular
+  // .l file generates (we pre-define all the character
+  // categories as builtin definitions which can be referenced
+  // or overridden in the .l file).
   utf8lex_generate_lexicon_t lex;
   error = utf8lex_generate_setup(&lex);
   if (error != UTF8LEX_OK)
@@ -708,28 +1195,12 @@ static utf8lex_error_t utf8lex_generate_parse(
     return error;
   }
 
+  // Get the .l file lexer state set up:
   error = utf8lex_state_init(state_pointer, lex_file);
   if (error != UTF8LEX_OK)
   {
     return error;
   }
-
-  utf8lex_rule_t *first_rule = &(lex.newline);
-
-  // Database of definitions:
-  utf8lex_definition_t definitions[UTF8LEX_DEFINITIONS_DB_LENGTH_MAX];
-  int num_definitions = 0;
-  utf8lex_definition_t *first_definition = NULL;
-  // Currently defined definition's id:
-  unsigned char definition_id[256];
-  // Definitions for rules:
-  utf8lex_cat_t categories = UTF8LEX_CAT_NONE;
-  int cat_min;
-  int cat_max;
-  char regex[1024];
-  char literal[1024];
-  utf8lex_definition_t *definition_refs[UTF8LEX_DEFINITIONS_DB_LENGTH_MAX];
-  int num_definition_refs = 0;
 
   // This horrid approach will have to do for now.
   // After trying to make the lex grammar context-free, and running
@@ -740,11 +1211,12 @@ static utf8lex_error_t utf8lex_generate_parse(
   // Definitions section:
   // -------------------------------------------------------------------
   bool is_enclosed = false;
+  bool is_end_of_section = false;
   int infinite_loop_protector = 0;
   while (true)
   {
     infinite_loop_protector ++;
-    if (infinite_loop_protector > 65536)  // That's a lot of lines of lex code.
+    if (infinite_loop_protector > UTF8LEX_LEX_FILE_NUM_LINES_MAX)
     {
       unsigned char some_of_remaining_buffer[32];
       utf8lex_fill_some_of_remaining_buffer(
@@ -762,7 +1234,7 @@ static utf8lex_error_t utf8lex_generate_parse(
 
     // Read a token in from the beginning of the line:
     utf8lex_token_t token;
-    error = utf8lex_lex(first_rule,
+    error = utf8lex_lex(lex.lex_rules,
                         state_pointer,
                         &token);
     if (is_enclosed == true
@@ -807,30 +1279,35 @@ static utf8lex_error_t utf8lex_generate_parse(
            token_string);
 
     // Acceptable tokens in the definitions section:
-    //   (newline) Blank line, ignored.
-    //   %{        Start enclosed code section.  (Write out contents to fd_out.)
-    //   %}        End enclosed code section.
-    //   (space)   Indented code line.
-    //   (id)      Definition.
+    //   (newline)    Blank line, ignored.
+    //   %{           Start enclosed code section.  (Write contents to fd_out.)
+    //   %}           End enclosed code section.
+    //   (space) ...  Indented code line.
+    //   (id) ...     Definition.
+    //   %%           Section divider, move on to next section.
     error = UTF8LEX_ERROR_TOKEN;  // Default to invalid token.
     if (lex.newline.id == token.rule->id)
     {
+      // (newline)
       error = UTF8LEX_OK;
     }
     else if (lex.enclosed_open.id == token.rule->id
              && is_enclosed == false)
     {
+      // ${
       is_enclosed = true;
       error = UTF8LEX_OK;
     }
     else if (lex.enclosed_close.id == token.rule->id
              && is_enclosed == true)
     {
+      // %}
       is_enclosed = false;
       error = UTF8LEX_OK;
     }
     else if (is_enclosed == true)
     {
+      // Inside %{ ... %}
       // Write out the token, and the rest of the line, to fd_out.
       size_t bytes_written = write(fd_out,
                                    &(token.str->bytes[token.start_byte]),
@@ -847,34 +1324,39 @@ static utf8lex_error_t utf8lex_generate_parse(
     }
     else if (lex.space.id == token.rule->id)
     {
+      // (space) ...
       utf8lex_generate_write_line(fd_out,
                                   &lex,
                                   state_pointer);
       error = UTF8LEX_OK;
     }
-    else if (lex.definition.id == token.rule->id)
+    else if (lex.id.id == token.rule->id)
     {
-      printf("!!! todo store definition id, use rest of line as definition\n");
-      // Read the rest of the current line as a single token:
-      utf8lex_token_t line_token;
-      utf8lex_token_t newline_token;
-      error = utf8lex_generate_read_to_eol(&lex,
-                                           state_pointer,
-                                           &line_token,
-                                           &newline_token);
+      // (id) ...
+      uint32_t d = lex.db.num_definition_names;
+      error = utf8lex_token_copy_string(&token,  // self
+                                        lex.db.definition_names[d],  // str
+                                        UTF8LEX_NAME_LENGTH_MAX);  // max_bytes
+      if (error != UTF8LEX_OK)
+      {
+        return error;
+      }
+      error = utf8lex_generate_definition(
+                  &lex,  // lex
+                  state_pointer,  // state
+                  lex.db.definition_names[d],  // name
+                  NULL);  // rule_or_null -- we're not in the rules section.
       if (error != UTF8LEX_OK)
       {
         return error;
       }
 
-      // !!! definition is now stored in line_token.
-      // !!! we don't care about newline_token.
-
       error = UTF8LEX_OK;
     }
     else if (lex.section_divider.id == token.rule->id)
     {
-      error = utf8lex_lex(first_rule,
+      // %%
+      error = utf8lex_lex(lex.lex_rules,
                           state_pointer,
                           &token);
       if (error != UTF8LEX_OK)
@@ -903,7 +1385,12 @@ static utf8lex_error_t utf8lex_generate_parse(
 
       // Move on to the rules section.
       error = UTF8LEX_OK;
+      is_end_of_section = true;
       break;
+    }
+    else
+    {
+      error = UTF8LEX_ERROR_TOKEN;
     }
 
     if (error != UTF8LEX_OK)
@@ -912,6 +1399,11 @@ static utf8lex_error_t utf8lex_generate_parse(
           state_pointer,
           &token,
           "Unexpected token in definitions section");
+    }
+
+    if (is_end_of_section == true)
+    {
+      break;
     }
   }
 
@@ -925,11 +1417,12 @@ static utf8lex_error_t utf8lex_generate_parse(
   // Rules section:
   // -------------------------------------------------------------------
   is_enclosed = false;
+  is_end_of_section = false;
   infinite_loop_protector = 0;
   while (true)
   {
     infinite_loop_protector ++;
-    if (infinite_loop_protector > 65536)  // That's a lot of lines of lex code.
+    if (infinite_loop_protector > UTF8LEX_LEX_FILE_NUM_LINES_MAX)
     {
       unsigned char some_of_remaining_buffer[32];
       utf8lex_fill_some_of_remaining_buffer(
@@ -947,7 +1440,7 @@ static utf8lex_error_t utf8lex_generate_parse(
 
     // Read a token in from the beginning of the line:
     utf8lex_token_t token;
-    error = utf8lex_lex(first_rule,
+    error = utf8lex_lex(lex.lex_rules,
                         state_pointer,
                         &token);
     if (is_enclosed == true
@@ -1037,7 +1530,7 @@ static utf8lex_error_t utf8lex_generate_parse(
                                   state_pointer);
       error = UTF8LEX_OK;
     }
-    else if (lex.definition.id == token.rule->id)
+    else if (lex.id.id == token.rule->id)
     {
       printf("!!! todo definition: start with id\n");
       // !!! Read the rest of the current line as a single token:
@@ -1056,7 +1549,7 @@ static utf8lex_error_t utf8lex_generate_parse(
     }
     else if (lex.section_divider.id == token.rule->id)
     {
-      error = utf8lex_lex(first_rule,
+      error = utf8lex_lex(lex.lex_rules,
                           state_pointer,
                           &token);
       if (error != UTF8LEX_OK)
@@ -1085,6 +1578,7 @@ static utf8lex_error_t utf8lex_generate_parse(
 
       // Move on to the user code section.
       error = UTF8LEX_OK;
+      is_end_of_section = true;
       break;
     }
     else
@@ -1100,6 +1594,11 @@ static utf8lex_error_t utf8lex_generate_parse(
           &token,
           "Unexpected token in rules section");
     }
+
+    if (is_end_of_section == true)
+    {
+      break;
+    }
   }
 
   if (error != UTF8LEX_OK)
@@ -1114,7 +1613,7 @@ static utf8lex_error_t utf8lex_generate_parse(
   while (true)
   {
     infinite_loop_protector ++;
-    if (infinite_loop_protector > 65536)  // That's a lot of lines of lex code.
+    if (infinite_loop_protector > UTF8LEX_LEX_FILE_NUM_LINES_MAX)
     {
       unsigned char some_of_remaining_buffer[32];
       utf8lex_fill_some_of_remaining_buffer(

@@ -354,7 +354,10 @@ struct _STRUCT_utf8lex_definition_type
 
 // No more than (this many) utf8lex_definition_t's can be in a database
 // (to prevent infinite loops due to adding the same definition twice etc).
-#define UTF8LEX_DEFINITIONS_DB_LENGTH_MAX 16384
+// Warning: setting this too high can cause a program to mysteriously
+// segfault at the very start of a static function (as static
+// heap space is being initialized, or something like that.)
+#define UTF8LEX_DEFINITIONS_DB_LENGTH_MAX 4096
 
 struct _STRUCT_utf8lex_definition
 {
@@ -598,7 +601,10 @@ extern utf8lex_error_t utf8lex_regex_definition_clear(
 
 // No more than (this many) utf8lex_rule_t's can be in a database.
 // (to prevent infinite loops due to adding the same rule twice etc).
-#define UTF8LEX_RULES_DB_LENGTH_MAX 16384
+// Warning: setting this too high can cause a program to mysteriously
+// segfault at the very start of a static function (as static
+// heap space is being initialized, or something like that.)
+#define UTF8LEX_RULES_DB_LENGTH_MAX 4096
 
 struct _STRUCT_utf8lex_rule
 {
@@ -660,6 +666,11 @@ extern utf8lex_error_t utf8lex_token_clear(
 extern utf8lex_error_t utf8lex_token_copy_string(
         utf8lex_token_t *self,
         unsigned char *str,
+        size_t max_bytes);
+// Returns UTF8LEX_MORE if the destination string truncates the token:
+extern utf8lex_error_t utf8lex_token_cat_string(
+        utf8lex_token_t *self,
+        unsigned char *str,  // Text will be concatenated starting at '\0'.
         size_t max_bytes);
 
 struct _STRUCT_ut8lex_state

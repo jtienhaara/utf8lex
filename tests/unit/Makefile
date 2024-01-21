@@ -5,7 +5,7 @@ BUILD_DIR = ../../build
 # Parameters for gcc compiling .c into .o files, .o files into exes, etc:
 #
 CC = gcc
-CFLAGS = -Werror -fPIC -I$(SRC_DIR)
+CFLAGS = -Werror -fPIC -I$(SRC_DIR) --debug
 
 LD = gcc
 LDFLAGS = -Wl,--no-as-needed -lpcre2-8 -lutf8proc -L$(BUILD_DIR) -Wl,-rpath,$(BUILD_DIR) -lutf8lex
@@ -60,6 +60,7 @@ build: $(PROGRAMS) libraries-for-runtime
 
 .PHONY: clean
 clean:
+	rm -f core
 	rm -f $(OBJECT_FILES) $(PROGRAMS)
 
 .PHONY: run

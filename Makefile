@@ -40,6 +40,15 @@ container: build-container
 	    utf8lex:latest \
 	    bash -c 'make clean && make all'
 
+.PHONY: container-debug
+container-debug: build-container
+	docker run \
+	    --rm \
+	    -i --tty \
+	    --volume `pwd`:/utf8lex:rw \
+	    utf8lex:latest \
+	    bash -c 'make clean && make build && make all && echo "***** No core dump, no debug *****" || make debug'
+
 .PHONY: build
 build:
 	cd src \
@@ -67,3 +76,9 @@ integration_tests: build
 	cd tests/integration \
 	    && make build \
 	    && make run
+
+.PHONY: debug
+debug: build
+	cd tests/integration \
+	    && make build \
+	    && make debug
