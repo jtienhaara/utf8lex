@@ -67,7 +67,15 @@ utf8lex_error_t utf8lex_regex_definition_init(
                             pcre2_error_string,
                             (PCRE2_SIZE) 256);
     fprintf(stderr,
-            "*** pcre2 error: %s\n", pcre2_error_string);
+            "*** utf8lex: pcre2 regex compile error: %s\n", pcre2_error_string);
+    utf8lex_regex_definition_clear((utf8lex_definition_t *) self);
+
+    return UTF8LEX_ERROR_BAD_REGEX;
+  }
+  else if (self->regex == NULL)
+  {
+    fprintf(stderr,
+            "*** utf8lex: pcre2 compiled NULL regex\n");
     utf8lex_regex_definition_clear((utf8lex_definition_t *) self);
 
     return UTF8LEX_ERROR_BAD_REGEX;
@@ -172,7 +180,7 @@ static utf8lex_error_t utf8lex_lex_regex(
       NULL);  // gcontext.
   if (match == NULL)
   {
-    return UTF8LEX_ERROR_REGEX;
+    return UTF8LEX_ERROR_STATE;
   }
 
   utf8lex_regex_definition_t *regex_definition =
@@ -210,7 +218,7 @@ static utf8lex_error_t utf8lex_lex_regex(
   //     is applied to a string not beginning with "a" or "b", it matches
   //     an empty string at the start of the subject. With PCRE2_NOTEMPTY set,
   //     this match is not valid, so pcre2_match() searches further
-  //     into the string for occurrences of "a" or "b". 
+  //     into the string for occurrences of "a" or "b".
   int pcre2_error = pcre2_match(
       regex_definition->regex,  // The pcre2_code (compiled regex).
       (PCRE2_SPTR) state->buffer->str->bytes,  // subject
@@ -244,6 +252,14 @@ static utf8lex_error_t utf8lex_lex_regex(
   // https://pcre2project.github.io/pcre2/doc/html/pcre2api.html#SEC32
   else if (pcre2_error < 0)
   {
+    unsigned char pcre2_error_message[256];
+    int error_get_error = pcre2_get_error_message(
+                              pcre2_error,  // errorcode
+                              (PCRE2_UCHAR *) pcre2_error_message,  // buffer
+                              (PCRE2_SIZE) 256);  // bufflen
+    fprintf(stderr, "*** ut8flex: pcre2 regex match error: %s\n",
+            pcre2_error_message);
+    fflush(stderr);
     pcre2_match_data_free(match);
     return UTF8LEX_ERROR_REGEX;
   }
@@ -337,14 +353,15 @@ static utf8lex_error_t utf8lex_lex_regex(
   if (token_loc[UTF8LEX_UNIT_BYTE].length != match_length_bytes)
   {
     fprintf(stderr,
-            "*** pcre2 and utf8proc disagree: pcre2 match_length_bytes = %d vs utf8proc = %d\n",
+            "*** utf8lex: pcre2 and utf8proc disagree: pcre2 match_length_bytes = %d vs utf8proc = %d\n",
             match_length_bytes,
             token_loc[UTF8LEX_UNIT_BYTE].length);
   }
 
   utf8lex_error_t error = utf8lex_token_init(
-      token_pointer,
-      rule,
+      token_pointer,  // self
+      rule,  // rule
+      rule->definition,  // definition
       token_loc,  // Resets for newlines, and lengths in bytes, chars, etc.
       state);  // For buffer and absolute location.
   if (error != UTF8LEX_OK)

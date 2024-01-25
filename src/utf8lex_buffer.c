@@ -26,8 +26,6 @@
 //                           utf8lex_buffer_t
 // ---------------------------------------------------------------------
 
-const uint32_t UTF8LEX_BUFFER_STRINGS_MAX = 16384;
-
 utf8lex_error_t utf8lex_buffer_init(
         utf8lex_buffer_t *self,
         utf8lex_buffer_t *prev,

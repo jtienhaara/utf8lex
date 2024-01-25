@@ -5,7 +5,7 @@ BUILD_DIR = ../../build
 # Parameters for gcc compiling .c into .o files, .o files into exes, etc:
 #
 CC = gcc
-CFLAGS = -Werror -fPIC -I$(SRC_DIR)
+CFLAGS = -Werror -fPIC -I$(SRC_DIR) --debug
 
 LD = gcc
 LDFLAGS = -Wl,--no-as-needed -lpcre2-8 -lutf8proc -L$(BUILD_DIR) -Wl,-rpath,$(BUILD_DIR) -lutf8lex
@@ -51,10 +51,12 @@ libraries-for-runtime:
 
 .PHONY: build
 build: $(PROGRAMS) libraries-for-runtime
+	$(CC) $(CFLAGS) -c test_l_file.c -o $(TEST_BUILD_DIR)/test_l_file.o
 
 .PHONY: clean
 clean:
-	rm -f $(OBJECT_FILES) $(PROGRAMS)
+	rm -f core
+	rm -f $(OBJECT_FILES) $(TEST_BUILD_DIR)/test_l_file.o $(PROGRAMS)
 
 .PHONY: run
 run: run-test_utf8lex run-test_utf8lex_generate
@@ -76,3 +78,20 @@ run-test_utf8lex_generate:
 	    ../../templates/c/mmap \
 	    $(TEST_BUILD_DIR) \
 	    test_utf8lex_generate_001
+	$(CC) $(CFLAGS) \
+	    -c $(TEST_BUILD_DIR)/test_utf8lex_generate_001.c \
+	    -o $(TEST_BUILD_DIR)/test_utf8lex_generate_001.o
+	$(LD) $(LDFLAGS) \
+	    $(TEST_BUILD_DIR)/test_utf8lex_generate_001.o \
+	    $(TEST_BUILD_DIR)/test_l_file.o \
+	    -o $(TEST_BUILD_DIR)/test_utf8lex_generate_001
+	rm -f test_utf8lex_generate_001.o
+	$(TEST_BUILD_DIR)/test_utf8lex_generate_001 \
+	    test_l_file_001_input.txt \
+	    test_l_file_001_expected_output.txt \
+	    $(TEST_BUILD_DIR)/test_l_file_001_actual_output.txt
+
+.PHONY: debug
+debug:
+	ls ./core > /dev/null \
+	    && gdb $(TEST_BUILD_DIR)/test_utf8lex_generate ./core

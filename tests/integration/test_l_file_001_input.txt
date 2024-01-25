@@ -1,0 +1,8 @@
+this_is_an_id_001
+_this_is_also_an_id
+421132_but_that_was_a_number_now_an_id_too
+123.4
+-1132e+5
+\that_was_a_backie
+next_up_carriage_return_then_newline
++736.251e-19

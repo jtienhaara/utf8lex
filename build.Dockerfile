@@ -33,6 +33,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 #
 #     gcc
 #         C compiler.
+#     gdb
+#         C debugger.
 #     libpcre2-dev
 #         UTF-8 character regular expressions.
 #     libutf8proc-dev
@@ -48,6 +50,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update --yes \
     && apt-get install --no-install-recommends --yes \
        gcc \
+       gdb \
        libpcre2-dev \
        libutf8proc-dev \
        libutf8proc2 \

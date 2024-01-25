@@ -73,9 +73,6 @@ static utf8lex_error_t test_utf8lex_generate_c_mmap(
   strcat(generated_path, name);
   strcat(generated_path, generated_extension);
 
-  // !!! printf("!!!lex path = %s, template_dir = %s, generated_path = %s\n",
-  // !!!        lex_path, template_dir, generated_path);
-
   error = utf8lex_generate(
       TARGET_LANGUAGE_C,  // target_language
       lex_path,  // lex_file_path

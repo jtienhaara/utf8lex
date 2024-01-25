@@ -232,8 +232,9 @@ static utf8lex_error_t utf8lex_lex_cat(
 
   // Found what we're looking for.
   utf8lex_error_t error = utf8lex_token_init(
-      token_pointer,
-      rule,
+      token_pointer,  // self
+      rule,  // rule
+      rule->definition,  // definition
       token_loc,  // Resets for newlines, and lengths in bytes, chars, etc.
       state);  // For buffer and absolute location.
   if (error != UTF8LEX_OK)

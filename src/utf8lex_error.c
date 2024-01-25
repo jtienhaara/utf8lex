@@ -116,9 +116,17 @@ utf8lex_error_t utf8lex_error_string(
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
                                  "UTF8LEX_ERROR_MAX_LENGTH");
     break;
+  case UTF8LEX_ERROR_NOT_A_RULE:
+    num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
+                                 "UTF8LEX_ERROR_NOT_A_RULE");
+    break;
   case UTF8LEX_ERROR_NOT_FOUND:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
                                  "UTF8LEX_ERROR_NOT_FOUND");
+    break;
+  case UTF8LEX_ERROR_NOT_IMPLEMENTED:
+    num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
+                                 "UTF8LEX_ERROR_NOT_IMPLEMENTED");
     break;
   case UTF8LEX_ERROR_REGEX:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,

@@ -29,12 +29,14 @@
 utf8lex_error_t utf8lex_token_init(
         utf8lex_token_t *self,
         utf8lex_rule_t *rule,
+        utf8lex_definition_t *definition,
         utf8lex_location_t token_loc[UTF8LEX_UNIT_MAX],  // Resets, lengths.
         utf8lex_state_t *state  // For buffer and absolute location.
         )
 {
   if (self == NULL
       || rule == NULL
+      || definition == NULL
       || token_loc == NULL
       || state == NULL
       || state->loc == NULL
@@ -99,6 +101,8 @@ utf8lex_error_t utf8lex_token_init(
   }
 
   self->rule = rule;
+  self->definition = definition;
+
   self->start_byte = start_byte;  // Bytes offset into str where token starts.
   self->length_bytes = length_bytes;  // # bytes in token.
   self->str = state->buffer->str;  // The buffer's string.
@@ -129,6 +133,8 @@ utf8lex_error_t utf8lex_token_clear(
   }
 
   self->rule = NULL;
+  self->definition = NULL;
+
   self->start_byte = -1;
   self->length_bytes = -1;
   self->str = NULL;
@@ -189,4 +195,33 @@ extern utf8lex_error_t utf8lex_token_copy_string(
   }
 
   return UTF8LEX_OK;
+}
+
+// Returns UTF8LEX_MORE if the destination string truncates the token:
+utf8lex_error_t utf8lex_token_cat_string(
+        utf8lex_token_t *self,
+        unsigned char *str,  // Text will be concatenated starting at '\0'.
+        size_t max_bytes)
+{
+  if (self == NULL
+      || str == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  size_t length = strlen(str);
+  size_t reduced_max = max_bytes - length;
+  if (reduced_max <= (size_t) 0)
+  {
+    return UTF8LEX_MORE;
+  }
+
+  unsigned char *str_offset = &(str[length]);
+
+  utf8lex_error_t error = utf8lex_token_copy_string(
+                              self,  // self
+                              str_offset,  // str
+                              reduced_max);  // max_bytes
+
+  return error;
 }
