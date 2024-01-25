@@ -45,6 +45,9 @@ typedef struct _STRUCT_utf8lex_lex_transition   utf8lex_lex_transition_t;
 // WARNING Setting this too high leads to segfaults at static function start.
 #define UTF8LEX_RULE_CODE_LENGTH_MAX 1024
 
+// Maximum length of a literal string or regex pattern.
+#define UTF8LEX_LITERAL_REGEX_MAX_BYTES 256
+
 struct _STRUCT_utf8lex_db
 {
   // Pre-defined definitions (which can be overridden in the .l file):
@@ -54,9 +57,13 @@ struct _STRUCT_utf8lex_db
   utf8lex_cat_definition_t cat_definitions[UTF8LEX_NUM_CATEGORIES];
   utf8lex_rule_t cats[UTF8LEX_NUM_CATEGORIES];
 
-  // Definitions from the .l file (NOT in any order -- use definitions_db):
-  uint32_t num_definition_names;
+  // Definitions from the .l file (NOT in any order -- use definitions_db).
+  // Note that the first UTF8LEX_NUM_CATEGORIES definitions are pre-defined,
+  // not from the .l file.
+  uint32_t num_definitions;
   unsigned char definition_names[UTF8LEX_DEFINITIONS_DB_LENGTH_MAX][UTF8LEX_NAME_LENGTH_MAX];
+  // For literals and regexes:
+  unsigned char str[UTF8LEX_DEFINITIONS_DB_LENGTH_MAX][UTF8LEX_LITERAL_REGEX_MAX_BYTES];
 
   uint32_t num_literal_definitions;
   utf8lex_literal_definition_t literal_definitions[UTF8LEX_DEFINITIONS_DB_LENGTH_MAX];
@@ -165,7 +172,7 @@ static utf8lex_error_t utf8lex_generate_setup_db(
 
   // Definitions and rules from the .l file (not including pre-defined
   // cat definitions):
-  db->num_definition_names = (uint32_t) 0;
+  db->num_definitions = (uint32_t) 0;
   db->num_literal_definitions = (uint32_t) 0;
   db->num_regex_definitions = (uint32_t) 0;
   db->num_multi_definitions = (uint32_t) 0;
@@ -211,6 +218,7 @@ static utf8lex_error_t utf8lex_generate_setup_db(
       // First definition in the database.
       db->definitions_db = db->last_definition;
     }
+    db->num_definitions ++;
   }
 
   return UTF8LEX_OK;
@@ -966,11 +974,11 @@ static utf8lex_error_t utf8lex_generate_definition(
     };
 
   // Store the definition's / rule's name.
-  int dn = lex->db.num_definition_names;
+  int dn = lex->db.num_definitions;
   strcpy(lex->db.definition_names[dn],
          name);
-  lex->db.num_definition_names ++;
-  if (lex->db.num_definition_names >= UTF8LEX_DEFINITIONS_DB_LENGTH_MAX)
+  lex->db.num_definitions ++;
+  if (lex->db.num_definitions >= UTF8LEX_DEFINITIONS_DB_LENGTH_MAX)
   {
     return UTF8LEX_ERROR_MAX_LENGTH;
   }
@@ -1006,8 +1014,7 @@ static utf8lex_error_t utf8lex_generate_definition(
   utf8lex_lex_state_t prev_lex_state = lex_state;
   int infinite_loop_protector = 0;
   utf8lex_definition_type_t *definition_type = NULL;
-  unsigned char literal_or_regex[4096];
-  literal_or_regex[0] = 0;
+  lex->db.str[dn][0] = 0;
   unsigned char regex_space[256];
   regex_space[0] = 0;
   utf8lex_multi_type_t multi_type = UTF8LEX_MULTI_TYPE_NONE;
@@ -1076,11 +1083,16 @@ static utf8lex_error_t utf8lex_generate_definition(
     {
     case UTF8LEX_LEX_STATE_LITERAL:
       definition_type = UTF8LEX_DEFINITION_TYPE_LITERAL;
-      error = utf8lex_token_cat_string(
-                  &token,  // self
-                  literal_or_regex,  // str
-                  (size_t) 4096);  // max_bytes
-      if (error != UTF8LEX_OK) { return error; }
+      // Don't capture the quote ("):
+      if (lex_state == UTF8LEX_LEX_STATE_LITERAL
+          || lex_state == UTF8LEX_LEX_STATE_LITERAL_BACKSLASH)
+      {
+        error = utf8lex_token_cat_string(
+                    &token,  // self
+                    lex->db.str[dn],  // str
+                    (size_t) UTF8LEX_LITERAL_REGEX_MAX_BYTES);  // max_bytes
+        if (error != UTF8LEX_OK) { return error; }
+      }
       break;
 
     case UTF8LEX_LEX_STATE_REGEX_SPACE:
@@ -1100,13 +1112,13 @@ static utf8lex_error_t utf8lex_generate_definition(
         // Transitioning back from a space to more regex
         // e.g. DEF1 [a-z] [0-9] (space between [a-z] and [0-9]).
         // Add the space to the regular expression pattern.
-        strcat(literal_or_regex,
+        strcat(lex->db.str[dn],
                regex_space);
       }
       error = utf8lex_token_cat_string(
                   &token,  // self
-                  literal_or_regex,  // str
-                  (size_t) 4096);  // max_bytes
+                  lex->db.str[dn],  // str
+                  (size_t) UTF8LEX_LITERAL_REGEX_MAX_BYTES);  // max_bytes
       if (error != UTF8LEX_OK) { return error; }
       break;
 
@@ -1234,13 +1246,12 @@ static utf8lex_error_t utf8lex_generate_definition(
   error = UTF8LEX_OK;
   if (definition_type == UTF8LEX_DEFINITION_TYPE_LITERAL)
   {
-    printf("!!! Create literal definition \"%s\" = \"%s\"\n", lex->db.definition_names[dn], literal_or_regex); fflush(stdout);
     int ld = lex->db.num_literal_definitions;
     error = utf8lex_literal_definition_init(
                 &(lex->db.literal_definitions[ld]),  // self
                 lex->db.last_definition,  // prev
                 lex->db.definition_names[dn],  // name
-                literal_or_regex);  // str
+                lex->db.str[dn]);  // str
     if (error != UTF8LEX_OK) { return error; }
     lex->db.num_literal_definitions ++;
     if (lex->db.num_literal_definitions >= UTF8LEX_DEFINITIONS_DB_LENGTH_MAX)
@@ -1252,13 +1263,12 @@ static utf8lex_error_t utf8lex_generate_definition(
   }
   else if (definition_type == UTF8LEX_DEFINITION_TYPE_REGEX)
   {
-    printf("!!! Create regex definition 1 \"%s\" = \"%s\"\n", lex->db.definition_names[dn], literal_or_regex); fflush(stdout);
     int rd = lex->db.num_regex_definitions;
     error = utf8lex_regex_definition_init(
                 &(lex->db.regex_definitions[rd]),  // self
                 lex->db.last_definition,  // prev
                 lex->db.definition_names[dn],  // name
-                literal_or_regex);  // pattern
+                lex->db.str[dn]);  // pattern
     if (error != UTF8LEX_OK) { return error; }
     lex->db.num_regex_definitions ++;
     if (lex->db.num_regex_definitions >= UTF8LEX_DEFINITIONS_DB_LENGTH_MAX)
@@ -1271,8 +1281,6 @@ static utf8lex_error_t utf8lex_generate_definition(
   else if (definition_type == UTF8LEX_DEFINITION_TYPE_MULTI)
   {
     lex->db.multi_definitions[md].multi_type = multi_type;
-    printf("!!! Create multi definition 1 \"%s\" multi-type %d (vs. SEQUENCE %d, OR %d) first reference %u\n", lex->db.definition_names[dn], (int) lex->db.multi_definitions[md].multi_type, (int) UTF8LEX_MULTI_TYPE_SEQUENCE, (int) UTF8LEX_MULTI_TYPE_OR, (unsigned long) lex->db.multi_definitions[md].references); fflush(stdout);
-    utf8lex_reference_t *ref = lex->db.multi_definitions[md].references; while (ref != NULL) { printf("!!! ref \"%s\"\n", ref->definition_name); fflush(stdout); ref = ref->next; }
   }
   else
   {
@@ -1284,6 +1292,991 @@ static utf8lex_error_t utf8lex_generate_definition(
   {
     return error;
   }
+
+  return UTF8LEX_OK;
+}
+
+
+static utf8lex_error_t utf8lex_generate_write_rules(
+        int fd_out,
+        utf8lex_db_t *db
+        )
+{
+  if (db == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+  else if (fd_out < 0)
+  {
+    return UTF8LEX_ERROR_FILE_DESCRIPTOR;
+  }
+
+  unsigned char line[4096];
+  size_t max_bytes = 4096;
+  size_t line_bytes;
+  size_t bytes_written;
+
+  unsigned char newline[] = "\n";
+  size_t newline_bytes = strlen(newline);
+
+  bool is_first;
+
+  utf8lex_error_t error;
+
+  line_bytes = snprintf(line, max_bytes,
+                        "static utf8lex_cat_definition_t YY_CAT_DEFINITIONS[%d];\n",
+                        UTF8LEX_NUM_CATEGORIES);
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "static utf8lex_literal_definition_t YY_LITERAL_DEFINITIONS[%d];\n",
+                        db->num_literal_definitions);
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "static utf8lex_multi_definition_t YY_MULTI_DEFINITIONS[%d];\n",
+                        db->num_multi_definitions);
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "static utf8lex_reference_t YY_REFERENCES[%d];\n",
+                        db->num_references);
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "static utf8lex_regex_definition_t YY_REGEX_DEFINITIONS[%d];\n",
+                        db->num_regex_definitions);
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  bytes_written = write(fd_out, newline, newline_bytes);
+  if (bytes_written != newline_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "static utf8lex_rule_t YY_RULES[%d];\n",
+                        db->num_rules);
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  bytes_written = write(fd_out, newline, newline_bytes);
+  if (bytes_written != newline_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  bytes_written = write(fd_out, newline, newline_bytes);
+  if (bytes_written != newline_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "static utf8lex_error_t yy_rules_init()\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "{\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "    utf8lex_error_t error;\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "    utf8lex_definition_t *rule_definition;\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  int cd = 0;  // cat definition #
+  int ld = 0;  // literal definition #
+  int rd = 0;  // regex definition #
+  int md = 0;  // multi definition #
+  int ref = 0;  // reference #
+
+  unsigned char printable_str[2 * UTF8LEX_LITERAL_REGEX_MAX_BYTES];
+
+  // Previous definition, reference, rule, etc:
+  unsigned char previous[UTF8LEX_NAME_LENGTH_MAX + 16];
+
+
+  // Definitions:
+  // ====================
+  bytes_written = write(fd_out, newline, newline_bytes);
+  if (bytes_written != newline_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "    // Definitions:\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "    // =================================================================\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  utf8lex_definition_t *definition = db->definitions_db;
+  strcpy(previous, "NULL");
+  is_first = true;
+  for (int infinite_loop_protector = 0;
+       infinite_loop_protector < db->num_definitions;
+       infinite_loop_protector ++)
+  {
+    if (definition == NULL)
+    {
+      return UTF8LEX_ERROR_NULL_POINTER;
+    }
+
+    bytes_written = write(fd_out, newline, newline_bytes);
+    if (bytes_written != newline_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+    if (definition->definition_type == UTF8LEX_DEFINITION_TYPE_CAT)
+    {
+      // Start cat
+      // --------------------
+      if (cd >= UTF8LEX_NUM_CATEGORIES)
+      {
+        return UTF8LEX_ERROR_STATE;
+      }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "    // Definition # %d: %s (cat)\n",
+                            infinite_loop_protector,
+                            db->cat_definitions[cd].base.name);
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "    error = utf8lex_cat_definition_init(\n");
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "                &(YY_CAT_DEFINITIONS[%d]),  // self\n",
+                            cd);
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "                (utf8lex_definition_t *) %s,  // prev\n",
+                            previous);
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "                \"%s\",  // name\n",
+                            db->cat_definitions[cd].base.name);
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      // TODO create a cat enum to full cat enum string function
+      // TDOO e.g. UTF8LEX_CAT_LETTER_LOWER -> "UTF8LEX_CAT_LETTER_LOWER"
+      line_bytes = snprintf(line, max_bytes,
+                            "                (utf8lex_cat_t) %d,  // cat\n",
+                            db->cat_definitions[cd].cat);
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "                %d,  // min\n",
+                            db->cat_definitions[cd].min);
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "                %d);  // max\n",
+                            db->cat_definitions[cd].max);
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "    if (error != UTF8LEX_OK) { return error; }\n");
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      line_bytes = snprintf(previous, UTF8LEX_NAME_LENGTH_MAX + 16,
+                            "&(YY_CAT_DEFINITIONS[%d])",
+                            cd);
+      if (line_bytes >= (UTF8LEX_NAME_LENGTH_MAX + 16)) { return UTF8LEX_ERROR_BAD_LENGTH; }
+
+      cd ++;
+      // --------------------
+      // End cat
+    }
+    else if (definition->definition_type == UTF8LEX_DEFINITION_TYPE_LITERAL)
+    {
+      // Start literal
+      // --------------------
+      if (ld >= db->num_literal_definitions)
+      {
+        return UTF8LEX_ERROR_STATE;
+      }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "    // Definition # %d: %s (literal)\n",
+                            infinite_loop_protector,
+                            db->literal_definitions[ld].base.name);
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "    error = utf8lex_literal_definition_init(\n");
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "                &(YY_LITERAL_DEFINITIONS[%d]),  // self\n",
+                            ld);
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "                (utf8lex_definition_t *) %s,  // prev\n",
+                            previous);
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "                \"%s\",  // name\n",
+                            db->literal_definitions[ld].base.name);
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      error = utf8lex_printable_str(printable_str,
+                                    2 * UTF8LEX_LITERAL_REGEX_MAX_BYTES,
+                                    db->literal_definitions[ld].str,
+                                    UTF8LEX_PRINTABLE_ALL);
+      if (error != UTF8LEX_OK) { return error; }
+      line_bytes = snprintf(line, max_bytes,
+                            "                \"%s\");  // str\n",
+                            printable_str);
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "    if (error != UTF8LEX_OK) { return error; }\n");
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      line_bytes = snprintf(previous, UTF8LEX_NAME_LENGTH_MAX + 16,
+                            "&(YY_LITERAL_DEFINITIONS[%d])",
+                            ld);
+      if (line_bytes >= (UTF8LEX_NAME_LENGTH_MAX + 16)) { return UTF8LEX_ERROR_BAD_LENGTH; }
+
+      ld ++;
+      // --------------------
+      // End literal
+    }
+    else if (definition->definition_type == UTF8LEX_DEFINITION_TYPE_MULTI)
+    {
+      // Start multi
+      // --------------------
+      if (md >= db->num_multi_definitions)
+      {
+        return UTF8LEX_ERROR_STATE;
+      }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "    // Definition # %d: %s (multi)\n",
+                            infinite_loop_protector,
+                            db->multi_definitions[md].base.name);
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "    error = utf8lex_multi_definition_init(\n");
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "                &(YY_MULTI_DEFINITIONS[%d]),  // self\n",
+                            md);
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "                (utf8lex_definition_t *) %s,  // prev\n",
+                            previous);
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "                \"%s\",  // name\n",
+                            db->multi_definitions[md].base.name);
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      // TODO allow nested multi definitions e.g. A B (X | D) etc.
+      if (db->multi_definitions[md].parent != NULL)
+      {
+        return UTF8LEX_ERROR_NOT_IMPLEMENTED;
+      }
+      line_bytes = snprintf(line, max_bytes,
+                            "                NULL,  // parent\n");
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      if (db->multi_definitions[md].multi_type == UTF8LEX_MULTI_TYPE_SEQUENCE)
+      {
+        line_bytes = snprintf(line, max_bytes,
+                              "                UTF8LEX_MULTI_TYPE_SEQUENCE);  // multi_type\n");
+      }
+      else if (db->multi_definitions[md].multi_type == UTF8LEX_MULTI_TYPE_OR)
+      {
+        line_bytes = snprintf(line, max_bytes,
+                              "                UTF8LEX_MULTI_TYPE_OR);  // multi_type\n");
+      }
+      else
+      {
+        return UTF8LEX_ERROR_BAD_MULTI_TYPE;
+      }
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "    if (error != UTF8LEX_OK) { return error; }\n");
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      // Now the references:
+      bytes_written = write(fd_out, newline, newline_bytes);
+      if (bytes_written != newline_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      strcpy(previous, "NULL");
+      utf8lex_reference_t *reference = db->multi_definitions[md].references;
+      for (int ref_infinite = 0;
+           ref_infinite < UTF8LEX_REFERENCES_LENGTH_MAX;
+           ref_infinite ++)
+      {
+        if (reference == NULL)
+        {
+          break;
+        }
+        else if (md >= db->num_references)
+        {
+          return UTF8LEX_ERROR_STATE;
+        }
+
+        line_bytes = snprintf(line, max_bytes,
+                              "    error = utf8lex_reference_init(\n");
+        if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+        bytes_written = write(fd_out, line, line_bytes);
+        if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+        line_bytes = snprintf(line, max_bytes,
+                              "                &(YY_REFERENCES[%d]),  // self\n",
+                              ref);
+        if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+        bytes_written = write(fd_out, line, line_bytes);
+        if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+        line_bytes = snprintf(line, max_bytes,
+                              "                %s,  // prev\n",
+                              previous);
+        if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+        bytes_written = write(fd_out, line, line_bytes);
+        if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+        line_bytes = snprintf(line, max_bytes,
+                              "                \"%s\",  // name\n",
+                              reference->definition_name);
+        if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+        bytes_written = write(fd_out, line, line_bytes);
+        if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+        line_bytes = snprintf(line, max_bytes,
+                              "                %d,  // min\n",
+                              reference->min);
+        if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+        bytes_written = write(fd_out, line, line_bytes);
+        if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+        line_bytes = snprintf(line, max_bytes,
+                              "                %d,  // max\n",
+                              reference->max);
+        if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+        bytes_written = write(fd_out, line, line_bytes);
+        if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+        line_bytes = snprintf(line, max_bytes,
+                              "                &(YY_MULTI_DEFINITIONS[%d]));  // parent\n",
+                              md);
+        if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+        bytes_written = write(fd_out, line, line_bytes);
+        if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+        line_bytes = snprintf(line, max_bytes,
+                              "    if (error != UTF8LEX_OK) { return error; }\n");
+        if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+        bytes_written = write(fd_out, line, line_bytes);
+        if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+        line_bytes = snprintf(previous, UTF8LEX_NAME_LENGTH_MAX + 16,
+                              "&(YY_REFERENCES[%d])",
+                              ref);
+        if (line_bytes >= (UTF8LEX_NAME_LENGTH_MAX + 16)) { return UTF8LEX_ERROR_BAD_LENGTH; }
+
+        reference = reference->next;
+        ref ++;
+      }
+
+      if (reference != NULL)
+       {
+         return UTF8LEX_ERROR_INFINITE_LOOP;
+       }
+
+      line_bytes = snprintf(previous, UTF8LEX_NAME_LENGTH_MAX + 16,
+                            "&(YY_MULTI_DEFINITIONS[%d])",
+                            md);
+      if (line_bytes >= (UTF8LEX_NAME_LENGTH_MAX + 16)) { return UTF8LEX_ERROR_BAD_LENGTH; }
+
+      md ++;
+      // --------------------
+      // End multi
+    }
+    else if (definition->definition_type == UTF8LEX_DEFINITION_TYPE_REGEX)
+    {
+      // Start regex
+      // --------------------
+      if (rd >= db->num_regex_definitions)
+      {
+        return UTF8LEX_ERROR_STATE;
+      }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "    // Definition # %d: %s (regex)\n",
+                            infinite_loop_protector,
+                            db->regex_definitions[rd].base.name);
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "    error = utf8lex_regex_definition_init(\n");
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "                &(YY_REGEX_DEFINITIONS[%d]),  // self\n",
+                            rd);
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "                (utf8lex_definition_t *) %s,  // prev\n",
+                            previous);
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      line_bytes = snprintf(line, max_bytes,
+                            "                \"%s\",  // name\n",
+                            db->regex_definitions[rd].base.name);
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      error = utf8lex_printable_str(printable_str,
+                                    2 * UTF8LEX_LITERAL_REGEX_MAX_BYTES,
+                                    db->regex_definitions[rd].pattern,
+                                    UTF8LEX_PRINTABLE_ALL);
+      if (error != UTF8LEX_OK) { return error; }
+      line_bytes = snprintf(line, max_bytes,
+                            "                \"%s\");  // pattern\n",
+                            printable_str);
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+
+      line_bytes = snprintf(line, max_bytes,
+                            "    if (error != UTF8LEX_OK) { return error; }\n");
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      line_bytes = snprintf(previous, UTF8LEX_NAME_LENGTH_MAX + 16,
+                            "&(YY_REGEX_DEFINITIONS[%d])",
+                            rd);
+      if (line_bytes >= (UTF8LEX_NAME_LENGTH_MAX + 16)) { return UTF8LEX_ERROR_BAD_LENGTH; }
+
+      rd ++;
+      // --------------------
+      // End regex
+    }
+    else
+    {
+      return UTF8LEX_ERROR_DEFINITION_TYPE;
+    }
+
+    if (is_first == true)
+    {
+      line_bytes = snprintf(line, max_bytes,
+                            "    YY_FIRST_DEFINITION = (utf8lex_definition_t *) %s;\n",
+                            previous);
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      is_first = false;
+    }
+
+    definition = definition->next;
+  }
+
+  if (definition != NULL)
+  {
+    // The definitions db has a loop in it somewhere, somehow.
+    return UTF8LEX_ERROR_INFINITE_LOOP;
+  }
+  else if (cd != UTF8LEX_NUM_CATEGORIES
+           || ld != db->num_literal_definitions
+           || md != db->num_multi_definitions
+           || rd != db->num_regex_definitions)
+  {
+    return UTF8LEX_ERROR_STATE;
+  }
+
+
+  // Resolve multi-definitions:
+  bytes_written = write(fd_out, newline, newline_bytes);
+  if (bytes_written != newline_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "    // Resolve multi-definitions:\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  for (int md = 0; md < db->num_multi_definitions; md ++)
+  {
+    line_bytes = snprintf(line, max_bytes,
+                          "    // # %d %s:\n",
+                          md,
+                          db->multi_definitions[md].base.name);
+    if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+    line_bytes = snprintf(line, max_bytes,
+                          "    error = utf8lex_multi_definition_resolve(\n");
+    if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+    line_bytes = snprintf(line, max_bytes,
+                          "        &(YY_MULTI_DEFINITIONS[%d]),  // self\n",
+                          md);
+    if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+    line_bytes = snprintf(line, max_bytes,
+                          "        YY_FIRST_DEFINITION);  // db\n");
+    if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+    line_bytes = snprintf(line, max_bytes,
+                          "    if (error != UTF8LEX_OK) { return error; }\n");
+    if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+  }
+
+
+  // Rules:
+  // ====================
+  bytes_written = write(fd_out, newline, newline_bytes);
+  if (bytes_written != newline_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "    // Rules:\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "    // =================================================================\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  utf8lex_rule_t *rule = db->rules_db;
+  int rn = 0;
+  strcpy(previous, "NULL");
+  is_first = true;
+  for (int infinite_loop_protector = 0;
+       infinite_loop_protector < db->num_rules;
+       infinite_loop_protector ++)
+  {
+    if (rule == NULL)
+    {
+      return UTF8LEX_ERROR_NULL_POINTER;
+    }
+
+    bytes_written = write(fd_out, newline, newline_bytes);
+    if (bytes_written != newline_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+    line_bytes = snprintf(line, max_bytes,
+                          "    // Rule # %d: %s\n",
+                          rn,
+                          rule->name);
+    if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+    line_bytes = snprintf(line, max_bytes,
+                          "    error = utf8lex_definition_find_by_id(\n");
+    if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+    line_bytes = snprintf(line, max_bytes,
+                          "                YY_FIRST_DEFINITION,  // first_definition\n");
+    if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+    line_bytes = snprintf(line, max_bytes,
+                          "                (uint32_t) %u,  // id (\"%s\")\n",
+                          (unsigned int) rule->definition->id,
+                          rule->definition->name);
+    if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+    line_bytes = snprintf(line, max_bytes,
+                          "                &rule_definition);  // found_pointer\n");
+    if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+    line_bytes = snprintf(line, max_bytes,
+                          "    if (error != UTF8LEX_OK) { return error; }\n");
+    if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+    line_bytes = snprintf(line, max_bytes,
+                          "    error = utf8lex_rule_init(\n");
+    if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+    line_bytes = snprintf(line, max_bytes,
+                          "                &(YY_RULES[%d]),  // self\n",
+                          rn);
+    if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+    line_bytes = snprintf(line, max_bytes,
+                          "                %s,  // prev\n",
+                          previous);
+    if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+    line_bytes = snprintf(line, max_bytes,
+                          "                \"%s\",  // name\n",
+                          rule->name);
+    if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+    line_bytes = snprintf(line, max_bytes,
+                          "                rule_definition,  // definition\n");
+    if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+    line_bytes = snprintf(line, max_bytes,
+                          "                \"\",  // code\n");
+    if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+    line_bytes = snprintf(line, max_bytes,
+                          "                (size_t) 0);  // code_length_bytes\n");
+    if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+    line_bytes = snprintf(line, max_bytes,
+                          "    if (error != UTF8LEX_OK) { return error; }\n");
+    if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+    line_bytes = snprintf(previous, UTF8LEX_NAME_LENGTH_MAX + 16,
+                          "&(YY_RULES[%d])",
+                          rn);
+    if (line_bytes >= (UTF8LEX_NAME_LENGTH_MAX + 16)) { return UTF8LEX_ERROR_BAD_LENGTH; }
+
+    if (is_first == true)
+    {
+      line_bytes = snprintf(line, max_bytes,
+                            "    YY_FIRST_RULE = %s;\n",
+                            previous);
+      if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+      bytes_written = write(fd_out, line, line_bytes);
+      if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+      is_first = false;
+    }
+
+    rule = rule->next;
+    rn ++;
+  }
+
+  if (rule != NULL)
+  {
+    // The rules db has a loop in it somewhere, somehow.
+    return UTF8LEX_ERROR_INFINITE_LOOP;
+  }
+  else if (rn != db->num_rules)
+  {
+    return UTF8LEX_ERROR_STATE;
+  }
+
+
+  // Close yy_rules_init() function declaration:
+  bytes_written = write(fd_out, newline, newline_bytes);
+  if (bytes_written != newline_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "    return UTF8LEX_OK;\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "}\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  return UTF8LEX_OK;
+}
+
+
+static utf8lex_error_t utf8lex_generate_write_rule_callbacks(
+        int fd_out,
+        utf8lex_db_t *db
+        )
+{
+  if (db == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+  else if (fd_out < 0)
+  {
+    return UTF8LEX_ERROR_FILE_DESCRIPTOR;
+  }
+
+  unsigned char line[4096];
+  size_t max_bytes = 4096;
+  size_t line_bytes;
+  size_t bytes_written;
+
+  unsigned char newline[] = "\n";
+  size_t newline_bytes = strlen(newline);
+
+  bool is_first;
+
+  utf8lex_error_t error;
+
+  bytes_written = write(fd_out, newline, newline_bytes);
+  if (bytes_written != newline_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "static int yy_rule_callback(\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "        utf8lex_token_t *token\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "        )\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "{\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "    if (token == NULL\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "        || token->rule == NULL\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "        || token->rule->code == NULL)\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "    {\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "        return YYerror;\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "    }\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  bytes_written = write(fd_out, newline, newline_bytes);
+  if (bytes_written != newline_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "    switch (token->rule->id)\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "    {\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  utf8lex_rule_t *rule = db->rules_db;
+  int rn = 0;
+  for (int infinite_loop_protector = 0;
+       infinite_loop_protector < db->num_rules;
+       infinite_loop_protector ++)
+  {
+    if (rule == NULL)
+    {
+      return UTF8LEX_ERROR_NULL_POINTER;
+    }
+
+    line_bytes = snprintf(line, max_bytes,
+                          "        case (uint32_t) %d:  // # %d %s\n",
+                          rule->id,
+                          rn,
+                          rule->name);
+    if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+    // TODO indent the rule's code
+    bytes_written = write(fd_out, rule->code, rule->code_length_bytes);
+    if (bytes_written != rule->code_length_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+    line_bytes = snprintf(line, max_bytes,
+                          "            break;\n");
+    if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+    rule = rule->next;
+    rn ++;
+  }
+
+  if (rule != NULL)
+  {
+    // The rules db has a loop in it somewhere, somehow.
+    return UTF8LEX_ERROR_INFINITE_LOOP;
+  }
+  else if (rn != db->num_rules)
+  {
+    return UTF8LEX_ERROR_STATE;
+  }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "        default:\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "            return YYerror;\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "    }\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "    return (int) token->rule->id;\n");
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
+
+  line_bytes = snprintf(line, max_bytes,
+                        "}\n",
+                        UTF8LEX_NUM_CATEGORIES);
+  if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
+  bytes_written = write(fd_out, line, line_bytes);
+  if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
 
   return UTF8LEX_OK;
 }
@@ -1392,18 +2385,6 @@ static utf8lex_error_t utf8lex_generate_parse(
       return error;
     }
 
-    // Debug:
-    // !!!
-    unsigned char token_string[token.length_bytes + 1];
-    strncpy(token_string,
-            &(token.str->bytes[token.start_byte]),
-            token.length_bytes);
-    token_string[token.length_bytes] = 0;
-    // !!! printf("!!! YAY definitions lexed token %d '%s' = '%s'\n",
-    // !!!        token.rule->id,
-    // !!!        token.rule->name,
-    // !!!        token_string);
-
     // Acceptable tokens in the definitions section:
     //   (newline)    Blank line, ignored.
     //   %{           Start enclosed code section.  (Write contents to fd_out.)
@@ -1459,7 +2440,7 @@ static utf8lex_error_t utf8lex_generate_parse(
     else if (lex.id.id == token.rule->id)
     {
       // (id) ...
-      uint32_t d = lex.db.num_definition_names;
+      uint32_t d = lex.db.num_definitions;
       error = utf8lex_token_copy_string(&token,  // self
                                         lex.db.definition_names[d],  // str
                                         UTF8LEX_NAME_LENGTH_MAX);  // max_bytes
@@ -1610,18 +2591,6 @@ static utf8lex_error_t utf8lex_generate_parse(
       return error;
     }
 
-    // Debug:
-    // !!!
-    unsigned char token_string[token.length_bytes + 1];
-    strncpy(token_string,
-            &(token.str->bytes[token.start_byte]),
-            token.length_bytes);
-    token_string[token.length_bytes] = 0;
-    // !!! printf("!!! YAY rules lexed token %d '%s' = '%s'\n",
-    // !!!        token.rule->id,
-    // !!!        token.rule->name,
-    // !!!        token_string);
-
     // Acceptable tokens in the rules section:
     //   (newline)                 Blank line, ignored.
     //   %{                        Start enclosed code section.
@@ -1756,7 +2725,13 @@ static utf8lex_error_t utf8lex_generate_parse(
       {
         return error;
       }
-      printf("!!! created rule \"%s\" with definition \"%s\" and code \"%s\"\n", lex.db.rules[r].name, lex.db.rules[r].definition->name, lex.db.rules[r].code); fflush(stdout);
+
+      if (r == 0)
+      {
+        lex.db.rules_db = &(lex.db.rules[r]);
+      }
+      lex.db.last_rule = &(lex.db.rules[r]);
+      lex.db.num_rules ++;
 
       error = UTF8LEX_OK;
     }
@@ -1779,6 +2754,17 @@ static utf8lex_error_t utf8lex_generate_parse(
   {
     return error;
   }
+
+
+  // Now write out the definitions and rules to fd_out:
+  error = utf8lex_generate_write_rules(fd_out,
+                                       &(lex.db));
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_generate_write_rule_callbacks(fd_out,
+                                                &(lex.db));
+  if (error != UTF8LEX_OK) { return error; }
+
 
   // -------------------------------------------------------------------
   // User code section:

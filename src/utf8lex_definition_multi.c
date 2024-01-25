@@ -259,8 +259,17 @@ utf8lex_error_t utf8lex_multi_definition_init(
     }
   }
 
-  if (self->base.prev != NULL)
+  if (self->base.prev == NULL)
   {
+    self->base.id = (uint32_t) 0;
+  }
+  else
+  {
+    self->base.id = self->base.prev->id + 1;
+    if (self->base.id >= UTF8LEX_DEFINITIONS_DB_LENGTH_MAX)
+    {
+      return UTF8LEX_ERROR_MAX_LENGTH;
+    }
     self->base.prev->next = (utf8lex_definition_t *) self;
   }
 
@@ -514,6 +523,7 @@ static utf8lex_error_t utf8lex_lex_multi(
   utf8lex_reference_t *reference = multi->references;
   uint32_t infinite_loop = UTF8LEX_REFERENCES_LENGTH_MAX;
   bool is_infinite_loop = true;
+  utf8lex_definition_t *matching_definition = NULL;
   for (uint32_t r = 0; r < infinite_loop; r ++)
   {
     if (reference == NULL)
@@ -603,7 +613,18 @@ static utf8lex_error_t utf8lex_lex_multi(
     else if (multi->multi_type == UTF8LEX_MULTI_TYPE_OR)
     {
       is_infinite_loop = false;
+      matching_definition = definition;
       break;
+    }
+    else if (multi->multi_type == UTF8LEX_MULTI_TYPE_SEQUENCE)
+    {
+      if (matching_definition == NULL)
+      {
+        // Tie the token to the first definition in the sequence
+        // (even though there might be 2 or more definitions in sequence).
+        matching_definition = definition;
+      }
+      // Continue matching the sequence
     }
 
     reference = reference->next;
@@ -612,6 +633,10 @@ static utf8lex_error_t utf8lex_lex_multi(
   if (is_infinite_loop == true)
   {
     return UTF8LEX_ERROR_INFINITE_LOOP;
+  }
+  else if (matching_definition == NULL)
+  {
+    return UTF8LEX_ERROR_STATE;
   }
 
   // Matched the multi-definition references exactly.
@@ -625,8 +650,9 @@ static utf8lex_error_t utf8lex_lex_multi(
   }
 
   error = utf8lex_token_init(
-      token_pointer,
-      rule,
+      token_pointer,  // self
+      rule,  // rule
+      matching_definition,
       sequence_loc,  // Resets for newlines, and lengths in bytes, chars, etc.
       state);  // For buffer and absolute location.
   if (error != UTF8LEX_OK)

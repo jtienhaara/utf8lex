@@ -123,3 +123,208 @@ utf8lex_error_t utf8lex_definition_find_by_id(
 
   return UTF8LEX_OK;
 }
+
+
+// Makes a UTF-8 string printable by converting certain characters
+// such as backslash (\) and newline (\n) into C escape sequences
+// such as "\\", "\n", and so on.
+// Useful, for example, to recreate the C string for a literal
+// (literal_definition->str) or regular expression (regex_definition->pattern).
+// Returns UTF8LEX_MORE if max_bytes is not big enough to
+// contain the printable version of the specified str (in which case
+// as many bytes as possible have been written to the target).
+// Conversions done:
+// \\, \a, \b, \f, \n, \r, \t, \v, \"
+// (from https://pubs.opengroup.org/onlinepubs/7908799/xbd/notation.html
+// plus quote)
+// Each can be turned on/off with the flags, e.g. to only convert
+// backslash (\) and quote ("):
+//     utf8lex_printable_str(..., UTF8LEX_PRINTABLE_BACKSLASH
+//                                | UTF8LEX_PRINTABLE_QUOTE);
+utf8lex_error_t utf8lex_printable_str(
+        unsigned char *printable_str,  // Target printable version of string.
+        size_t max_bytes,  // Max bytes to write to printable_str including \0.
+        unsigned char *str,  // Source string to convert.  Must be 0-terminated.
+        utf8lex_printable_flag_t flags  // Which char(s) to convert.  Default ALL.
+        )
+{
+  if (printable_str == NULL
+      || str == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+  else if (max_bytes <= (size_t) 0)
+  {
+    return UTF8LEX_ERROR_BAD_MAX;
+  }
+
+  char backslash[] = "\\\\";
+  size_t backslash_bytes = strlen(backslash);
+  char alert[] = "\\a";
+  size_t alert_bytes = strlen(alert);
+  char backspace[] = "\\b";
+  size_t backspace_bytes = strlen(backspace);
+  char form_feed[] = "\\f";
+  size_t form_feed_bytes = strlen(form_feed);
+  char newline[] = "\\n";
+  size_t newline_bytes = strlen(newline);
+  char carriage_return[] = "\\r";
+  size_t carriage_return_bytes = strlen(carriage_return);
+  char tab[] = "\\t";
+  size_t tab_bytes = strlen(tab);
+  char vertical_tab[] = "\\v";
+  size_t vertical_tab_bytes = strlen(vertical_tab);
+
+  char quote[] = "\\\"";
+  size_t quote_bytes = strlen(quote);
+
+  size_t source_bytes = strlen(str);
+  off_t target_offset = (off_t) 0;
+  size_t target_bytes = (size_t) 0;
+  for (int c = 0; c < source_bytes; c ++)
+  {
+    unsigned char *printable_char_str;
+    size_t printable_char_bytes;
+
+    unsigned char *straight_from_source = &(str[c]);
+    size_t straight_from_source_bytes = sizeof(char);
+
+    switch (str[c])
+    {
+    case '\\':
+      if (flags & UTF8LEX_PRINTABLE_BACKSLASH)
+      {
+        printable_char_str = backslash;
+        printable_char_bytes = backslash_bytes;
+      }
+      else
+      {
+        printable_char_str = straight_from_source;
+        printable_char_bytes = straight_from_source_bytes;
+      }
+      break;
+    case '\a':
+      if (flags & UTF8LEX_PRINTABLE_ALERT)
+      {
+        printable_char_str = alert;
+        printable_char_bytes = alert_bytes;
+      }
+      else
+      {
+        printable_char_str = straight_from_source;
+        printable_char_bytes = straight_from_source_bytes;
+      }
+      break;
+    case '\b':
+      if (flags & UTF8LEX_PRINTABLE_BACKSPACE)
+      {
+        printable_char_str = backspace;
+        printable_char_bytes = backspace_bytes;
+      }
+      else
+      {
+        printable_char_str = straight_from_source;
+        printable_char_bytes = straight_from_source_bytes;
+      }
+      break;
+    case '\f':
+      if (flags & UTF8LEX_PRINTABLE_FORM_FEED)
+      {
+        printable_char_str = form_feed;
+        printable_char_bytes = form_feed_bytes;
+      }
+      else
+      {
+        printable_char_str = straight_from_source;
+        printable_char_bytes = straight_from_source_bytes;
+      }
+      break;
+    case '\n':
+      if (flags & UTF8LEX_PRINTABLE_NEWLINE)
+      {
+        printable_char_str = newline;
+        printable_char_bytes = newline_bytes;
+      }
+      else
+      {
+        printable_char_str = straight_from_source;
+        printable_char_bytes = straight_from_source_bytes;
+      }
+      break;
+    case '\r':
+      if (flags & UTF8LEX_PRINTABLE_CARRIAGE_RETURN)
+      {
+        printable_char_str = carriage_return;
+        printable_char_bytes = carriage_return_bytes;
+      }
+      else
+      {
+        printable_char_str = straight_from_source;
+        printable_char_bytes = straight_from_source_bytes;
+      }
+      break;
+    case '\t':
+      if (flags & UTF8LEX_PRINTABLE_TAB)
+      {
+        printable_char_str = tab;
+        printable_char_bytes = tab_bytes;
+      }
+      else
+      {
+        printable_char_str = straight_from_source;
+        printable_char_bytes = straight_from_source_bytes;
+      }
+      break;
+    case '\v':
+      if (flags & UTF8LEX_PRINTABLE_VERTICAL_TAB)
+      {
+        printable_char_str = vertical_tab;
+        printable_char_bytes = vertical_tab_bytes;
+      }
+      else
+      {
+        printable_char_str = straight_from_source;
+        printable_char_bytes = straight_from_source_bytes;
+      }
+      break;
+    case '"':
+      if (flags & UTF8LEX_PRINTABLE_QUOTE)
+      {
+        printable_char_str = quote;
+        printable_char_bytes = quote_bytes;
+      }
+      else
+      {
+        printable_char_str = straight_from_source;
+        printable_char_bytes = straight_from_source_bytes;
+      }
+      break;
+    default:
+      // Just the 1 char.
+      printable_char_str = straight_from_source;
+      printable_char_bytes = straight_from_source_bytes;
+    }
+
+    // Add the printable character only if there's enough room
+    // to add \0 at the end:
+    size_t new_target_bytes =
+      target_bytes + printable_char_bytes + sizeof(char);
+    if (new_target_bytes >= max_bytes)
+    {
+      // Can't fit the printable characters plus \0 into the target.
+      return UTF8LEX_MORE;
+    }
+
+    for (off_t pcb = (off_t) 0; pcb < printable_char_bytes; pcb ++)
+    {
+      printable_str[target_offset] = printable_char_str[pcb];
+      target_offset ++;
+      target_bytes ++;
+    }
+  }
+
+  printable_str[target_offset] = '\0';
+  target_offset ++;
+
+  return UTF8LEX_OK;
+}

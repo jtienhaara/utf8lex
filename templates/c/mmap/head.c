@@ -20,4 +20,13 @@
 
 #include "utf8lex.h"
 
-static utf8lex_rule_t *FIRST_RULE = NULL;
+// Static lexicon:
+static utf8lex_definition_t *YY_FIRST_DEFINITION = NULL;
+static utf8lex_rule_t *YY_FIRST_RULE = NULL;
+
+// Runtime variables (non-thread-safe, of course):
+static utf8lex_state_t YY_STATE;
+static utf8lex_buffer_t YY_BUFFER;
+static utf8lex_string_t YY_STRING;
+
+static utf8lex_error_t yy_rules_init();

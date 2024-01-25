@@ -29,12 +29,14 @@
 utf8lex_error_t utf8lex_token_init(
         utf8lex_token_t *self,
         utf8lex_rule_t *rule,
+        utf8lex_definition_t *definition,
         utf8lex_location_t token_loc[UTF8LEX_UNIT_MAX],  // Resets, lengths.
         utf8lex_state_t *state  // For buffer and absolute location.
         )
 {
   if (self == NULL
       || rule == NULL
+      || definition == NULL
       || token_loc == NULL
       || state == NULL
       || state->loc == NULL
@@ -99,6 +101,8 @@ utf8lex_error_t utf8lex_token_init(
   }
 
   self->rule = rule;
+  self->definition = definition;
+
   self->start_byte = start_byte;  // Bytes offset into str where token starts.
   self->length_bytes = length_bytes;  // # bytes in token.
   self->str = state->buffer->str;  // The buffer's string.
@@ -129,6 +133,8 @@ utf8lex_error_t utf8lex_token_clear(
   }
 
   self->rule = NULL;
+  self->definition = NULL;
+
   self->start_byte = -1;
   self->length_bytes = -1;
   self->str = NULL;
