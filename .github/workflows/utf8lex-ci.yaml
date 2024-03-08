@@ -1,0 +1,63 @@
+name: Utf8lex Continuous Integration
+
+env:
+  UTF8LEX_LIBRARY_VERSION: "1.0.0"
+
+permissions:
+  contents: read
+  packages: write
+
+#
+# Build (on push)
+# - Compile utf8lex
+# - Link into .so library
+# - TODO Link into executable program
+# - Upload .so, executable program to GitHub Packages
+#
+on:
+  - push
+  - pull_request
+    types:
+      - closed
+      # TODO only on merge (requires if logic https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#running-your-pull_request-workflow-when-a-pull-request-merges)
+jobs:
+  build_utf8lex:
+    runs-on: debian-latest
+    env:
+      BUILD_DIR: ./build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compile utf8lex
+        run: make build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: libutf8lex.so-${{github.ref}}
+          path: ${{env.BUILD_DIR}}/libutf8lex.so.${{env.UTF8LEX_LIBRARY_VERSION}}
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
+
+#
+# Unit test (on push)
+# - Compile and link unit test programs
+# - Run unit tests
+#
+# TODO
+
+#
+# Integration test (on push)
+# - Compile and link integration test programs
+# - Run integration tests
+#
+# TODO
+
+#
+# Release (on push tag)
+# - Upload .so library, program to GitHub packages
+# - Create a GitHub Release
+#
+# TODO
