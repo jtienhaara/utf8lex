@@ -15,11 +15,11 @@ permissions:
 # - Upload .so, executable program to GitHub Packages
 #
 on:
-  push
-  pull_request
-    types:
-      - closed
-      # TODO only on merge (requires if logic https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#running-your-pull_request-workflow-when-a-pull-request-merges)
+  - push
+  - pull_request:
+      types:
+        - closed
+        # TODO only on merge (requires if logic https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#running-your-pull_request-workflow-when-a-pull-request-merges)
 jobs:
   build_utf8lex:
     runs-on: debian-latest
