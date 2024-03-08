@@ -26,6 +26,19 @@ jobs:
     env:
       BUILD_DIR: ./build
     steps:
+      - name: Install dependencies
+        run: |-
+          apt-get update --yes \
+              && apt-get install --no-install-recommends --yes \
+                 gcc \
+                 gdb \
+                 libpcre2-dev \
+                 libutf8proc-dev \
+                 libutf8proc2 \
+                 locales \
+                 make \
+              && apt-get clean
+
       - name: Checkout
         uses: actions/checkout@v4
 
