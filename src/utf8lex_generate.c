@@ -2272,8 +2272,7 @@ static utf8lex_error_t utf8lex_generate_write_rule_callbacks(
   if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
 
   line_bytes = snprintf(line, max_bytes,
-                        "}\n",
-                        UTF8LEX_NUM_CATEGORIES);
+                        "}\n");
   if (line_bytes >= max_bytes) { return UTF8LEX_ERROR_BAD_LENGTH; }
   bytes_written = write(fd_out, line, line_bytes);
   if (bytes_written != line_bytes) { return UTF8LEX_ERROR_FILE_WRITE; }
