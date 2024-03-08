@@ -149,7 +149,6 @@ int main(int argc, char *argv[])
                           expected_output_file_path,
                           actual_output_file_path,
                           NULL);
-    printf("!!! DONE DIFF %d\n", exit_code);
     if (exit_code != 0)
     {
       const char error_message[1024];
