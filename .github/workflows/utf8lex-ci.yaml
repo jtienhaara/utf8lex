@@ -15,7 +15,7 @@ permissions:
 # - Upload .so, executable program to GitHub Packages
 #
 on:
-  push
+  push: {}
   pull_request:
     types:
       - closed
