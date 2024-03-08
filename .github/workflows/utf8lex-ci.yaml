@@ -48,7 +48,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
-          name: libutf8lex.so-${{github.ref}}
+          name: libutf8lex.so-${{github.ref.name}}
           path: ${{env.BUILD_DIR}}/libutf8lex.so.${{env.UTF8LEX_LIBRARY_VERSION}}
           if-no-files-found: error
           retention-days: 1
