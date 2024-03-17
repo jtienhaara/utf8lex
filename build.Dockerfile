@@ -44,8 +44,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 #     locales [required] [dynamic]
 #         Required both for building C code, and for runtime reading
 #         and writing of UTF-8-encoded characters.
-#     make [required] [dynamic] [security]
+#     make
 #         Traditional make.  Required for building things from Makefiles.
+#     sloccount
+#         Counts the number of lines in source code files.
 #
 RUN apt-get update --yes \
     && apt-get install --no-install-recommends --yes \
@@ -56,6 +58,7 @@ RUN apt-get update --yes \
        libutf8proc2 \
        locales \
        make \
+       sloccount \
     && apt-get clean
 
 ENV LC_CTYPE=C.utf8
