@@ -1,6 +1,7 @@
 #
 # utf8lex
-# Copyright 2023 Johann Tienhaara
+# Copyright © 2023-2024 Johann Tienhaara
+# All rights reserved
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,13 +25,26 @@
 #
 FROM debian:12.2-slim
 
+#
+# Docker's builtin TARGETARCH build arg:
+#
+#     https://docs.docker.com/engine/reference/builder/?_gl=1*13mno0d*_ga*NjYxNDI5MzM5LjE2OTQxMDIzNzI.*_ga_XJWPQMJYHQ*MTY5NDQ1MzA1OS4yLjEuMTY5NDQ1MzI4Ny4yOC4wLjA.#automatic-platform-args-in-the-global-scope
+#
+ARG TARGETARCH
+
 USER root
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBCONF_FRONTEND=noninteractive
+ENV TZ=UTC/UTC
 
 #
 # Packages for utf8lex:
 #
+#     ca-certificates
+#         Latest certificate authorities.
+#     curl
+#         Web access and downloads.
 #     gcc
 #         C compiler.
 #     gdb
@@ -46,11 +60,15 @@ ENV DEBIAN_FRONTEND=noninteractive
 #         and writing of UTF-8-encoded characters.
 #     make
 #         Traditional make.  Required for building things from Makefiles.
+#     scc
+#         Counts the number of lines in source code files.
 #     sloccount
 #         Counts the number of lines in source code files.
 #
 RUN apt-get update --yes \
     && apt-get install --no-install-recommends --yes \
+       ca-certificates \
+       curl \
        gcc \
        gdb \
        libpcre2-dev \
@@ -59,6 +77,12 @@ RUN apt-get update --yes \
        locales \
        make \
        sloccount \
+    && curl --fail \
+            --include \
+            --output /root/scc.tar.gz \
+            https://github.com/boyter/scc/releases/download/v3.2.0/scc_Linux_x86_64.tar.gz \
+    && ls -l /root/scc.tar.gz \
+    && exit 999 \
     && apt-get clean
 
 ENV LC_CTYPE=C.utf8
@@ -77,6 +101,22 @@ RUN mkdir /home/utf8lex \
            --password `od --read-bytes 32 --format u --address-radix none /dev/urandom | tr --delete ' \n'` \
            utf8lex \
     && chown -R utf8lex:utf8lex /home/utf8lex
+
+#
+# Install Ben Boyter's scc version 3.2.0:
+#
+#     https://github.com/boyter/scc
+#     https://github.com/boyter/scc/releases/tag/v3.2.0
+#
+# TODO do not hard-code architecture !!!
+#
+RUN cd /root \
+    && ls -l \
+    && tar xvzf scc.tar.gz \
+    && mv scc /usr/local/bin \
+    && mkdir -p /usr/local/share/scc \
+    && mv README.md LICENSE /usr/local/share/scc \
+    && chown -R utf8lex:utf8lex /usr/local/bin/scc /usr/local/share/scc/
 
 #
 # utf8lex working directory
