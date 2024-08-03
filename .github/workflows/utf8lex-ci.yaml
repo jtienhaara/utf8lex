@@ -134,6 +134,8 @@ jobs:
         run: |
           docker import ${{env.BUILD_DIR}}/${{env.BUILD_IMAGE_FILE_BASE}}.tar \
               ${{env.BUILD_IMAGE_TAG}}
+          docker images
+          sudo systemctl start docker
           mkdir -p ${{env.BUILD_DIR}}/${{matrix.platform}}
           #
           # docker run documentation:
