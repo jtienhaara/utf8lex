@@ -138,7 +138,8 @@ jobs:
                   --rm \
                   --volume `pwd`:/utf8lex:rw \
                   ${{env.BUILD_IMAGE_TAG}} \
-                  /bin/sh -c 'ls /usr/bin/ && make all'
+                  ls /usr/bin/
+          # !!!         /bin/sh -c 'ls /usr/bin/ && make all'
           find ${{env.BUILD_DIR}}/${{matrix.platform}} -type f
 
       - name: Tar utf8lex shared libraries
