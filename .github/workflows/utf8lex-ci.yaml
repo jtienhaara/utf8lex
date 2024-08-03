@@ -137,7 +137,7 @@ jobs:
         name: Download container image
         uses: actions/download-artifact@v4
         with:
-          name: ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+          name: ${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
           path: ${{env.BUILD_DIR}}/${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
 
       # Add support for more platforms with QEMU
@@ -172,9 +172,9 @@ jobs:
       - id: tar-multiarch-utf8lex-so
         name: Tar utf8lex shared libraries
         run: |
-          tar cvzf ${{env.BUILD_DIR}}//${{env.SHARED_LIBRARIES_TAR_GZ}} \
-              ${{env.BUILD_DIR}}/*/*/*.so
-          cp ${{env.BUILD_DIR}}//${{env.SHARED_LIBRARIES_TAR_GZ}} \
+          cd ${{env.BUILD_DIR}}
+          tar cvzf ${{env.SHARED_LIBRARIES_TAR_GZ}} */*/*.so
+          cp ${{env.SHARED_LIBRARIES_TAR_GZ}} \
               /tmp/${{env.SHARED_LIBRARIES_TAR_GZ}}
 
       - id: upload-multiarch-utf8lex-so
