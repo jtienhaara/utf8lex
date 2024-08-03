@@ -130,7 +130,7 @@ jobs:
       BUILDER_IMAGE_TAG: "utf8lex-build:${{github.ref_name}}"
       SHARED_LIBRARIES_TAR_GZ: "utf8lex.${{github.ref_name}}.tar.gz"
     steps:
-      - checkout
+      - id: checkout
         name: Checkout
         uses: actions/checkout@v4
 
