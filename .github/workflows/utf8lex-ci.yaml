@@ -28,8 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BUILD_DIR: ./build
-      BUILDER_IMAGE_FILE_BASE: "utf8lex-builder.${{github.ref_name}}"
-      BUILDER_IMAGE_TAG: "utf8lex-builder:${{github.ref_name}}"
+      BUILDER_IMAGE_BASE: "utf8lex-builder"
     steps:
       - id: checkout
         name: Checkout
@@ -47,7 +46,7 @@ jobs:
         #
         uses: actions/cache@v4
         with:
-          path: /tmp/${{env.BUILDER_IMAGE_FILE_BASE}}.tar
+          path: /tmp/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
           key: utf8lex-container-image-cache-${{ hashFiles('build.Dockerfile') }}
 
       # Add support for more platforms with QEMU
@@ -76,15 +75,15 @@ jobs:
           mkdir -p ${{env.BUILD_DIR}}
           docker buildx build \
               --file build.Dockerfile \
-              --output type=oci,dest=${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar \
+              --output type=oci,dest=${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar \
               --platform=linux/amd64,linux/arm64,linux/mips64le,linux/ppc64le,linux/s390x \
-              --tag ${{env.BUILDER_IMAGE_TAG}} \
+              --tag ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('build.Dockerfile') }} \
               .
 
       - id: gzip-builder-container-image
         name: Gzip utf8lex builder container image
         run: |
-          gzip ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar
+          gzip ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar
 
       #
       # Do not use actions/cache/save, it doesn't work.
@@ -96,9 +95,9 @@ jobs:
         name: Cache the fact the built container image
         if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
         run: |
-          rm -rf /tmp/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz
-          cp ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz \
-              /tmp/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz
+          rm -rf /tmp/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+          cp ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz \
+              /tmp/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
 
       #
       # https://github.com/actions/upload-artifact
@@ -108,8 +107,8 @@ jobs:
         if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: ${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz
-          path: /tmp/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz
+          name: ${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+          path: /tmp/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
           if-no-files-found: error
           retention-days: 1
   # --------------------------------------------------------------------
@@ -127,8 +126,7 @@ jobs:
           - linux/ppc64le,linux/s390x
     env:
       BUILD_DIR: ./build
-      BUILDER_IMAGE_FILE_BASE: "utf8lex-build.${{github.ref_name}}"
-      BUILDER_IMAGE_TAG: "utf8lex-build:${{github.ref_name}}"
+      BUILDER_IMAGE_BASE: "utf8lex-builder"
       SHARED_LIBRARIES_TAR_GZ: "utf8lex.${{github.ref_name}}.tar.gz"
     steps:
       - id: checkout
@@ -139,8 +137,8 @@ jobs:
         name: Download container image
         uses: actions/download-artifact@v4
         with:
-          name: ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz
-          path: ${{env.BUILD_DIR}}/${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz
+          name: ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+          path: ${{env.BUILD_DIR}}/${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
 
       # Add support for more platforms with QEMU
       # https://github.com/docker/setup-qemu-action
@@ -151,10 +149,10 @@ jobs:
       - id: build-utf8lex-so
         name: Build utf8lex shared library
         run: |
-          gunzip ${{env.BUILD_DIR}}/${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz
+          gunzip ${{env.BUILD_DIR}}/${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
           docker import \
-              ${{env.BUILD_DIR}}/${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar \
-              ${{env.BUILDER_IMAGE_TAG}}
+              ${{env.BUILD_DIR}}/${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar \
+              ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('build.Dockerfile') }}
           docker images
           sudo systemctl start docker
           mkdir -p ${{env.BUILD_DIR}}/${{matrix.platform}}
@@ -166,7 +164,7 @@ jobs:
               docker run \
                   --rm \
                   --volume `pwd`:/utf8lex:rw \
-                  ${{env.BUILDER_IMAGE_TAG}} \
+                  ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('build.Dockerfile') }} \
                   ls /usr/bin/
           # !!!         /bin/sh -c 'ls /usr/bin/ && make all'
           find ${{env.BUILD_DIR}}/${{matrix.platform}} -type f
