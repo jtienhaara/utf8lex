@@ -97,7 +97,8 @@ jobs:
         if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
         run: |
           rm -rf /tmp/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz
-          cp ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz /tmp/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz
+          cp ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz \
+              /tmp/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz
 
       #
       # https://github.com/actions/upload-artifact
@@ -107,8 +108,8 @@ jobs:
         if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz
-          path: ${{env.BUILD_DIR}}/${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz
+          name: ${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz
+          path: /tmp/${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz
           if-no-files-found: error
           retention-days: 1
   # --------------------------------------------------------------------
@@ -175,13 +176,15 @@ jobs:
         run: |
           tar cvzf ${{env.BUILD_DIR}}//${{env.SHARED_LIBRARIES_TAR_GZ}} \
               ${{env.BUILD_DIR}}/*/*/*.so
+          cp ${{env.BUILD_DIR}}//${{env.SHARED_LIBRARIES_TAR_GZ}} \
+              /tmp/${{env.SHARED_LIBRARIES_TAR_GZ}}
 
       - id: upload-multiarch-utf8lex-so
         name: Upload utf8lex libraries
         uses: actions/upload-artifact@v4
         with:
           name: ${{env.SHARED_LIBRARIES_TAR_GZ}}
-          path: ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARIES_TAR_GZ}}
+          path: /tmp/${{env.SHARED_LIBRARIES_TAR_GZ}}
           if-no-files-found: error
           retention-days: 1
   # --------------------------------------------------------------------
