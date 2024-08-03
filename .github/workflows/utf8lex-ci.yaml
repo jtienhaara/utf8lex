@@ -26,8 +26,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BUILD_DIR: ./build
-      BUILD_IMAGE_FILE_BASE: "utf8lex-build.${{github.ref.name}}"
-      BUILD_IMAGE_TAG: "utf8lex-build:${{github.ref.name}}"
+      BUILD_IMAGE_FILE_BASE: "utf8lex-build.${{github.ref_name}}"
+      BUILD_IMAGE_TAG: "utf8lex-build:${{github.ref_name}}"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,7 +53,8 @@ jobs:
               --file build.Dockerfile \
               --output type=tar,dest=${{env.BUILD_DIR}}/${{env.BUILD_IMAGE_FILE_BASE}}.tar \
               --platform=linux/amd64,linux/arm64,darwin/amd64,darwin/arm64 \
-              --tag ${{env.BUILD_IMAGE_TAG}}
+              --tag ${{env.BUILD_IMAGE_TAG}} \
+              .
           gzip ${{env.BUILD_DIR}}/${{env.BUILD_IMAGE_FILE_BASE}}.tar
 
       - name: Upload utf8lex build container image
