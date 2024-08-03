@@ -109,7 +109,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz
-          path: /tmp/${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz
+          path: /tmp/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz
           if-no-files-found: error
           retention-days: 1
   # --------------------------------------------------------------------
