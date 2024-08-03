@@ -20,36 +20,47 @@ on:
     types:
       - closed
       # TODO only on merge (requires if logic https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#running-your-pull_request-workflow-when-a-pull-request-merges)
+
 jobs:
   build_utf8lex:
     runs-on: ubuntu-latest
     env:
       BUILD_DIR: ./build
+      BUILD_IMAGE_FILE_BASE: "utf8lex-build.${{github.ref.name}}"
+      BUILD_IMAGE_TAG: "utf8lex-build:${{github.ref.name}}"
     steps:
-      - name: Install dependencies
-        run: |-
-          sudo apt-get update --yes \
-              && sudo apt-get install --no-install-recommends --yes \
-                 gcc \
-                 gdb \
-                 libpcre2-dev \
-                 libutf8proc-dev \
-                 libutf8proc2 \
-                 locales \
-                 make \
-              && sudo apt-get clean
-
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Compile utf8lex
-        run: make build
+      # Add support for more platforms with QEMU
+      # https://github.com/docker/setup-qemu-action
+      - name: qemu for multi-platform docker buildx support
+        uses: docker/setup-qemu-action@v3
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      #
+      # Documentation:
+      #     https://docs.docker.com/reference/cli/docker/buildx/build/
+      #
+      # For --output:
+      #     https://docs.docker.com/build/exporters/
+      #
+      - name: Build utf8lex container
+        run: |
+          docker buildx build \
+              --file build.Dockerfile \
+              --output type=tar,dest=${{env.BUILD_DIR}}/${{env.BUILD_IMAGE_FILE_BASE}}.tar \
+              --platform=linux/amd64,linux/arm64,darwin/amd64,darwin/arm64 \
+              --tag ${{env.BUILD_IMAGE_TAG}}
+          gzip ${{env.BUILD_DIR}}/${{env.BUILD_IMAGE_FILE_BASE}}.tar
+
+      - name: Upload utf8lex build container image
+        uses: actions/upload-artifact@v4
         with:
-          name: libutf8lex.so-${{github.ref.name}}
-          path: ${{env.BUILD_DIR}}/libutf8lex.so.${{env.UTF8LEX_LIBRARY_VERSION}}
+          name: ${{env.BUILD_IMAGE_FILE_BASE}}.tar.gz
+          path: ${{env.BUILD_DIR}}/${{env.BUILD_IMAGE_FILE_BASE}}.tar.gz
           if-no-files-found: error
           retention-days: 1
 
