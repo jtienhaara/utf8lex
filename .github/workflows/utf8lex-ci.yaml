@@ -39,7 +39,12 @@ jobs:
       #
       - name: Restore docker buildx cache
         id: buildx-cache-restore
-        uses: actions/cache/restore@v4
+        #
+        # Never use actions/cache/restore:
+        #
+        #     https://github.com/orgs/community/discussions/27059#discussioncomment-10084333
+        #
+        uses: actions/cache@v4
         with:
           path: /tmp/.buildx-cache-old
           key: utf8lex-buildx-cache-${{ hashFiles('build.Dockerfile') }}
