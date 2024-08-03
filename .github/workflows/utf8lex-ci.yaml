@@ -31,14 +31,15 @@ jobs:
       BUILDER_IMAGE_FILE_BASE: "utf8lex-builder.${{github.ref_name}}"
       BUILDER_IMAGE_TAG: "utf8lex-builder:${{github.ref_name}}"
     steps:
-      - name: Checkout
+      - id: checkout
+        name: Checkout
         uses: actions/checkout@v4
 
       #
       # https://docs.docker.com/build/ci/github-actions/cache/
       #
-      - name: Restore container image
-        id: builder-container-image-restore
+      - id: container-image-cache-restore
+        name: Restore container image
         #
         # Never use actions/cache/restore:
         #
@@ -47,16 +48,18 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/${{env.BUILDER_IMAGE_FILE_BASE}}.tar
-          key: utf8lex-builder-container-image-${{ hashFiles('build.Dockerfile') }}
+          key: utf8lex-container-image-cache-${{ hashFiles('build.Dockerfile') }}
 
       # Add support for more platforms with QEMU
       # https://github.com/docker/setup-qemu-action
-      - name: qemu for multi-platform docker support
-        if: steps.builder-container-image-restore.outputs.cache-hit != 'true'
+      - id: qemu-setup
+        name: qemu for multi-platform docker support
+        if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
         uses: docker/setup-qemu-action@v3
 
-      - name: Set up Docker Buildx
-        if: steps.builder-container-image-restore.outputs.cache-hit != 'true'
+      - id: docker-buildx-setup
+        name: Set up Docker Buildx
+        if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
         uses: docker/setup-buildx-action@v3
 
       #
@@ -66,16 +69,22 @@ jobs:
       # For --output:
       #     https://docs.docker.com/build/exporters/
       #
-      - name: Build utf8lex container for building and testing
-        if: steps.builder-container-image-restore.outputs.cache-hit != 'true'
+      - id: build-container-image
+        name: Build utf8lex container for building and testing
+        if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
         run: |
           mkdir -p ${{env.BUILD_DIR}}
           docker buildx build \
               --file build.Dockerfile \
-              --output type=tar,dest=${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar \
+              --output type=oci,dest=${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar \
               --platform=linux/amd64,linux/arm64,linux/mips64le,linux/ppc64le,linux/s390x \
               --tag ${{env.BUILDER_IMAGE_TAG}} \
               .
+
+      - id: gzip-builder-container-image
+        name: Gzip utf8lex builder container image
+        run: |
+          gzip ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar
 
       #
       # Do not use actions/cache/save, it doesn't work.
@@ -83,12 +92,25 @@ jobs:
       # We just copy the builder container image to where the
       # cache automagic expects to find it, in /tmp.
       #
-      - name: Save builder container image for next time
-        if: steps.builder-container-image-restore.outputs.cache-hit != 'true'
-        id: builder-container-image-save
+      - id: container-image-cache-save
+        name: Cache the fact the built container image
+        if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
         run: |
-          rm -rf /tmp/${{env.BUILDER_IMAGE_FILE_BASE}}.tar
-          mv ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar /tmp/${{env.BUILDER_IMAGE_FILE_BASE}}.tar
+          rm -rf /tmp/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz
+          cp ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz /tmp/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz
+
+      #
+      # https://github.com/actions/upload-artifact
+      #
+      - id: upload-container-image
+        name: Upload the container image
+        if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz
+          path: ${{env.BUILD_DIR}}/${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz
+          if-no-files-found: error
+          retention-days: 1
   # --------------------------------------------------------------------
 
   # ====================================================================
@@ -108,29 +130,29 @@ jobs:
       BUILDER_IMAGE_TAG: "utf8lex-build:${{github.ref_name}}"
       SHARED_LIBRARIES_TAR_GZ: "utf8lex.${{github.ref_name}}.tar.gz"
     steps:
-      - name: Checkout
+      - checkout
+        name: Checkout
         uses: actions/checkout@v4
 
-      #
-      # https://docs.docker.com/build/ci/github-actions/cache/
-      #
-      - name: Restore container image
-        id: builder-container-image-restore
-        uses: actions/cache@v4
+      - id: download-container-image
+        name: Download container image
+        uses: actions/download-artifact@v4
         with:
-          path: /tmp/${{env.BUILDER_IMAGE_FILE_BASE}}.tar
-          key: utf8lex-builder-container-image-${{ hashFiles('build.Dockerfile') }}
+          name: ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz
+          path: ${{env.BUILD_DIR}}/${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz
 
       # Add support for more platforms with QEMU
       # https://github.com/docker/setup-qemu-action
-      - name: qemu for multi-platform docker run support
+      - id: qemu-setup
+        name: qemu for multi-platform docker run support
         uses: docker/setup-qemu-action@v3
 
-      - name: Build utf8lex shared library
+      - id: build-utf8lex-so
+        name: Build utf8lex shared library
         run: |
-          ls -l /tmp
-          find /home/ 2> /dev/null || echo ignored errors
-          docker import /tmp/${{env.BUILDER_IMAGE_FILE_BASE}}.tar \
+          gunzip ${{env.BUILD_DIR}}/${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar.gz
+          docker import \
+              ${{env.BUILD_DIR}}/${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar \
               ${{env.BUILDER_IMAGE_TAG}}
           docker images
           sudo systemctl start docker
@@ -148,12 +170,14 @@ jobs:
           # !!!         /bin/sh -c 'ls /usr/bin/ && make all'
           find ${{env.BUILD_DIR}}/${{matrix.platform}} -type f
 
-      - name: Tar utf8lex shared libraries
+      - id: tar-multiarch-utf8lex-so
+        name: Tar utf8lex shared libraries
         run: |
           tar cvzf ${{env.BUILD_DIR}}//${{env.SHARED_LIBRARIES_TAR_GZ}} \
               ${{env.BUILD_DIR}}/*/*/*.so
 
-      - name: Upload utf8lex libraries
+      - id: upload-multiarch-utf8lex-so
+        name: Upload utf8lex libraries
         uses: actions/upload-artifact@v4
         with:
           name: ${{env.SHARED_LIBRARIES_TAR_GZ}}
