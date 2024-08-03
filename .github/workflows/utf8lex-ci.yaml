@@ -118,7 +118,6 @@ jobs:
           #
           BUILD_DIR=${{env.BUILD_DIR}}/${{matrix.platform}} \
               docker run \
-                  --name ${{matrix.platform}} \
                   --rm \
                   --volume `pwd`:/utf8lex:rw \
                   ${{env.BUILD_IMAGE_TAG}} \
