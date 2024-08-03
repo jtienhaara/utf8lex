@@ -24,12 +24,12 @@ on:
 
 jobs:
   # ====================================================================
-  build_container:
+  builder_container_image:
     runs-on: ubuntu-latest
     env:
       BUILD_DIR: ./build
-      BUILD_IMAGE_FILE_BASE: "utf8lex-build.${{github.ref_name}}"
-      BUILD_IMAGE_TAG: "utf8lex-build:${{github.ref_name}}"
+      BUILDER_IMAGE_FILE_BASE: "utf8lex-builder.${{github.ref_name}}"
+      BUILDER_IMAGE_TAG: "utf8lex-builder:${{github.ref_name}}"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,8 +37,8 @@ jobs:
       #
       # https://docs.docker.com/build/ci/github-actions/cache/
       #
-      - name: Restore docker buildx cache
-        id: buildx-cache-restore
+      - name: Restore container image
+        id: builder-container-image-restore
         #
         # Never use actions/cache/restore:
         #
@@ -46,17 +46,17 @@ jobs:
         #
         uses: actions/cache@v4
         with:
-          path: /tmp/.buildx-cache-old
-          key: utf8lex-buildx-cache-${{ hashFiles('build.Dockerfile') }}
+          path: /tmp/${{env.BUILDER_IMAGE_FILE_BASE}}.tar
+          key: utf8lex-builder-container-image-${{ hashFiles('build.Dockerfile') }}
 
       # Add support for more platforms with QEMU
       # https://github.com/docker/setup-qemu-action
-      - name: qemu for multi-platform docker buildx support
-        if: steps.buildx-cache-restore.outputs.cache-hit != 'true'
+      - name: qemu for multi-platform docker support
+        if: steps.builder-container-image-restore.outputs.cache-hit != 'true'
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
-        if: steps.buildx-cache-restore.outputs.cache-hit != 'true'
+        if: steps.builder-container-image-restore.outputs.cache-hit != 'true'
         uses: docker/setup-buildx-action@v3
 
       #
@@ -67,32 +67,33 @@ jobs:
       #     https://docs.docker.com/build/exporters/
       #
       - name: Build utf8lex container for building and testing
-        if: steps.buildx-cache-restore.outputs.cache-hit != 'true'
+        if: steps.builder-container-image-restore.outputs.cache-hit != 'true'
         run: |
           mkdir -p ${{env.BUILD_DIR}}
           docker buildx build \
-              --cache-from=type=local,src=/tmp/.buildx-cache-old \
-              --cache-to=type=local,dest=/tmp/.buildx-cache-new \
               --file build.Dockerfile \
+              --output type=tar,dest=${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar \
               --platform=linux/amd64,linux/arm64,linux/mips64le,linux/ppc64le,linux/s390x \
-              --tag ${{env.BUILD_IMAGE_TAG}} \
+              --tag ${{env.BUILDER_IMAGE_TAG}} \
               .
 
       #
       # Do not use actions/cache/save, it doesn't work.
       # Using actions/cache up above adds automagic.
+      # We just copy the builder container image to where the
+      # cache automagic expects to find it, in /tmp.
       #
-      - name: Save docker buildx cache for next time
-        if: steps.buildx-cache-restore.outputs.cache-hit != 'true'
-        id: buildx-cache-save
+      - name: Save builder container image for next time
+        if: steps.builder-container-image-restore.outputs.cache-hit != 'true'
+        id: builder-container-image-save
         run: |
-          rm -rf /tmp/.buildx-cache-old
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache-old
+          rm -rf /tmp/${{env.BUILDER_IMAGE_FILE_BASE}}.tar
+          mv ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_FILE_BASE}}.tar /tmp/${{env.BUILDER_IMAGE_FILE_BASE}}.tar
   # --------------------------------------------------------------------
 
   # ====================================================================
   shared_libraries:
-    needs: build_container
+    needs: builder_container_image
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -103,8 +104,8 @@ jobs:
           - linux/ppc64le,linux/s390x
     env:
       BUILD_DIR: ./build
-      BUILD_IMAGE_FILE_BASE: "utf8lex-build.${{github.ref_name}}"
-      BUILD_IMAGE_TAG: "utf8lex-build:${{github.ref_name}}"
+      BUILDER_IMAGE_FILE_BASE: "utf8lex-build.${{github.ref_name}}"
+      BUILDER_IMAGE_TAG: "utf8lex-build:${{github.ref_name}}"
       SHARED_LIBRARIES_TAR_GZ: "utf8lex.${{github.ref_name}}.tar.gz"
     steps:
       - name: Checkout
@@ -113,12 +114,12 @@ jobs:
       #
       # https://docs.docker.com/build/ci/github-actions/cache/
       #
-      - name: Restore docker container cache and build/test image
-        id: container-cache-restore
+      - name: Restore container image
+        id: builder-container-image-restore
         uses: actions/cache@v4
         with:
-          path: /tmp/.container-cache
-          key: utf8lex-buildx-cache-${{ hashFiles('build.Dockerfile') }}
+          path: /tmp/${{env.BUILDER_IMAGE_FILE_BASE}}.tar
+          key: utf8lex-builder-container-image-${{ hashFiles('build.Dockerfile') }}
 
       # Add support for more platforms with QEMU
       # https://github.com/docker/setup-qemu-action
@@ -127,6 +128,8 @@ jobs:
 
       - name: Build utf8lex shared library
         run: |
+          docker import /tmp/${{env.BUILDER_IMAGE_FILE_BASE}}.tar \
+              ${{env.BUILDER_IMAGE_TAG}}
           docker images
           sudo systemctl start docker
           mkdir -p ${{env.BUILD_DIR}}/${{matrix.platform}}
@@ -138,7 +141,7 @@ jobs:
               docker run \
                   --rm \
                   --volume `pwd`:/utf8lex:rw \
-                  ${{env.BUILD_IMAGE_TAG}} \
+                  ${{env.BUILDER_IMAGE_TAG}} \
                   ls /usr/bin/
           # !!!         /bin/sh -c 'ls /usr/bin/ && make all'
           find ${{env.BUILD_DIR}}/${{matrix.platform}} -type f
