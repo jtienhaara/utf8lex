@@ -23,7 +23,7 @@
 #
 #     https://hub.docker.com/_/debian
 #
-FROM debian:12.2-slim
+FROM debian:12.6-slim
 
 #
 # Docker's builtin TARGETARCH build arg:
@@ -60,10 +60,6 @@ ENV TZ=UTC/UTC
 #         and writing of UTF-8-encoded characters.
 #     make
 #         Traditional make.  Required for building things from Makefiles.
-#     scc
-#         Counts the number of lines in source code files.
-#     sloccount
-#         Counts the number of lines in source code files.
 #
 RUN apt-get update --yes \
     && apt-get install --no-install-recommends --yes \
@@ -76,13 +72,6 @@ RUN apt-get update --yes \
        libutf8proc2 \
        locales \
        make \
-       sloccount \
-    && curl --fail \
-            --include \
-            --output /root/scc.tar.gz \
-            https://github.com/boyter/scc/releases/download/v3.2.0/scc_Linux_x86_64.tar.gz \
-    && ls -l /root/scc.tar.gz \
-    && exit 999 \
     && apt-get clean
 
 ENV LC_CTYPE=C.utf8
@@ -101,22 +90,6 @@ RUN mkdir /home/utf8lex \
            --password `od --read-bytes 32 --format u --address-radix none /dev/urandom | tr --delete ' \n'` \
            utf8lex \
     && chown -R utf8lex:utf8lex /home/utf8lex
-
-#
-# Install Ben Boyter's scc version 3.2.0:
-#
-#     https://github.com/boyter/scc
-#     https://github.com/boyter/scc/releases/tag/v3.2.0
-#
-# TODO do not hard-code architecture !!!
-#
-RUN cd /root \
-    && ls -l \
-    && tar xvzf scc.tar.gz \
-    && mv scc /usr/local/bin \
-    && mkdir -p /usr/local/share/scc \
-    && mv README.md LICENSE /usr/local/share/scc \
-    && chown -R utf8lex:utf8lex /usr/local/bin/scc /usr/local/share/scc/
 
 #
 # utf8lex working directory
