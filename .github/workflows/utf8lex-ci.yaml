@@ -55,6 +55,7 @@ jobs:
               --platform=linux/amd64,linux/arm64,darwin/amd64,darwin/arm64 \
               --tag ${{env.BUILD_IMAGE_TAG}} \
               .
+          find ${{env.BUILD_DIR}} -type f
           gzip ${{env.BUILD_DIR}}/${{env.BUILD_IMAGE_FILE_BASE}}.tar
 
       - name: Upload utf8lex build container image
