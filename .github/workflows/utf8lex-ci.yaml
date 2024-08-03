@@ -74,7 +74,6 @@ jobs:
               --cache-from=type=local,src=/tmp/.buildx-cache-old \
               --cache-to=type=local,dest=/tmp/.buildx-cache-new \
               --file build.Dockerfile \
-              --output type=tar,dest=${{env.BUILD_DIR}}/${{env.BUILD_IMAGE_FILE_BASE}}.tar \
               --platform=linux/amd64,linux/arm64,linux/mips64le,linux/ppc64le,linux/s390x \
               --tag ${{env.BUILD_IMAGE_TAG}} \
               .
@@ -89,15 +88,6 @@ jobs:
         run: |
           rm -rf /tmp/.buildx-cache-old
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache-old
-
-      - name: Upload utf8lex build container image
-        if: steps.buildx-cache-restore.outputs.cache-hit != 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{env.BUILD_IMAGE_FILE_BASE}}.tar
-          path: ${{env.BUILD_DIR}}/${{env.BUILD_IMAGE_FILE_BASE}}.tar
-          if-no-files-found: error
-          retention-days: 1
   # --------------------------------------------------------------------
 
   # ====================================================================
@@ -120,21 +110,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      #
+      # https://docs.docker.com/build/ci/github-actions/cache/
+      #
+      - name: Restore docker container cache and build/test image
+        id: container-cache-restore
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.container-cache
+          key: utf8lex-buildx-cache-${{ hashFiles('build.Dockerfile') }}
+
       # Add support for more platforms with QEMU
       # https://github.com/docker/setup-qemu-action
-      - name: qemu for multi-platform docker buildx support
+      - name: qemu for multi-platform docker run support
         uses: docker/setup-qemu-action@v3
-
-      - name: Pull container image for building / testing
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{env.BUILD_IMAGE_FILE_BASE}}.tar
-          path: ${{env.BUILD_DIR}}
 
       - name: Build utf8lex shared library
         run: |
-          docker import ${{env.BUILD_DIR}}/${{env.BUILD_IMAGE_FILE_BASE}}.tar \
-              ${{env.BUILD_IMAGE_TAG}}
           docker images
           sudo systemctl start docker
           mkdir -p ${{env.BUILD_DIR}}/${{matrix.platform}}
