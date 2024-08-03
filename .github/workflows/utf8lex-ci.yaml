@@ -34,19 +34,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      #
+      # https://docs.docker.com/build/ci/github-actions/cache/
+      #
+      - name: Restore docker buildx cache
+        id: buildx-cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: /tmp/.buildx-cache-old
+          key: utf8lex-buildx-cache-${{ hashFiles('build.Dockerfile') }}
+
       # Add support for more platforms with QEMU
       # https://github.com/docker/setup-qemu-action
       - name: qemu for multi-platform docker buildx support
+        # TODO MAYBE: if: steps.buildx-cache-restore.outputs.cache-hit != 'true'
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
+        # TODO MAYBE: if: steps.buildx-cache-restore.outputs.cache-hit != 'true'
         uses: docker/setup-buildx-action@v3
-
-      #
-      # https://github.com/crazy-max/ghaction-github-runtime
-      #
-      - name: Retrieve cache variables
-        uses: crazy-max/ghaction-github-runtime@v3
 
       #
       # Documentation:
@@ -56,18 +62,29 @@ jobs:
       #     https://docs.docker.com/build/exporters/
       #
       - name: Build utf8lex container for building and testing
+        # TODO MAYBE: if: steps.buildx-cache-restore.outputs.cache-hit != 'true'
         run: |
           mkdir -p ${{env.BUILD_DIR}}
           docker buildx build \
-              --cache-from=type=gha,token=${{env.ACTIONS_RUNTIME_TOKEN}},url=${{env.ACTIONS_CACHE_URL}} \
-              --cache-to=type=gha,token=${{env.ACTIONS_RUNTIME_TOKEN}},url=${{env.ACTIONS_CACHE_URL}} \
+              --cache-from=type=local,src=/tmp/.buildx-cache-old \
+              --cache-to=type=local,dest=/tmp/.buildx-cache-new \
               --file build.Dockerfile \
               --output type=tar,dest=${{env.BUILD_DIR}}/${{env.BUILD_IMAGE_FILE_BASE}}.tar \
               --platform=linux/amd64,linux/arm64,linux/mips64le,linux/ppc64le,linux/s390x \
               --tag ${{env.BUILD_IMAGE_TAG}} \
               .
+      #
+      # https://docs.docker.com/build/ci/github-actions/cache/
+      #
+      - name: Save docker buildx cache for next time
+        id: buildx-cache-save
+        uses: actions/cache/save@v4
+        with:
+          path: /tmp/.buildx-cache-new
+          key: ${{ steps.buildx-cache-restore.outputs.cache-primary-key }}
 
       - name: Upload utf8lex build container image
+        # TODO MAYBE: if: steps.buildx-cache-restore.outputs.cache-hit != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ${{env.BUILD_IMAGE_FILE_BASE}}.tar
@@ -121,7 +138,7 @@ jobs:
                   --rm \
                   --volume `pwd`:/utf8lex:rw \
                   ${{env.BUILD_IMAGE_TAG}} \
-                  make all
+                  /bin/sh -c 'ls /usr/bin/ && make all'
           find ${{env.BUILD_DIR}}/${{matrix.platform}} -type f
 
       - name: Tar utf8lex shared libraries
