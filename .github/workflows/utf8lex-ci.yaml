@@ -129,6 +129,7 @@ jobs:
       - name: Build utf8lex shared library
         run: |
           ls -l /tmp
+          find /home/ 2> /dev/null || echo ignored errors
           docker import /tmp/${{env.BUILDER_IMAGE_FILE_BASE}}.tar \
               ${{env.BUILDER_IMAGE_TAG}}
           docker images
