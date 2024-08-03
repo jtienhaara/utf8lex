@@ -84,6 +84,7 @@ jobs:
       # Using actions/cache up above adds automagic.
       #
       - name: Save docker buildx cache for next time
+        if: steps.buildx-cache-restore.outputs.cache-hit != 'true'
         id: buildx-cache-save
         run: |
           rm -rf /tmp/.buildx-cache-old
