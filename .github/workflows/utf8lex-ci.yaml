@@ -53,8 +53,8 @@ jobs:
         run: |
           mkdir -p ${{env.BUILD_DIR}}
           docker buildx build \
-              --cache-from=type=gha \
-              --cache-to=type=gha \
+              --cache-from=type=gha,token=${{secrets.GITHUB_TOKEN}},url=${{env.ACTIONS_CACHE_URL}} \
+              --cache-to=type=gha,token=${{secrets.GITHUB_TOKEN}},url=${{env.ACTIONS_CACHE_URL}} \
               --file build.Dockerfile \
               --output type=tar,dest=${{env.BUILD_DIR}}/${{env.BUILD_IMAGE_FILE_BASE}}.tar \
               --platform=linux/amd64,linux/arm64,linux/mips64le,linux/ppc64le,linux/s390x \
@@ -99,7 +99,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{env.BUILD_IMAGE_FILE_BASE}}.tar
-          path: ${{env.BUILD_DIR}}/${{env.BUILD_IMAGE_FILE_BASE}}.tar
+          path: ${{env.BUILD_DIR}}
 
       - name: Build utf8lex shared library
         run: |
