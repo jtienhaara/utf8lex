@@ -43,8 +43,6 @@ ENV TZ=UTC/UTC
 #
 #     ca-certificates
 #         Latest certificate authorities.
-#     curl
-#         Web access and downloads.
 #     gcc
 #         C compiler.
 #     gdb
@@ -64,7 +62,6 @@ ENV TZ=UTC/UTC
 RUN apt-get update --yes \
     && apt-get install --no-install-recommends --yes \
        ca-certificates \
-       curl \
        gcc \
        gdb \
        libpcre2-dev \

@@ -21,8 +21,10 @@ on:
       - closed
       # TODO only on merge (requires if logic https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#running-your-pull_request-workflow-when-a-pull-request-merges)
 
+
 jobs:
-  build_utf8lex:
+  # ====================================================================
+  build_container:
     runs-on: ubuntu-latest
     env:
       BUILD_DIR: ./build
@@ -47,25 +49,83 @@ jobs:
       # For --output:
       #     https://docs.docker.com/build/exporters/
       #
-      - name: Build utf8lex container
+      - name: Build utf8lex build / test container
         run: |
           mkdir -p ${{env.BUILD_DIR}}
           docker buildx build \
+              --cache-from=type=gha \
+              --cache-to=type=gha \
               --file build.Dockerfile \
               --output type=tar,dest=${{env.BUILD_DIR}}/${{env.BUILD_IMAGE_FILE_BASE}}.tar \
               --platform=linux/amd64,linux/arm64,linux/mips64le,linux/ppc64le,linux/s390x \
               --tag ${{env.BUILD_IMAGE_TAG}} \
               .
-          find ${{env.BUILD_DIR}} -type f
-          gzip ${{env.BUILD_DIR}}/${{env.BUILD_IMAGE_FILE_BASE}}.tar
 
       - name: Upload utf8lex build container image
         uses: actions/upload-artifact@v4
         with:
-          name: ${{env.BUILD_IMAGE_FILE_BASE}}.tar.gz
-          path: ${{env.BUILD_DIR}}/${{env.BUILD_IMAGE_FILE_BASE}}.tar.gz
+          name: ${{env.BUILD_IMAGE_FILE_BASE}}.tar
+          path: ${{env.BUILD_DIR}}/${{env.BUILD_IMAGE_FILE_BASE}}.tar
           if-no-files-found: error
           retention-days: 1
+  # --------------------------------------------------------------------
+
+  # ====================================================================
+  shared_libraries:
+    needs: build_container
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform:
+          - linux/amd64
+          - linux/arm64
+          - linux/mips64le
+          - linux/ppc64le,linux/s390x
+    env:
+      BUILD_DIR: ./build
+      BUILD_IMAGE_FILE_BASE: "utf8lex-build.${{github.ref_name}}"
+      BUILD_IMAGE_TAG: "utf8lex-build:${{github.ref_name}}"
+      SHARED_LIBRARIES_TAR_GZ: "utf8lex.${{github.ref_name}}.tar.gz"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Add support for more platforms with QEMU
+      # https://github.com/docker/setup-qemu-action
+      - name: qemu for multi-platform docker buildx support
+        uses: docker/setup-qemu-action@v3
+
+      - name: Build utf8lex shared library
+        run: |
+          docker import ${{env.BUILD_DIR}}/${{env.BUILD_IMAGE_FILE_BASE}}.tar \
+              ${{env.BUILD_IMAGE_TAG}}
+          mkdir -p ${{env.BUILD_DIR}}/${{matrix.platform}}
+          #
+          # docker run documentation:
+          #     https://docs.docker.com/reference/cli/docker/container/run/
+          #
+          BUILD_DIR=${{env.BUILD_DIR}}/${{matrix.platform}} \
+              docker run \
+                  --name ${{matrix.platform}} \
+                  --rm \
+                  --volume `pwd`:/utf8lex:rw \
+                  ${{env.BUILD_IMAGE_TAG}} \
+                  make all
+          find ${{env.BUILD_DIR}}/${{matrix.platform}} -type f
+
+      - name: Tar utf8lex shared libraries
+        run: |
+          tar cvzf ${{BUILD_DIR}}//${{env.SHARED_LIBRARIES_TAR_GZ}} \
+              ${{env.BUILD_DIR}}/*/*/*.so
+
+      - name: Upload utf8lex libraries
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{env.SHARED_LIBRARIES_TAR_GZ}}
+          path: ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARIES_TAR_GZ}}
+          if-no-files-found: error
+          retention-days: 1
+  # --------------------------------------------------------------------
 
 #
 # Unit test (on push)
@@ -73,6 +133,7 @@ jobs:
 # - Run unit tests
 #
 # TODO
+#
 
 #
 # Integration test (on push)
