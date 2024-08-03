@@ -78,15 +78,16 @@ jobs:
               --platform=linux/amd64,linux/arm64,linux/mips64le,linux/ppc64le,linux/s390x \
               --tag ${{env.BUILD_IMAGE_TAG}} \
               .
+
       #
-      # https://docs.docker.com/build/ci/github-actions/cache/
+      # Do not use actions/cache/save, it doesn't work.
+      # Using actions/cache up above adds automagic.
       #
       - name: Save docker buildx cache for next time
         id: buildx-cache-save
-        uses: actions/cache/save@v4
-        with:
-          path: /tmp/.buildx-cache-new
-          key: ${{ steps.buildx-cache-restore.outputs.cache-primary-key }}
+        run: |
+          rm -rf /tmp/.buildx-cache-old
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache-old
 
       - name: Upload utf8lex build container image
         # TODO MAYBE: if: steps.buildx-cache-restore.outputs.cache-hit != 'true'
