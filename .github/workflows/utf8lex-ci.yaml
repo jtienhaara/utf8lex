@@ -52,11 +52,11 @@ jobs:
       # Add support for more platforms with QEMU
       # https://github.com/docker/setup-qemu-action
       - name: qemu for multi-platform docker buildx support
-        # TODO MAYBE: if: steps.buildx-cache-restore.outputs.cache-hit != 'true'
+        if: steps.buildx-cache-restore.outputs.cache-hit != 'true'
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
-        # TODO MAYBE: if: steps.buildx-cache-restore.outputs.cache-hit != 'true'
+        if: steps.buildx-cache-restore.outputs.cache-hit != 'true'
         uses: docker/setup-buildx-action@v3
 
       #
@@ -67,7 +67,7 @@ jobs:
       #     https://docs.docker.com/build/exporters/
       #
       - name: Build utf8lex container for building and testing
-        # TODO MAYBE: if: steps.buildx-cache-restore.outputs.cache-hit != 'true'
+        if: steps.buildx-cache-restore.outputs.cache-hit != 'true'
         run: |
           mkdir -p ${{env.BUILD_DIR}}
           docker buildx build \
@@ -90,7 +90,7 @@ jobs:
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache-old
 
       - name: Upload utf8lex build container image
-        # TODO MAYBE: if: steps.buildx-cache-restore.outputs.cache-hit != 'true'
+        if: steps.buildx-cache-restore.outputs.cache-hit != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ${{env.BUILD_IMAGE_FILE_BASE}}.tar
