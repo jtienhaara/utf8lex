@@ -115,7 +115,7 @@ jobs:
 
       - name: Tar utf8lex shared libraries
         run: |
-          tar cvzf ${{BUILD_DIR}}//${{env.SHARED_LIBRARIES_TAR_GZ}} \
+          tar cvzf ${{env.BUILD_DIR}}//${{env.SHARED_LIBRARIES_TAR_GZ}} \
               ${{env.BUILD_DIR}}/*/*/*.so
 
       - name: Upload utf8lex libraries
