@@ -49,6 +49,7 @@ jobs:
       #
       - name: Build utf8lex container
         run: |
+          mkdir -p ${{env.BUILD_DIR}}
           docker buildx build \
               --file build.Dockerfile \
               --output type=tar,dest=${{env.BUILD_DIR}}/${{env.BUILD_IMAGE_FILE_BASE}}.tar \
