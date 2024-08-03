@@ -82,6 +82,7 @@ jobs:
 
       - id: gzip-builder-container-image
         name: Gzip utf8lex builder container image
+        if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
         run: |
           gzip ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar
 
