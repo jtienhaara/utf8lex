@@ -49,7 +49,7 @@ jobs:
       # For --output:
       #     https://docs.docker.com/build/exporters/
       #
-      - name: Build utf8lex build / test container
+      - name: Build utf8lex container for building and testing
         run: |
           mkdir -p ${{env.BUILD_DIR}}
           docker buildx build \
@@ -94,6 +94,12 @@ jobs:
       # https://github.com/docker/setup-qemu-action
       - name: qemu for multi-platform docker buildx support
         uses: docker/setup-qemu-action@v3
+
+      - name: Pull container image for building / testing
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{env.BUILD_IMAGE_FILE_BASE}}.tar
+          path: ${{env.BUILD_DIR}}/${{env.BUILD_IMAGE_FILE_BASE}}.tar
 
       - name: Build utf8lex shared library
         run: |
