@@ -134,7 +134,7 @@ jobs:
   # --------------------------------------------------------------------
 
   # ====================================================================
-  shared_libraries:
+  build:
     needs:
       - builder_container_image
     runs-on: ubuntu-latest
@@ -183,7 +183,7 @@ jobs:
         name: qemu for multi-platform docker run support
         uses: docker/setup-qemu-action@v3
 
-      - id: build-utf8lex-so
+      - id: build-utf8lex
         name: Build utf8lex shared library
         run: |
           sudo systemctl start docker
@@ -191,6 +191,19 @@ jobs:
               --input ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar
           rm ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar
           chmod -R a+w ${{env.BUILD_DIR}}
+          #
+          # Clean any detritus environment variables so they don't
+          # break our Makefile:
+          #
+          unset \
+              UTF8LEX_LIBRARY_VERSION \
+              UTF8LEX_MAJOR \
+              CC \
+              CFLAGS \
+              LD \
+              LDFLAGS \
+              BUILD_DIR \
+              SOURCE_FILES
           #
           # docker run documentation:
           #     https://docs.docker.com/reference/cli/docker/container/run/
@@ -204,19 +217,19 @@ jobs:
                   ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('build.Dockerfile') }} \
                   make build
 
-      - id: tar-multiarch-utf8lex-so
-        name: Tar utf8lex shared libraries
+      - id: prepare-utf8lex-for-upload
+        name: Prepare utf8lex (libraries, executables, ...) for artifact upload
         run: |
-          mkdir -p /tmp/so/
+          mkdir -p /tmp/utf8lex/
           cp ${{env.BUILD_DIR}}/${{matrix.platform}}/${{env.SHARED_LIBRARY}} \
-              /tmp/so/${{env.SHARED_LIBRARY}}.${{env.MATRIX_PLATFORM}}
+              /tmp/utf8lex/${{env.SHARED_LIBRARY}}.${{env.MATRIX_PLATFORM}}
 
-      - id: upload-multiarch-utf8lex-so
-        name: Upload utf8lex libraries
+      - id: upload-utf8lex
+        name: Upload utf8lex (libraries, executables, ...)
         uses: actions/upload-artifact@v4
         with:
           name: ${{env.SHARED_LIBRARY}}.${{env.MATRIX_PLATFORM}}
-          path: /tmp/so/
+          path: /tmp/utf8lex/
           if-no-files-found: error
           retention-days: 1
   # --------------------------------------------------------------------
@@ -226,7 +239,7 @@ jobs:
   unit_tests:
     needs:
       - builder_container_image
-      - shared_libraries
+      - build
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -273,13 +286,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{env.SHARED_LIBRARY}}.${{env.MATRIX_PLATFORM}}
-          path: /tmp/so/
+          path: /tmp/utf8lex/
 
       - id: copy-shared-library
         name: Copy shared library to build directory
         run: |
           mkdir -p ${{env.BUILD_DIR}}/${{matrix.platform}}
-          cp /tmp/so/${{env.SHARED_LIBRARY}}.${{env.MATRIX_PLATFORM}} \
+          cp /tmp/utf8lex/${{env.SHARED_LIBRARY}}.${{env.MATRIX_PLATFORM}} \
               ${{env.BUILD_DIR}}/${{matrix.platform}}/${{env.SHARED_LIBRARY}}
 
       # Add support for more platforms with QEMU
@@ -298,6 +311,21 @@ jobs:
           chmod -R a+w ${{env.BUILD_DIR}}
           mkdir -p ${{env.UNIT_TESTS_BUILD_DIR}}/${{matrix.platform}}
           chmod -R a+w ${{env.UNIT_TESTS_BUILD_DIR}}
+          #
+          # Clean any detritus environment variables so they don't
+          # break our Makefile:
+          #
+          unset \
+              UTF8LEX_LIBRARY_VERSION \
+              UTF8LEX_MAJOR \
+              CC \
+              CFLAGS \
+              LD \
+              LDFLAGS \
+              BUILD_DIR \
+              SOURCE_FILES \
+              SRC_DIR \
+              TEST_BUILD_DIR
           #
           # docker run documentation:
           #     https://docs.docker.com/reference/cli/docker/container/run/
