@@ -242,7 +242,6 @@ jobs:
       BUILDER_IMAGE_BASE: "utf8lex-builder"
       SHARED_LIBRARY_BASE: "libutf8lex.so"
       SHARED_LIBRARY_VERSION: "${{github.ref_name}}"
-      SHARED_LIBRARY: "${{env.SHARED_LIBRARY_BASE}}.${{env.SHARED_LIBRARY_VERSION}}"
     steps:
       - id: checkout
         name: Checkout
@@ -253,7 +252,7 @@ jobs:
         run: |
           echo "MATRIX_PLATFORM=${{matrix.platform}}" \
               | sed 's|/|\.|g' \
-              > $GITHUB_ENV
+              >> $GITHUB_ENV
 
       - id: download-container-image
         name: Download container image
@@ -269,6 +268,12 @@ jobs:
           cp /tmp/builder/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar.gz \
               ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
           gunzip ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+
+      - id: utf8lex-library-env
+        name: Set the full utf8lex library .so name
+        run: |
+            echo "SHARED_LIBRARY=${{env.SHARED_LIBRARY_BASE}}.${{env.SHARED_LIBRARY_VERSION}}" \
+                >> $GITHUB_ENV
 
       - id: download-utf8lex
         name: Download utf8lex (libraries, executables, ...)
