@@ -323,9 +323,9 @@ jobs:
                   --volume `pwd`:/utf8lex:rw \
                   ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('build.Dockerfile') }} \
                   make unit_tests \
-                      BUILD_DIR=../${{env.BUILD_DIR}} \
+                      BUILD_DIR=../../${{env.BUILD_DIR}} \
                       UTF8LEX_LIBRARY_VERSION=${{github.ref_name}} \
-                      TESTS_BUILD_DIR=../${{env.TESTS_BUILD_DIR}}
+                      TESTS_BUILD_DIR=../../${{env.TESTS_BUILD_DIR}}
   # --------------------------------------------------------------------
 
 #
