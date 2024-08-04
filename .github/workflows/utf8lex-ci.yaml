@@ -39,6 +39,13 @@ jobs:
         name: Checkout
         uses: actions/checkout@v4
 
+      - id: matrix-platform-env
+        name: Set a non-slashy MATRIX_PLATFORM environment variable
+        run: |
+          echo "MATRIX_PLATFORM=${{matrix.platform}}" \
+              | sed 's|/|\.|g' \
+              > $GITHUB_ENV
+
       #
       # https://docs.docker.com/build/ci/github-actions/cache/
       #
@@ -144,6 +151,13 @@ jobs:
       - id: checkout
         name: Checkout
         uses: actions/checkout@v4
+
+      - id: matrix-platform-env
+        name: Set a non-slashy MATRIX_PLATFORM environment variable
+        run: |
+          echo "MATRIX_PLATFORM=${{matrix.platform}}" \
+              | sed 's|/|\.|g' \
+              > $GITHUB_ENV
 
       - id: download-container-image
         name: Download container image
