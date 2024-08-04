@@ -312,8 +312,8 @@ jobs:
         name: qemu for multi-platform docker run support
         uses: docker/setup-qemu-action@v3
 
-      - id: run-unit-tests
-        name: Run unit tests
+      - id: run-tests
+        name: Run tests
         run: |
           sudo systemctl start docker
           docker image load \
@@ -340,12 +340,125 @@ jobs:
                       TEST_BUILD_DIR=../../${{env.TEST_BUILD_DIR}}
   # --------------------------------------------------------------------
 
-#
-# Integration test (on push)
-# - Compile and link integration test programs
-# - Run integration tests
-#
-# TODO
+
+  # ====================================================================
+  integration_tests:
+    needs:
+      - builder_container_image
+      - build
+      - unit_tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform:
+          - linux/amd64
+          - linux/arm64
+          - linux/mips64le
+          - linux/ppc64le
+          - linux/s390x
+    env:
+      BUILD_DIR: ./build
+      TEST_BUILD_DIR: ./tests/build
+      BUILDER_IMAGE_BASE: "utf8lex-builder"
+      SHARED_LIBRARY_BASE: "libutf8lex.so"
+      SHARED_LIBRARY_VERSION: "${{github.ref_name}}"
+    steps:
+      - id: checkout
+        name: Checkout
+        uses: actions/checkout@v4
+
+      - id: matrix-platform-env
+        name: Set a non-slashy MATRIX_PLATFORM environment variable
+        run: |
+          echo "MATRIX_PLATFORM=${{matrix.platform}}" \
+              | sed 's|/|\.|g' \
+              >> $GITHUB_ENV
+
+      - id: download-container-image
+        name: Download container image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+          path: /tmp/builder/
+
+      - id: copy-container-image
+        name: Copy container image to build directory
+        run: |
+          mkdir -p ${{env.BUILD_DIR}}/
+          cp /tmp/builder/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar.gz \
+              ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+          gunzip ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+
+      - id: utf8lex-library-env
+        name: Set the full utf8lex library .so name
+        run: |
+            echo "SHARED_LIBRARY=${{env.SHARED_LIBRARY_BASE}}.${{env.SHARED_LIBRARY_VERSION}}" \
+                >> $GITHUB_ENV
+
+      - id: download-utf8lex
+        name: Download utf8lex (libraries, executables, ...)
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{env.SHARED_LIBRARY}}.${{env.MATRIX_PLATFORM}}
+          path: /tmp/utf8lex/
+
+      - id: copy-utf8lex
+        name: Copy utf8lex binaries to build directory
+        run: |
+          mkdir -p ${{env.BUILD_DIR}}/
+          cp /tmp/utf8lex/${{env.SHARED_LIBRARY}}.${{env.MATRIX_PLATFORM}} \
+              ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY}}
+
+      - id: sym-link-shared-libraries
+        name: Symbolically link shared libraries libutf8lex.so, .so.1, etc
+        run: |
+          #
+          # We have e.g. libutf8lex.so.1.2.3.
+          # Now we sym link libutf8lex.so and libutf8lex.so.1.
+          #
+          cd ${{env.BUILD_DIR}}
+          ln -s ${{env.SHARED_LIBRARY}} \
+              ${{env.SHARED_LIBRARY_BASE}}
+          MAJOR=`echo "${{env.SHARED_LIBRARY_VERSION}}" | sed 's|^\([^\.]*\)\..*$|\1|'`
+          if test "$MAJOR" != "${{env.SHARED_LIBRARY_VERSION}}"; \
+          then \
+              ln -s ${{env.SHARED_LIBRARY}} \
+                  ${{env.SHARED_LIBRARY_BASE}}.$MAJOR ; \
+          fi
+
+      # Add support for more platforms with QEMU
+      # https://github.com/docker/setup-qemu-action
+      - id: qemu-setup
+        name: qemu for multi-platform docker run support
+        uses: docker/setup-qemu-action@v3
+
+      - id: run-tests
+        name: Run tests
+        run: |
+          sudo systemctl start docker
+          docker image load \
+              --input ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar
+          rm ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar
+          chmod -R a+w ${{env.BUILD_DIR}}
+          mkdir -p ${{env.TEST_BUILD_DIR}}/
+          chmod -R a+w ${{env.TEST_BUILD_DIR}}
+          echo "!!! 1 what's goin on"
+          find ${{env.BUILD_DIR}} -exec ls -ld \{\} \;
+          echo "!!! 2 what's goin on"
+          #
+          # docker run documentation:
+          #     https://docs.docker.com/reference/cli/docker/container/run/
+          #
+          docker run \
+                  --rm \
+                  --platform ${{matrix.platform}} \
+                  --volume `pwd`:/utf8lex:rw \
+                  ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('build.Dockerfile') }} \
+                  make integration_tests \
+                      BUILD_DIR=../../${{env.BUILD_DIR}} \
+                      UTF8LEX_LIBRARY_VERSION=${{github.ref_name}} \
+                      TEST_BUILD_DIR=../../${{env.TEST_BUILD_DIR}}
+  # --------------------------------------------------------------------
 
 #
 # Release (on push tag)
