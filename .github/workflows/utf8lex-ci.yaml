@@ -290,7 +290,7 @@ jobs:
               ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY}}
           ln -s ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY}} \
               ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY_BASE}}
-          MAJOR=`echo "${{env.SHARED_LIBRARY_VERSION}}" | sed 's|^\([^\.]*\)\..*$|\1|'
+          MAJOR=`echo "${{env.SHARED_LIBRARY_VERSION}}" | sed 's|^\([^\.]*\)\..*$|\1|'`
           if test "$MAJOR" != "${{env.SHARED_LIBRARY_VERSION}}"; \
           then \
               ln -s ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY}} \
