@@ -75,7 +75,7 @@ jobs:
           mkdir -p ${{env.BUILD_DIR}}
           docker buildx build \
               --file build.Dockerfile \
-              --output type=oci,dest=${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar \
+              --output type=docker,dest=${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar \
               --platform=linux/amd64,linux/arm64,linux/mips64le,linux/ppc64le,linux/s390x \
               --tag ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('build.Dockerfile') }} \
               .
