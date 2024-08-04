@@ -313,6 +313,9 @@ jobs:
           chmod -R a+w ${{env.BUILD_DIR}}
           mkdir -p ${{env.TEST_BUILD_DIR}}/
           chmod -R a+w ${{env.TEST_BUILD_DIR}}
+          echo "!!! 1 what's goin on"
+          find ${{env.BUILD_DIR}} -exec ls -ld \{\} \;
+          echo "!!! 2 what's goin on"
           #
           # docker run documentation:
           #     https://docs.docker.com/reference/cli/docker/container/run/
