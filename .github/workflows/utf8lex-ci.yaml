@@ -238,7 +238,7 @@ jobs:
           - linux/s390x
     env:
       BUILD_DIR: ./build
-      TESTS_BUILD_DIR: ./tests/build
+      TEST_BUILD_DIR: ./tests/build
       BUILDER_IMAGE_BASE: "utf8lex-builder"
       SHARED_LIBRARY_BASE: "libutf8lex.so"
       SHARED_LIBRARY_VERSION: "${{github.ref_name}}"
@@ -311,8 +311,8 @@ jobs:
               --input ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar
           rm ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar
           chmod -R a+w ${{env.BUILD_DIR}}
-          mkdir -p ${{env.TESTS_BUILD_DIR}}/
-          chmod -R a+w ${{env.TESTS_BUILD_DIR}}
+          mkdir -p ${{env.TEST_BUILD_DIR}}/
+          chmod -R a+w ${{env.TEST_BUILD_DIR}}
           #
           # docker run documentation:
           #     https://docs.docker.com/reference/cli/docker/container/run/
@@ -325,7 +325,7 @@ jobs:
                   make unit_tests \
                       BUILD_DIR=../../${{env.BUILD_DIR}} \
                       UTF8LEX_LIBRARY_VERSION=${{github.ref_name}} \
-                      TESTS_BUILD_DIR=../../${{env.TESTS_BUILD_DIR}}
+                      TEST_BUILD_DIR=../../${{env.TEST_BUILD_DIR}}
   # --------------------------------------------------------------------
 
 #
