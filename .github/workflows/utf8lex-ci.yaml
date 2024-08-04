@@ -84,7 +84,7 @@ jobs:
         name: Build utf8lex container for building and testing
         if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
         run: |
-          mkdir -p ${{env.BUILD_DIR}}
+          mkdir -p ${{env.BUILD_DIR}}/${{matrix.platform}}
           docker buildx build \
               --file build.Dockerfile \
               --output type=oci,dest=${{env.BUILD_DIR}}/${{matrix.platform}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar \
