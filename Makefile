@@ -1,6 +1,7 @@
 #
 # utf8lex
-# Copyright 2023 Johann Tienhaara
+# Copyright © 2023-2024 Johann Tienhaara
+# All rights reserved
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,21 +16,13 @@
 # limitations under the License.
 #
 
-#
-# Parameters for gcc compiling .c into .o files, .o files into exes, etc:
-#
-CC_ARGS = -Werror
-LINK_ARGS =
-
-LC_CTYPE=en_US.UTF-8
-
 .PHONY: all
 all: build test
 
 .PHONY: build-container
 build-container:
 	docker build . \
-	    --file build.Dockerfile \
+	    --file builder.Dockerfile \
 	    --tag utf8lex:latest
 
 .PHONY: container
@@ -63,22 +56,22 @@ clean:
 	    && make clean
 
 .PHONY: test
-test: build unit_tests integration_tests
+test: unit_tests integration_tests
 
 .PHONY: unit_tests
-unit_tests: build
+unit_tests:
 	cd tests/unit \
 	    && make build \
 	    && make run
 
 .PHONY: integration_tests
-integration_tests: build
+integration_tests:
 	cd tests/integration \
 	    && make build \
 	    && make run
 
 .PHONY: debug
-debug: build
+debug:
 	cd tests/integration \
 	    && make build \
 	    && make debug

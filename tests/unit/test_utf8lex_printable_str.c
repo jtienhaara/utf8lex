@@ -341,13 +341,26 @@ utf8lex_error_t test_utf8lex_printable_str()
   else if (strcmp(expected, actual) != 0
            || strlen(expected) != strlen(actual))
   {
-    unsigned char *diff_str = "";
+    unsigned char *diff_str = NULL;
     for (int c = 0; c < strlen(expected) && c < strlen(actual); c ++)
     {
       if (expected[c] != actual[c])
       {
         diff_str = &(actual[c]);
         break;
+      }
+    }
+    if (diff_str == NULL)
+    {
+      if (strlen(expected) < strlen(actual))
+      {
+        int c = strlen(expected);
+        diff_str = &(actual[c]);
+      }
+      else
+      {
+        int c = strlen(actual);
+        diff_str = &(expected[c]);
       }
     }
     printf(" FAILED expected %d bytes but actual %d bytes\n      expected:\n        %s\n      but actual:\n        %s\n      diff:\n        %s",

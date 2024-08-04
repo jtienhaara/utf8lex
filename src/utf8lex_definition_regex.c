@@ -354,7 +354,7 @@ static utf8lex_error_t utf8lex_lex_regex(
   {
     fprintf(stderr,
             "*** utf8lex: pcre2 and utf8proc disagree: pcre2 match_length_bytes = %d vs utf8proc = %d\n",
-            match_length_bytes,
+            (int) match_length_bytes,
             token_loc[UTF8LEX_UNIT_BYTE].length);
   }
 

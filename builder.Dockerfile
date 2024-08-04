@@ -1,6 +1,7 @@
 #
 # utf8lex
-# Copyright 2023 Johann Tienhaara
+# Copyright © 2023-2024 Johann Tienhaara
+# All rights reserved
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,21 +17,33 @@
 #
 
 #
+
+#
 # @version Last updated 2023-12-24
 # Debian Bookworm (Debian 12)
 # Image from:
 #
 #     https://hub.docker.com/_/debian
 #
-FROM debian:12.2-slim
+FROM debian:12.6-slim
+
+#
+# Docker's builtin TARGETARCH build arg:
+#
+#     https://docs.docker.com/engine/reference/builder/?_gl=1*13mno0d*_ga*NjYxNDI5MzM5LjE2OTQxMDIzNzI.*_ga_XJWPQMJYHQ*MTY5NDQ1MzA1OS4yLjEuMTY5NDQ1MzI4Ny4yOC4wLjA.#automatic-platform-args-in-the-global-scope
+#
+ARG TARGETARCH
 
 USER root
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC/UTC
 
 #
 # Packages for utf8lex:
 #
+#     ca-certificates
+#         Latest certificate authorities.
 #     gcc
 #         C compiler.
 #     gdb
@@ -44,11 +57,12 @@ ENV DEBIAN_FRONTEND=noninteractive
 #     locales [required] [dynamic]
 #         Required both for building C code, and for runtime reading
 #         and writing of UTF-8-encoded characters.
-#     make [required] [dynamic] [security]
+#     make
 #         Traditional make.  Required for building things from Makefiles.
 #
 RUN apt-get update --yes \
     && apt-get install --no-install-recommends --yes \
+       ca-certificates \
        gcc \
        gdb \
        libpcre2-dev \
