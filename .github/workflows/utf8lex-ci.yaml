@@ -185,21 +185,12 @@ jobs:
       - id: build-utf8lex-so
         name: Build utf8lex shared library
         run: |
-          echo "!!! 1"
           sudo systemctl start docker
-          echo "!!! 2"
           docker image load \
               --input ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar
-          echo "!!! 3"
-          docker images
-          echo "!!! 4"
           rm ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar
-          echo "!!! 5"
-          id
-          echo "!!! 6"
-          chmod -R a+rw ${{env.BUILD_DIR}}
-          ls -la ${{env.BUILD_DIR}}
-          echo "!!! 7"
+          chmod a+w .
+          chmod -R a+w ${{env.BUILD_DIR}}
           #
           # docker run documentation:
           #     https://docs.docker.com/reference/cli/docker/container/run/
@@ -212,9 +203,6 @@ jobs:
                   --volume `pwd`:/utf8lex:rw \
                   ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('build.Dockerfile') }} \
                   make all
-          echo "!!! 6"
-          find ${{env.BUILD_DIR}}/${{matrix.platform}} -type f
-          echo "!!! 7"
 
       - id: tar-multiarch-utf8lex-so
         name: Tar utf8lex shared libraries
