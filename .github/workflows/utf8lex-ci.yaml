@@ -1,8 +1,5 @@
 name: Utf8lex Continuous Integration
 
-env:
-  UTF8LEX_LIBRARY_VERSION: "1.0.0"
-
 permissions:
   contents: read
   packages: write
@@ -106,10 +103,10 @@ jobs:
       # cache automagic expects to find it, in /tmp.
       #
       - id: container-image-cache-save
-        name: Cache the fact the built container image
+        name: Cache the built container image
         if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
         run: |
-          mkdir -p /tmp/builder/
+          mkdir -p /tmp/builder/${{matrix.platform}}
           rm -rf /tmp/builder/${{matrix.platform}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
           cp ${{env.BUILD_DIR}}/${{matrix.platform}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz \
               /tmp/builder/${{matrix.platform}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
@@ -142,7 +139,7 @@ jobs:
     env:
       BUILD_DIR: ./build
       BUILDER_IMAGE_BASE: "utf8lex-builder"
-      SHARED_LIBRARIES_TAR_GZ: "utf8lex.${{github.ref_name}}.tar.gz"
+      SHARED_LIBRARY: "libutf8lex.so.${{github.ref_name}}"
     steps:
       - id: checkout
         name: Checkout
@@ -187,12 +184,12 @@ jobs:
           #     https://docs.docker.com/reference/cli/docker/container/run/
           #
           BUILD_DIR=${{env.BUILD_DIR}}/${{matrix.platform}} \
+              UTF8LEX_LIBRARY_VERSION=${{github.ref_name}} \
               docker run \
                   --rm \
                   --volume `pwd`:/utf8lex:rw \
                   ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('build.Dockerfile') }} \
-                  ls /usr/bin/
-          # !!!         /bin/sh -c 'ls /usr/bin/ && make all'
+                  make all
           echo "!!! 6"
           find ${{env.BUILD_DIR}}/${{matrix.platform}} -type f
           echo "!!! 7"
@@ -200,17 +197,16 @@ jobs:
       - id: tar-multiarch-utf8lex-so
         name: Tar utf8lex shared libraries
         run: |
-          mkdir -p /tmp/so/
+          mkdir -p /tmp/so/${{matrix.platform}}
           cd ${{env.BUILD_DIR}}
-          tar cvzf ${{env.SHARED_LIBRARIES_TAR_GZ}} */*/*.so
-          cp ${{env.SHARED_LIBRARIES_TAR_GZ}} \
-              /tmp/so/${{env.SHARED_LIBRARIES_TAR_GZ}}
+          cp ${{matrix.platform}}/${{env.SHARED_LIBRARY}} \
+              /tmp/so/${{matrix.platform}}/${{env.SHARED_LIBRARY}}
 
       - id: upload-multiarch-utf8lex-so
         name: Upload utf8lex libraries
         uses: actions/upload-artifact@v4
         with:
-          name: ${{env.SHARED_LIBRARIES_TAR_GZ}}
+          name: ${{matrix.platform}}/${{env.SHARED_LIBRARY}}
           path: /tmp/so/
           if-no-files-found: error
           retention-days: 1
