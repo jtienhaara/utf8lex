@@ -326,6 +326,7 @@ utf8lex_error_t utf8lex_printable_str(
   }
 
   printable_str[target_offset] = '\0';
+  printf("!!! printable_str length should be %d, is %d: %s\n", (int) target_offset, (int) strlen(printable_str), printable_str);
   target_offset ++;
 
   return UTF8LEX_OK;
