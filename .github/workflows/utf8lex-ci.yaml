@@ -139,7 +139,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
-          path: ${{env.BUILD_DIR}}/${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+          path: ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
 
       # Add support for more platforms with QEMU
       # https://github.com/docker/setup-qemu-action
@@ -150,9 +150,9 @@ jobs:
       - id: build-utf8lex-so
         name: Build utf8lex shared library
         run: |
-          gunzip ${{env.BUILD_DIR}}/${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+          gunzip ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
           docker import \
-              ${{env.BUILD_DIR}}/${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar \
+              ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar \
               ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('build.Dockerfile') }}
           docker images
           sudo systemctl start docker
