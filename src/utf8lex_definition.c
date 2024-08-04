@@ -313,6 +313,7 @@ utf8lex_error_t utf8lex_printable_str(
     if (new_target_bytes >= max_bytes)
     {
       // Can't fit the printable characters plus \0 into the target.
+      printable_str[target_offset] = '\0';
       return UTF8LEX_MORE;
     }
 
