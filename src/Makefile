@@ -42,13 +42,7 @@ all: build
 
 # Rule for $(OBJECT_FILES):
 $(BUILD_DIR)/%.o: %.c
-	echo "!!! 1 about to mkdir -p $(BUILD_DIR)"
-	pwd
-	echo "!!! 2 about to mkdir -p $(BUILD_DIR)"
-	ls -la $(BUILD_DIR)
-	echo "!!! 3 about to mkdir -p $(BUILD_DIR)"
 	mkdir -p $(BUILD_DIR)
-	echo "!!! 4 mkdir'ed -p $(BUILD_DIR)"
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_LIBRARY_VERSION): $(OBJECT_FILES)

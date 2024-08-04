@@ -189,9 +189,7 @@ jobs:
           docker image load \
               --input ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar
           rm ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar
-          chmod a+w .
           chmod -R a+w ${{env.BUILD_DIR}}
-          ls -la ${{env.BUILD_DIR}}
           #
           # docker run documentation:
           #     https://docs.docker.com/reference/cli/docker/container/run/
@@ -203,7 +201,7 @@ jobs:
                   --platform ${{matrix.platform}} \
                   --volume `pwd`:/utf8lex:rw \
                   ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('build.Dockerfile') }} \
-                  make all
+                  make build
 
       - id: tar-multiarch-utf8lex-so
         name: Tar utf8lex shared libraries
