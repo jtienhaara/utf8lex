@@ -91,6 +91,7 @@ jobs:
           mkdir -p ${{env.BUILD_DIR}}/${{matrix.platform}}
           docker buildx build \
               --file build.Dockerfile \
+              --load \
               --platform=${{matrix.platform}} \
               --tag ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('build.Dockerfile') }} \
               .
