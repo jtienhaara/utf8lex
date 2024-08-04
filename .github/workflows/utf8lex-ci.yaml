@@ -135,7 +135,8 @@ jobs:
 
   # ====================================================================
   shared_libraries:
-    needs: builder_container_image
+    needs:
+      - builder_container_image
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -221,13 +222,96 @@ jobs:
           retention-days: 1
   # --------------------------------------------------------------------
 
-#
-# Unit test (on push)
-# - Compile and link unit test programs
-# - Run unit tests
-#
-# TODO
-#
+
+  # ====================================================================
+  unit_tests:
+    needs:
+      - builder_container_image
+      - shared_libraries
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform:
+          - linux/amd64
+          - linux/arm64
+          - linux/mips64le
+          - linux/ppc64le
+          - linux/s390x
+    env:
+      BUILD_DIR: ./build
+      UNIT_TESTS_BUILD_DIR: ./tests/unit/build
+      BUILDER_IMAGE_BASE: "utf8lex-builder"
+      SHARED_LIBRARY: "libutf8lex.so.${{github.ref_name}}"
+    steps:
+      - id: checkout
+        name: Checkout
+        uses: actions/checkout@v4
+
+      - id: matrix-platform-env
+        name: Set a non-slashy MATRIX_PLATFORM environment variable
+        run: |
+          echo "MATRIX_PLATFORM=${{matrix.platform}}" \
+              | sed 's|/|\.|g' \
+              > $GITHUB_ENV
+
+      - id: download-container-image
+        name: Download container image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+          path: /tmp/builder/
+
+      - id: copy-container-image
+        name: Copy container image to build directory
+        run: |
+          mkdir -p ${{env.BUILD_DIR}}/${{matrix.platform}}
+          cp /tmp/builder/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar.gz \
+              ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+          gunzip ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+
+      - id: download-shared-library
+        name: Download shared library
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{env.SHARED_LIBRARY}}.${{env.MATRIX_PLATFORM}}
+          path: /tmp/so/
+
+      - id: copy-shared-library
+        name: Copy shared library to build directory
+        run: |
+          mkdir -p ${{env.BUILD_DIR}}/${{matrix.platform}}
+          cp /tmp/so/${{env.SHARED_LIBRARY}}.${{env.MATRIX_PLATFORM}} \
+              ${{env.BUILD_DIR}}/${{matrix.platform}}/${{env.SHARED_LIBRARY}}
+
+      # Add support for more platforms with QEMU
+      # https://github.com/docker/setup-qemu-action
+      - id: qemu-setup
+        name: qemu for multi-platform docker run support
+        uses: docker/setup-qemu-action@v3
+
+      - id: run-unit-tests
+        name: Run unit tests
+        run: |
+          sudo systemctl start docker
+          docker image load \
+              --input ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar
+          rm ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar
+          chmod -R a+w ${{env.BUILD_DIR}}
+          mkdir -p ${{UNIT_TESTS_BUILD_DIR}}/${{matrix.platform}}
+          chmod -R a+w ${{UNIT_TESTS_BUILD_DIR}}
+          #
+          # docker run documentation:
+          #     https://docs.docker.com/reference/cli/docker/container/run/
+          #
+          BUILD_DIR=${{env.BUILD_DIR}}/${{matrix.platform}} \
+              UTF8LEX_LIBRARY_VERSION=${{github.ref_name}} \
+              docker run \
+                  --rm \
+                  --platform ${{matrix.platform}} \
+                  --volume `pwd`:/utf8lex:rw \
+                  ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('build.Dockerfile') }} \
+                  make unit_tests
+  # --------------------------------------------------------------------
 
 #
 # Integration test (on push)
