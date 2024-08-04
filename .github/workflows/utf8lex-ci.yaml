@@ -197,6 +197,7 @@ jobs:
           echo "!!! 5"
           id
           echo "!!! 6"
+          chmod -R a+rw ${{env.BUILD_DIR}}
           ls -la ${{env.BUILD_DIR}}
           echo "!!! 7"
           #
