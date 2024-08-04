@@ -53,7 +53,7 @@ jobs:
         #
         uses: actions/cache@v4
         with:
-          path: /tmp/builder/${{env.BUILDER_IMAGE_BASE}}.${{matrix.platform}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+          path: /tmp/builder/${{matrix.platform}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
           key: utf8lex-container-image-cache-${{ hashFiles('build.Dockerfile') }}
 
       # Add support for more platforms with QEMU
@@ -87,16 +87,16 @@ jobs:
           mkdir -p ${{env.BUILD_DIR}}
           docker buildx build \
               --file build.Dockerfile \
-              --output type=oci,dest=${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{matrix.platform}}.${{ hashFiles('build.Dockerfile') }}.tar \
+              --output type=oci,dest=${{env.BUILD_DIR}}/${{matrix.platform}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar \
               --platform=${{matrix.platform}} \
-              --tag ${{env.BUILDER_IMAGE_BASE}}-${{matrix.platform}}:${{ hashFiles('build.Dockerfile') }} \
+              --tag ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('build.Dockerfile') }} \
               .
 
       - id: gzip-builder-container-image
         name: Gzip utf8lex builder container image
         if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
         run: |
-          gzip ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{matrix.platform}}.${{ hashFiles('build.Dockerfile') }}.tar
+          gzip ${{env.BUILD_DIR}}/${{matrix.platform}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar
 
       #
       # Do not use actions/cache/save, it doesn't work.
@@ -109,9 +109,9 @@ jobs:
         if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
         run: |
           mkdir -p /tmp/builder/
-          rm -rf /tmp/builder/${{env.BUILDER_IMAGE_BASE}}.${{matrix.platform}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
-          cp ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{matrix.platform}}.${{ hashFiles('build.Dockerfile') }}.tar.gz \
-              /tmp/builder/${{env.BUILDER_IMAGE_BASE}}.${{matrix.platform}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+          rm -rf /tmp/builder/${{matrix.platform}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+          cp ${{env.BUILD_DIR}}/${{matrix.platform}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz \
+              /tmp/builder/${{matrix.platform}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
 
       #
       # https://github.com/actions/upload-artifact
@@ -120,7 +120,7 @@ jobs:
         name: Upload the container image
         uses: actions/upload-artifact@v4
         with:
-          name: ${{env.BUILDER_IMAGE_BASE}}.${{matrix.platform}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+          name: ${{matrix.platform}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
           path: /tmp/builder/
           if-no-files-found: error
           retention-days: 1
@@ -150,16 +150,16 @@ jobs:
         name: Download container image
         uses: actions/download-artifact@v4
         with:
-          name: ${{env.BUILDER_IMAGE_BASE}}.${{matrix.platform}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+          name: ${{matrix.platform}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
           path: /tmp/builder/
 
       - id: copy-container-image
         name: Copy container image to build directory
         run: |
-          mkdir -p ${{env.BUILD_DIR}}
-          cp /tmp/builder/${{env.BUILDER_IMAGE_BASE}}.${{matrix.platform}}.${{ hashFiles('build.Dockerfile') }}.tar.gz \
-              ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{matrix.platform}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
-          gunzip ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{matrix.platform}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+          mkdir -p ${{env.BUILD_DIR}}/${{matrix.platform}}
+          cp /tmp/builder/${{matrix.platform}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz \
+              ${{env.BUILD_DIR}}/${{matrix.platform}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+          gunzip ${{env.BUILD_DIR}}/${{matrix.platform}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
 
       # Add support for more platforms with QEMU
       # https://github.com/docker/setup-qemu-action
@@ -174,11 +174,11 @@ jobs:
           sudo systemctl start docker
           echo "!!! 2"
           docker image load \
-              --input ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{matrix.platform}}.${{ hashFiles('build.Dockerfile') }}.tar
+              --input ${{env.BUILD_DIR}}/${{matrix.platform}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar
           echo "!!! 3"
           docker images
           echo "!!! 4"
-          mkdir -p ${{env.BUILD_DIR}}/${{matrix.platform}}
+          rm ${{env.BUILD_DIR}}/${{matrix.platform}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar
           echo "!!! 5"
           #
           # docker run documentation:
@@ -188,7 +188,7 @@ jobs:
               docker run \
                   --rm \
                   --volume `pwd`:/utf8lex:rw \
-                  ${{env.BUILDER_IMAGE_BASE}}-${{matrix.platform}}:${{ hashFiles('build.Dockerfile') }} \
+                  ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('build.Dockerfile') }} \
                   ls /usr/bin/
           # !!!         /bin/sh -c 'ls /usr/bin/ && make all'
           echo "!!! 6"
