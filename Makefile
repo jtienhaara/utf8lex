@@ -22,7 +22,7 @@ all: build test
 .PHONY: build-container
 build-container:
 	docker build . \
-	    --file build.Dockerfile \
+	    --file builder.Dockerfile \
 	    --tag utf8lex:latest
 
 .PHONY: container

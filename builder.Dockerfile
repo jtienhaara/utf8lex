@@ -37,7 +37,6 @@ ARG TARGETARCH
 USER root
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV DEBCONF_FRONTEND=noninteractive
 ENV TZ=UTC/UTC
 
 #
