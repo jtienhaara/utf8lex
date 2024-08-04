@@ -77,13 +77,12 @@ jobs:
       # Documentation:
       #     https://docs.docker.com/reference/cli/docker/buildx/build/
       #
-      # For --output:
-      #     https://docs.docker.com/build/exporters/
-      #
       # Docker does not support loading multi-platform images from files (!):
       #     https://stackoverflow.com/questions/72945407/how-do-i-import-and-run-a-multi-platform-oci-image-in-docker-for-macos/73058421#73058421
       #
-      # So we have to use the matrix to build multiple platforms.
+      # So we have to use the matrix to build multiple platforms,
+      # and even then, we can't seem to docker image load any format
+      # created by docker buildx build, so we have to do docker image save.
       #
       - id: build-container-image
         name: Build utf8lex container for building and testing
@@ -92,10 +91,12 @@ jobs:
           mkdir -p ${{env.BUILD_DIR}}/${{matrix.platform}}
           docker buildx build \
               --file build.Dockerfile \
-              --output type=oci,dest=${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar \
               --platform=${{matrix.platform}} \
               --tag ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('build.Dockerfile') }} \
               .
+          docker image save \
+              --output ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar \
+              ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('build.Dockerfile') }}
 
       - id: gzip-builder-container-image
         name: Gzip utf8lex builder container image

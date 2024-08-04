@@ -52,8 +52,11 @@ $(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_LIBRARY_VERSION): $(OBJECT_FILES)
 	    -o $(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_LIBRARY_VERSION)
 	chmod a+x $(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_LIBRARY_VERSION)
 	cd $(BUILD_DIR) \
-	    && ln -s -f libutf8lex.so.$(UTF8LEX_LIBRARY_VERSION) \
-	        libutf8lex.so.$(UTF8LEX_MAJOR) \
+	    && if test "$(UTF8LEX_MAJOR)" != "$(UTF8LEX_LIBRARY_VERSION)" ; \
+                then \
+	            ln -s -f libutf8lex.so.$(UTF8LEX_LIBRARY_VERSION) \
+	                libutf8lex.so.$(UTF8LEX_MAJOR) ; \
+	        fi \
 	    && ln -s -f libutf8lex.so.$(UTF8LEX_LIBRARY_VERSION) \
 	        libutf8lex.so
 	rm -f $(OBJECT_FILES)
