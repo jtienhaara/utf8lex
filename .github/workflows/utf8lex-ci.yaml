@@ -195,7 +195,7 @@ jobs:
           # docker run documentation:
           #     https://docs.docker.com/reference/cli/docker/container/run/
           #
-          BUILD_DIR=${{env.BUILD_DIR}}/${{matrix.platform}} \
+          BUILD_DIR=../${{env.BUILD_DIR}}/${{matrix.platform}} \
               UTF8LEX_LIBRARY_VERSION=${{github.ref_name}} \
               docker run \
                   --rm \
@@ -302,7 +302,7 @@ jobs:
           # docker run documentation:
           #     https://docs.docker.com/reference/cli/docker/container/run/
           #
-          BUILD_DIR=${{env.BUILD_DIR}}/${{matrix.platform}} \
+          BUILD_DIR=../${{env.BUILD_DIR}}/${{matrix.platform}} \
               UTF8LEX_LIBRARY_VERSION=${{github.ref_name}} \
               docker run \
                   --rm \

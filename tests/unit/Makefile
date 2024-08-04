@@ -1,18 +1,18 @@
-SRC_DIR = ../../src
-BUILD_DIR = ../../build
+SRC_DIR ?= ../../src
+BUILD_DIR ?= ../../build
 
 #
 # Parameters for gcc compiling .c into .o files, .o files into exes, etc:
 #
-CC = gcc
-CFLAGS = -Werror -fPIC -I$(SRC_DIR) --debug
+CC ?= gcc
+CFLAGS ?= -Werror -fPIC -I$(SRC_DIR) --debug
 
-LD = gcc
-LDFLAGS = -Wl,--no-as-needed -lpcre2-8 -lutf8proc -L$(BUILD_DIR) -Wl,-rpath,$(BUILD_DIR) -lutf8lex
+LD ?= gcc
+LDFLAGS ?= -Wl,--no-as-needed -lpcre2-8 -lutf8proc -L$(BUILD_DIR) -Wl,-rpath,$(BUILD_DIR) -lutf8lex
 
-TEST_BUILD_DIR = ../build
+TEST_BUILD_DIR ?= ../build
 
-SOURCE_FILES = \
+SOURCE_FILES ?= \
 	test_utf8lex_cat.c \
 	test_utf8lex_definition.c \
 	test_utf8lex_definition_multi.c \
@@ -26,7 +26,7 @@ OBJECT_FILES = \
 PROGRAMS = \
 	$(patsubst %.c,$(TEST_BUILD_DIR)/%,$(SOURCE_FILES))
 
-LC_CTYPE=en_US.UTF-8
+LC_CTYPE = en_US.UTF-8
 
 .PHONY: all
 all: build run

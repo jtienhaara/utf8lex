@@ -1,19 +1,19 @@
-UTF8LEX_LIBRARY_VERSION = 1.0.0
-UTF8LEX_MAJOR = $(word 1, $(subst ., ,$(UTF8LEX_LIBRARY_VERSION)))
+UTF8LEX_LIBRARY_VERSION ?= 1.0.0
+UTF8LEX_MAJOR ?= $(word 1, $(subst ., ,$(UTF8LEX_LIBRARY_VERSION)))
 
 #
 # Parameters for gcc compiling .c into .o files, .o files into exes, etc:
 #
-CC = gcc
-CFLAGS = -Werror -fPIC -O2
+CC ?= gcc
+CFLAGS ?= -Werror -fPIC -O2
 # CFLAGS = -Werror -fPIC -O2 --debug
 
-LD = gcc
-LDFLAGS = -shared
+LD ?= gcc
+LDFLAGS ?= -shared
 
-BUILD_DIR = ../build
+BUILD_DIR ?= ../build
 
-SOURCE_FILES = \
+SOURCE_FILES ?= \
 	utf8lex_buffer.c \
 	utf8lex_cat.c \
 	utf8lex_definition.c \
@@ -35,7 +35,7 @@ SOURCE_FILES = \
 OBJECT_FILES = \
 	$(patsubst %.c,$(BUILD_DIR)/%.o,$(SOURCE_FILES))
 
-LC_CTYPE=en_US.UTF-8
+LC_CTYPE = en_US.UTF-8
 
 .PHONY: all
 all: build
