@@ -195,14 +195,14 @@ jobs:
           # docker run documentation:
           #     https://docs.docker.com/reference/cli/docker/container/run/
           #
-          BUILD_DIR=../${{env.BUILD_DIR}}/${{matrix.platform}} \
-              UTF8LEX_LIBRARY_VERSION=${{github.ref_name}} \
-              docker run \
+          docker run \
                   --rm \
                   --platform ${{matrix.platform}} \
                   --volume `pwd`:/utf8lex:rw \
                   ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('build.Dockerfile') }} \
-                  make build
+                  make build \
+                      BUILD_DIR=../${{env.BUILD_DIR}}/${{matrix.platform}} \
+                      UTF8LEX_LIBRARY_VERSION=${{github.ref_name}}
 
       - id: prepare-utf8lex-for-upload
         name: Prepare utf8lex (libraries, executables, ...) for artifact upload
@@ -302,14 +302,14 @@ jobs:
           # docker run documentation:
           #     https://docs.docker.com/reference/cli/docker/container/run/
           #
-          BUILD_DIR=../${{env.BUILD_DIR}}/${{matrix.platform}} \
-              UTF8LEX_LIBRARY_VERSION=${{github.ref_name}} \
-              docker run \
+          docker run \
                   --rm \
                   --platform ${{matrix.platform}} \
                   --volume `pwd`:/utf8lex:rw \
                   ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('build.Dockerfile') }} \
-                  make unit_tests
+                  make unit_tests \
+                      BUILD_DIR=../${{env.BUILD_DIR}}/${{matrix.platform}} \
+                      UTF8LEX_LIBRARY_VERSION=${{github.ref_name}}
   # --------------------------------------------------------------------
 
 #
