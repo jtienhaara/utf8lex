@@ -179,7 +179,6 @@ utf8lex_error_t utf8lex_printable_str(
   size_t quote_bytes = strlen(quote);
 
   size_t source_bytes = strlen(str);
-  printf("!!! source_bytes = %d for %s\n", (int) source_bytes, str);
   off_t target_offset = (off_t) 0;
   size_t target_bytes = (size_t) 0;
   for (int c = 0; c < source_bytes; c ++)
@@ -323,11 +322,9 @@ utf8lex_error_t utf8lex_printable_str(
       target_offset ++;
       target_bytes ++;
     }
-    printf("!!! added %d bytes: %s from %c\n", (int) printable_char_bytes, printable_char_str, straight_from_source[0]);
   }
 
   printable_str[target_offset] = '\0';
-  printf("!!! printable_str length should be %d, is %d: %s\n", (int) target_offset, (int) strlen(printable_str), printable_str);
   target_offset ++;
 
   return UTF8LEX_OK;
