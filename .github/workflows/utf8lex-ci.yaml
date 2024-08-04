@@ -296,8 +296,8 @@ jobs:
               --input ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar
           rm ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar
           chmod -R a+w ${{env.BUILD_DIR}}
-          mkdir -p ${{UNIT_TESTS_BUILD_DIR}}/${{matrix.platform}}
-          chmod -R a+w ${{UNIT_TESTS_BUILD_DIR}}
+          mkdir -p ${{env.UNIT_TESTS_BUILD_DIR}}/${{matrix.platform}}
+          chmod -R a+w ${{env.UNIT_TESTS_BUILD_DIR}}
           #
           # docker run documentation:
           #     https://docs.docker.com/reference/cli/docker/container/run/
