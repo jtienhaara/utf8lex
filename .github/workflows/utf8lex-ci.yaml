@@ -240,7 +240,9 @@ jobs:
       BUILD_DIR: ./build
       TESTS_BUILD_DIR: ./tests/build
       BUILDER_IMAGE_BASE: "utf8lex-builder"
-      SHARED_LIBRARY: "libutf8lex.so.${{github.ref_name}}"
+      SHARED_LIBRARY_BASE: "libutf8lex.so"
+      SHARED_LIBRARY_VERSION: "${{github.ref_name}}"
+      SHARED_LIBRARY: "${{env.SHARED_LIBRARY_BASE}}.${{env.SHARED_LIBRARY_VERSION}}"
     steps:
       - id: checkout
         name: Checkout
@@ -281,6 +283,14 @@ jobs:
           mkdir -p ${{env.BUILD_DIR}}/
           cp /tmp/utf8lex/${{env.SHARED_LIBRARY}}.${{env.MATRIX_PLATFORM}} \
               ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY}}
+          ln -s ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY}} \
+              ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY_BASE}}
+          MAJOR=`echo "${{env.SHARED_LIBRARY_VERSION}}" | sed 's|^\([^\.]*\)\..*$|\1|'
+          if test "$MAJOR" != "${{env.SHARED_LIBRARY_VERSION}}"; \
+          then \
+              ln -s ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY}} \
+                  ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY_BASE}}.$MAJOR ; \
+          fi
 
       # Add support for more platforms with QEMU
       # https://github.com/docker/setup-qemu-action
