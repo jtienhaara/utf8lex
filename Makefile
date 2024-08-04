@@ -56,22 +56,22 @@ clean:
 	    && make clean
 
 .PHONY: test
-test: build unit_tests integration_tests
+test: unit_tests integration_tests
 
 .PHONY: unit_tests
-unit_tests: build
+unit_tests:
 	cd tests/unit \
 	    && make build \
 	    && make run
 
 .PHONY: integration_tests
-integration_tests: build
+integration_tests:
 	cd tests/integration \
 	    && make build \
 	    && make run
 
 .PHONY: debug
-debug: build
+debug:
 	cd tests/integration \
 	    && make build \
 	    && make debug

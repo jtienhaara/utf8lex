@@ -88,7 +88,7 @@ jobs:
         name: Build utf8lex container for building and testing
         if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
         run: |
-          mkdir -p ${{env.BUILD_DIR}}/${{matrix.platform}}
+          mkdir -p ${{env.BUILD_DIR}}/
           docker buildx build \
               --file build.Dockerfile \
               --load \
@@ -115,7 +115,7 @@ jobs:
         name: Cache the built container image
         if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
         run: |
-          mkdir -p /tmp/builder/${{matrix.platform}}
+          mkdir -p /tmp/builder/
           rm -rf /tmp/builder/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
           cp ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar.gz \
               /tmp/builder/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
@@ -172,7 +172,7 @@ jobs:
       - id: copy-container-image
         name: Copy container image to build directory
         run: |
-          mkdir -p ${{env.BUILD_DIR}}/${{matrix.platform}}
+          mkdir -p ${{env.BUILD_DIR}}/
           cp /tmp/builder/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar.gz \
               ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
           gunzip ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
@@ -184,7 +184,7 @@ jobs:
         uses: docker/setup-qemu-action@v3
 
       - id: build-utf8lex
-        name: Build utf8lex shared library
+        name: Build utf8lex (libraries, executables, ...)
         run: |
           sudo systemctl start docker
           docker image load \
@@ -201,14 +201,14 @@ jobs:
                   --volume `pwd`:/utf8lex:rw \
                   ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('build.Dockerfile') }} \
                   make build \
-                      BUILD_DIR=../${{env.BUILD_DIR}}/${{matrix.platform}} \
+                      BUILD_DIR=../${{env.BUILD_DIR}} \
                       UTF8LEX_LIBRARY_VERSION=${{github.ref_name}}
 
       - id: prepare-utf8lex-for-upload
         name: Prepare utf8lex (libraries, executables, ...) for artifact upload
         run: |
           mkdir -p /tmp/utf8lex/
-          cp ${{env.BUILD_DIR}}/${{matrix.platform}}/${{env.SHARED_LIBRARY}} \
+          cp ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY}} \
               /tmp/utf8lex/${{env.SHARED_LIBRARY}}.${{env.MATRIX_PLATFORM}}
 
       - id: upload-utf8lex
@@ -238,7 +238,7 @@ jobs:
           - linux/s390x
     env:
       BUILD_DIR: ./build
-      UNIT_TESTS_BUILD_DIR: ./tests/unit/build
+      TESTS_BUILD_DIR: ./tests/build
       BUILDER_IMAGE_BASE: "utf8lex-builder"
       SHARED_LIBRARY: "libutf8lex.so.${{github.ref_name}}"
     steps:
@@ -263,24 +263,24 @@ jobs:
       - id: copy-container-image
         name: Copy container image to build directory
         run: |
-          mkdir -p ${{env.BUILD_DIR}}/${{matrix.platform}}
+          mkdir -p ${{env.BUILD_DIR}}/
           cp /tmp/builder/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar.gz \
               ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
           gunzip ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
 
-      - id: download-shared-library
-        name: Download shared library
+      - id: download-utf8lex
+        name: Download utf8lex (libraries, executables, ...)
         uses: actions/download-artifact@v4
         with:
           name: ${{env.SHARED_LIBRARY}}.${{env.MATRIX_PLATFORM}}
           path: /tmp/utf8lex/
 
-      - id: copy-shared-library
-        name: Copy shared library to build directory
+      - id: copy-utf8lex
+        name: Copy utf8lex binaries to build directory
         run: |
-          mkdir -p ${{env.BUILD_DIR}}/${{matrix.platform}}
+          mkdir -p ${{env.BUILD_DIR}}/
           cp /tmp/utf8lex/${{env.SHARED_LIBRARY}}.${{env.MATRIX_PLATFORM}} \
-              ${{env.BUILD_DIR}}/${{matrix.platform}}/${{env.SHARED_LIBRARY}}
+              ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY}}
 
       # Add support for more platforms with QEMU
       # https://github.com/docker/setup-qemu-action
@@ -296,8 +296,8 @@ jobs:
               --input ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar
           rm ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar
           chmod -R a+w ${{env.BUILD_DIR}}
-          mkdir -p ${{env.UNIT_TESTS_BUILD_DIR}}/${{matrix.platform}}
-          chmod -R a+w ${{env.UNIT_TESTS_BUILD_DIR}}
+          mkdir -p ${{env.TESTS_BUILD_DIR}}/
+          chmod -R a+w ${{env.TESTS_BUILD_DIR}}
           #
           # docker run documentation:
           #     https://docs.docker.com/reference/cli/docker/container/run/
@@ -308,8 +308,9 @@ jobs:
                   --volume `pwd`:/utf8lex:rw \
                   ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('build.Dockerfile') }} \
                   make unit_tests \
-                      BUILD_DIR=../${{env.BUILD_DIR}}/${{matrix.platform}} \
-                      UTF8LEX_LIBRARY_VERSION=${{github.ref_name}}
+                      BUILD_DIR=../${{env.BUILD_DIR}} \
+                      UTF8LEX_LIBRARY_VERSION=${{github.ref_name}} \
+                      TESTS_BUILD_DIR=../${{env.TESTS_BUILD_DIR}}
   # --------------------------------------------------------------------
 
 #
