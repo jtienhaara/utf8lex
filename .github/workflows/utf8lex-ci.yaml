@@ -106,7 +106,6 @@ jobs:
       #
       - id: upload-container-image
         name: Upload the container image
-        # !!! if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
@@ -145,6 +144,7 @@ jobs:
       - id: copy-container-image
         name: Copy container image to build directory
         run: |
+          mkdir -p ${{env.BUILD_DIR}}
           cp /tmp/builder/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz \
               ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
           gunzip ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
