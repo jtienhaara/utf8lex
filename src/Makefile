@@ -4,12 +4,12 @@ UTF8LEX_MAJOR ?= $(word 1, $(subst ., ,$(UTF8LEX_LIBRARY_VERSION)))
 #
 # Parameters for gcc compiling .c into .o files, .o files into exes, etc:
 #
-CC ?= gcc
-CFLAGS ?= -Werror -fPIC -O2
+CC = gcc
+CFLAGS = -Werror -fPIC -O2
 # CFLAGS = -Werror -fPIC -O2 --debug
 
-LD ?= gcc
-LDFLAGS ?= -shared
+LD = gcc
+LDFLAGS = -shared
 
 BUILD_DIR ?= ../build
 

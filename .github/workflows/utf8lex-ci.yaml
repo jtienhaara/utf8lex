@@ -192,19 +192,6 @@ jobs:
           rm ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('build.Dockerfile') }}.tar
           chmod -R a+w ${{env.BUILD_DIR}}
           #
-          # Clean any detritus environment variables so they don't
-          # break our Makefile:
-          #
-          unset \
-              UTF8LEX_LIBRARY_VERSION \
-              UTF8LEX_MAJOR \
-              CC \
-              CFLAGS \
-              LD \
-              LDFLAGS \
-              BUILD_DIR \
-              SOURCE_FILES
-          #
           # docker run documentation:
           #     https://docs.docker.com/reference/cli/docker/container/run/
           #
@@ -311,21 +298,6 @@ jobs:
           chmod -R a+w ${{env.BUILD_DIR}}
           mkdir -p ${{env.UNIT_TESTS_BUILD_DIR}}/${{matrix.platform}}
           chmod -R a+w ${{env.UNIT_TESTS_BUILD_DIR}}
-          #
-          # Clean any detritus environment variables so they don't
-          # break our Makefile:
-          #
-          unset \
-              UTF8LEX_LIBRARY_VERSION \
-              UTF8LEX_MAJOR \
-              CC \
-              CFLAGS \
-              LD \
-              LDFLAGS \
-              BUILD_DIR \
-              SOURCE_FILES \
-              SRC_DIR \
-              TEST_BUILD_DIR
           #
           # docker run documentation:
           #     https://docs.docker.com/reference/cli/docker/container/run/
