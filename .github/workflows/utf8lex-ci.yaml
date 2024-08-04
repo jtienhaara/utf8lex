@@ -207,9 +207,8 @@ jobs:
       - id: tar-multiarch-utf8lex-so
         name: Tar utf8lex shared libraries
         run: |
-          mkdir -p /tmp/so/${{matrix.platform}}
-          cd ${{env.BUILD_DIR}}
-          cp ${{matrix.platform}}/${{env.SHARED_LIBRARY}} \
+          mkdir -p /tmp/so/
+          cp ${{env.BUILD_DIR}}/${{matrix.platform}}/${{env.SHARED_LIBRARY}} \
               /tmp/so/${{env.SHARED_LIBRARY}}.${{env.MATRIX_PLATFORM}}
 
       - id: upload-multiarch-utf8lex-so
