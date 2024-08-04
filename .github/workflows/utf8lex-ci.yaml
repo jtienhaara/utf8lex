@@ -46,7 +46,7 @@ jobs:
         #
         uses: actions/cache@v4
         with:
-          path: /tmp/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+          path: /tmp/builder/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
           key: utf8lex-container-image-cache-${{ hashFiles('build.Dockerfile') }}
 
       # Add support for more platforms with QEMU
@@ -96,20 +96,21 @@ jobs:
         name: Cache the fact the built container image
         if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
         run: |
-          rm -rf /tmp/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+          mkdir -p /tmp/builder/
+          rm -rf /tmp/builder/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
           cp ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz \
-              /tmp/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+              /tmp/builder/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
 
       #
       # https://github.com/actions/upload-artifact
       #
       - id: upload-container-image
         name: Upload the container image
-        if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
+        # !!! if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
-          path: /tmp/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+          path: /tmp/builder/
           if-no-files-found: error
           retention-days: 1
   # --------------------------------------------------------------------
@@ -139,7 +140,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
-          path: ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+          path: /tmp/builder/
+
+      - id: copy-container-image
+        name: Copy container image to build directory
+        run: |
+          cp /tmp/builder/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz \
+              ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
+          gunzip ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
 
       # Add support for more platforms with QEMU
       # https://github.com/docker/setup-qemu-action
@@ -150,7 +158,6 @@ jobs:
       - id: build-utf8lex-so
         name: Build utf8lex shared library
         run: |
-          gunzip ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar.gz
           docker import \
               ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{ hashFiles('build.Dockerfile') }}.tar \
               ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('build.Dockerfile') }}
@@ -173,17 +180,18 @@ jobs:
       - id: tar-multiarch-utf8lex-so
         name: Tar utf8lex shared libraries
         run: |
+          mkdir -p /tmp/so/
           cd ${{env.BUILD_DIR}}
           tar cvzf ${{env.SHARED_LIBRARIES_TAR_GZ}} */*/*.so
           cp ${{env.SHARED_LIBRARIES_TAR_GZ}} \
-              /tmp/${{env.SHARED_LIBRARIES_TAR_GZ}}
+              /tmp/so/${{env.SHARED_LIBRARIES_TAR_GZ}}
 
       - id: upload-multiarch-utf8lex-so
         name: Upload utf8lex libraries
         uses: actions/upload-artifact@v4
         with:
           name: ${{env.SHARED_LIBRARIES_TAR_GZ}}
-          path: /tmp/${{env.SHARED_LIBRARIES_TAR_GZ}}
+          path: /tmp/so/
           if-no-files-found: error
           retention-days: 1
   # --------------------------------------------------------------------
