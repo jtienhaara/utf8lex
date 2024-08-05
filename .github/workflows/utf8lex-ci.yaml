@@ -358,6 +358,7 @@ jobs:
               --input ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar
           rm ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar
           chmod -R a+w ${{env.BUILD_DIR}}
+          chmod a+x ${{env.BUILD_DIR}}/${{env.PROGRAM}}
           mkdir -p ${{env.TEST_BUILD_DIR}}/
           chmod -R a+w ${{env.TEST_BUILD_DIR}}
           #
@@ -492,6 +493,7 @@ jobs:
               --input ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar
           rm ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar
           chmod -R a+w ${{env.BUILD_DIR}}
+          chmod a+x ${{env.BUILD_DIR}}/${{env.PROGRAM}}
           mkdir -p ${{env.TEST_BUILD_DIR}}/
           chmod -R a+w ${{env.TEST_BUILD_DIR}}
           #
@@ -627,6 +629,7 @@ jobs:
               --input ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar
           rm ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar
           chmod -R a+w ${{env.BUILD_DIR}}
+          chmod a+x ${{env.BUILD_DIR}}/${{env.PROGRAM}}
           mkdir -p ${{env.EXAMPLES_BUILD_DIR}}/
           chmod -R a+w ${{env.EXAMPLES_BUILD_DIR}}
           #
