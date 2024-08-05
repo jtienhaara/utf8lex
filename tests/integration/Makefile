@@ -1,5 +1,18 @@
+#
+# SRC_DIR is required for header files:
+#
 SRC_DIR ?= ../../src
+
+#
+# BUILD_DIR is required for libraries and executables:
+#
 BUILD_DIR ?= ../../build
+
+#
+# Make sure the path we use to load shared libraries is absolute, not relative:
+#
+UTF8LEX_LIBRARY_DIR = $(subst $(PWD)//,/,$(PWD)/$(BUILD_DIR))
+UTF8LEX_LIBRARY_PATH = $(if $(LD_LIBRARY_PATH),$(UTF8LEX_LIBRARY_DIR):$(LD_LIBRARY_PATH),$(UTF8LEX_LIBRARY_DIR))
 
 #
 # Parameters for gcc compiling .c into .o files, .o files into exes, etc:
@@ -8,7 +21,7 @@ CC = gcc
 CFLAGS = -Werror -fPIC -I$(SRC_DIR) --debug
 
 LD = gcc
-LDFLAGS = -Wl,--no-as-needed -lpcre2-8 -lutf8proc -L$(BUILD_DIR) -Wl,-rpath,$(BUILD_DIR) -lutf8lex
+LDFLAGS = -Wl,--no-as-needed -lpcre2-8 -lutf8proc -L$(UTF8LEX_LIBRARY_DIR) -Wl,-rpath,$(UTF8LEX_LIBRARY_DIR) -lutf8lex
 
 TEST_BUILD_DIR ?= ../build
 
@@ -32,25 +45,9 @@ $(TEST_BUILD_DIR)/%.o: %.c
 # Rule for $(PROGRAMS):
 $(TEST_BUILD_DIR)/%: $(TEST_BUILD_DIR)/%.o
 	$(LD) $(LDFLAGS) $< -o $@
-	rm -f $<
-
-#
-# Kludgy McKludgerson for running the unit tests with the builtin
-# "../build" library path for libutf8lex.so.$(MAJOR_VERSION).
-# (-Wl,-soname,../build/libutf8.so.1 leads to "ld test_utf8lex_blabla"
-# returning "../build/libutf8lex.so.1 => not found".)
-# We should properly install the library in an absolute path.
-# Meanwhile, this is a temporary kludge.
-#
-.PHONY: libraries-for-runtime
-libraries-for-runtime:
-	for LIBRARY in $(BUILD_DIR)/libutf8lex.so*; \
-	do \
-	    ln -s -f "$$LIBRARY" $(TEST_BUILD_DIR) || exit 1; \
-	done
 
 .PHONY: build
-build: $(PROGRAMS) libraries-for-runtime
+build: $(PROGRAMS)
 	$(CC) $(CFLAGS) -c test_l_file.c -o $(TEST_BUILD_DIR)/test_l_file.o
 
 .PHONY: clean
@@ -71,6 +68,12 @@ run-test_utf8lex:
 	        || exit 1; \
 	done
 
+#
+# Turn test_utf8lex_generate_001.l into test_utf8lex_generate_001.c
+# Compile test_utf8lex_generate_001.c into an executable
+# Use test_utf8lex_generate_001 to parse test_l_file_001_input.txt
+# Make sure the output is the same as expected.
+#
 .PHONY: run-test_utf8lex_generate
 run-test_utf8lex_generate:
 	$(TEST_BUILD_DIR)/test_utf8lex_generate \
@@ -85,7 +88,6 @@ run-test_utf8lex_generate:
 	    $(TEST_BUILD_DIR)/test_utf8lex_generate_001.o \
 	    $(TEST_BUILD_DIR)/test_l_file.o \
 	    -o $(TEST_BUILD_DIR)/test_utf8lex_generate_001
-	rm -f test_utf8lex_generate_001.o
 	$(TEST_BUILD_DIR)/test_utf8lex_generate_001 \
 	    test_l_file_001_input.txt \
 	    test_l_file_001_expected_output.txt \

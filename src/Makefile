@@ -1,5 +1,11 @@
-UTF8LEX_LIBRARY_VERSION ?= 1.0.0
-UTF8LEX_MAJOR ?= $(word 1, $(subst ., ,$(UTF8LEX_LIBRARY_VERSION)))
+UTF8LEX_VERSION ?= 1.0.0
+UTF8LEX_MAJOR ?= $(word 1, $(subst ., ,$(UTF8LEX_VERSION)))
+
+#
+# Make sure the path we use to load shared libraries is absolute, not relative:
+#
+UTF8LEX_LIBRARY_DIR = $(subst $(PWD)//,/,$(PWD)/$(BUILD_DIR))
+UTF8LEX_LIBRARY_PATH = $(if $(LD_LIBRARY_PATH),$(UTF8LEX_LIBRARY_DIR):$(LD_LIBRARY_PATH),$(UTF8LEX_LIBRARY_DIR))
 
 #
 # Parameters for gcc compiling .c into .o files, .o files into exes, etc:
@@ -9,7 +15,8 @@ CFLAGS = -Werror -fPIC -O2
 # CFLAGS = -Werror -fPIC -O2 --debug
 
 LD = gcc
-LDFLAGS = -shared
+LDFLAGS_LIBRARY = -shared
+LDFLAGS_PROGRAM = -Wl,--no-as-needed -lpcre2-8 -lutf8proc -L$(UTF8LEX_LIBRARY_DIR) -Wl,-rpath,$(UTF8LEX_LIBRARY_DIR) -lutf8lex
 
 BUILD_DIR ?= ../build
 
@@ -35,6 +42,12 @@ SOURCE_FILES ?= \
 OBJECT_FILES = \
 	$(patsubst %.c,$(BUILD_DIR)/%.o,$(SOURCE_FILES))
 
+LIBRARY = \
+	$(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_VERSION)
+
+PROGRAM = \
+	$(BUILD_DIR)/utf8lex.$(UTF8LEX_VERSION)
+
 LC_CTYPE = en_US.UTF-8
 
 .PHONY: all
@@ -45,30 +58,49 @@ $(BUILD_DIR)/%.o: %.c
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_LIBRARY_VERSION): $(OBJECT_FILES)
-	$(LD) $(LDFLAGS)  \
-	    -Wl,-soname,$(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_MAJOR) \
+# Rule for .so library files:
+$(LIBRARY): $(OBJECT_FILES)
+	$(LD) $(LDFLAGS_LIBRARY)  \
+	    -Wl,-soname,libutf8lex.so.$(UTF8LEX_MAJOR) \
 	    $(OBJECT_FILES) \
-	    -o $(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_LIBRARY_VERSION)
-	chmod a+x $(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_LIBRARY_VERSION)
+	    -o $(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_VERSION)
+	chmod a+x $(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_VERSION)
 	cd $(BUILD_DIR) \
-	    && if test "$(UTF8LEX_MAJOR)" != "$(UTF8LEX_LIBRARY_VERSION)" ; \
+	    && if test "$(UTF8LEX_MAJOR)" != "$(UTF8LEX_VERSION)" ; \
                 then \
-	            ln -s -f libutf8lex.so.$(UTF8LEX_LIBRARY_VERSION) \
+	            ln -s -f libutf8lex.so.$(UTF8LEX_VERSION) \
 	                libutf8lex.so.$(UTF8LEX_MAJOR) ; \
 	        fi \
-	    && ln -s -f libutf8lex.so.$(UTF8LEX_LIBRARY_VERSION) \
+	    && ln -s -f libutf8lex.so.$(UTF8LEX_VERSION) \
 	        libutf8lex.so
-	rm -f $(OBJECT_FILES)
+
+# Rules for $(PROGRAM):
+$(BUILD_DIR)/utf8lex.o: utf8lex.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(PROGRAM): $(BUILD_DIR)/utf8lex.o
+	$(LD) $(LDFLAGS_PROGRAM) $< -o $@
+	cd $(BUILD_DIR) \
+	    && if test "$(UTF8LEX_MAJOR)" != "$(UTF8LEX_VERSION)" ; \
+                then \
+	            ln -s -f utf8lex.$(UTF8LEX_VERSION) \
+	                utf8lex.$(UTF8LEX_MAJOR) ; \
+	        fi \
+	    && ln -s -f utf8lex.$(UTF8LEX_VERSION) \
+	        utf8lex
 
 .PHONY: build
-build: $(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_LIBRARY_VERSION)
+build: $(LIBRARY) $(PROGRAM)
 
 .PHONY: clean
 clean:
 	rm -f core
 	rm -f $(OBJECT_FILES)
 	rm -f \
-	    $(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_LIBRARY_VERSION) \
+	    $(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_VERSION) \
 	    $(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_MAJOR) \
-	    $(BUILD_DIR)/libutf8lex.so
+	    $(BUILD_DIR)/libutf8lex.so \
+	    $(BUILD_DIR)/utf8lex.$(UTF8LEX_VERSION) \
+	    $(BUILD_DIR)/utf8lex.$(UTF8LEX_MAJOR) \
+	    $(BUILD_DIR)/utf8lex

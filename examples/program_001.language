@@ -1,0 +1,19 @@
+// This is an example programming language file.
+// Lex it by building the example_lexer program in this directory (make build),
+// then run:
+//
+//     example_lexer program_001.language
+//
+// The example_lexer will output the tokens read by the lexical analyzer,
+// followed by EOF:
+//
+//     TOKEN: COMMENT_SINGLE_LINE "// This is an example programming language file.\n"
+//     TOKEN: COMMENT_SINGLE_LINE "// Lex it by building the example_lexer program in this directory (make build),\n"
+//     ...
+//     EOF
+//
+x = 6 * 9
+y = "This is a double quoted string with \" in the middle."
+z = 'This is a single quoted string with \" and \' and \\'
+empty_string = ""
+anywhere_between_1_and_10_inclusive = 1..10

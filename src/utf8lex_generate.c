@@ -1,6 +1,7 @@
 /*
  * utf8lex
- * Copyright 2023 Johann Tienhaara
+ * Copyright © 2023-2024 Johann Tienhaara
+ * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2075,6 +2076,11 @@ static utf8lex_error_t utf8lex_generate_write_rules(
   }
   else if (rn != db->num_rules)
   {
+    return UTF8LEX_ERROR_STATE;
+  }
+  else if (is_first == true)
+  {
+    fprintf(stderr, "ERROR generating yy_rules_init(): no rules in the 2nd section\n");
     return UTF8LEX_ERROR_STATE;
   }
 
