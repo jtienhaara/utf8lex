@@ -47,7 +47,7 @@ $(BUILD_DIR)/%.o: %.c
 
 $(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_LIBRARY_VERSION): $(OBJECT_FILES)
 	$(LD) $(LDFLAGS)  \
-	    -Wl,-soname,$(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_MAJOR) \
+	    -Wl,-soname,libutf8lex.so.$(UTF8LEX_MAJOR) \
 	    $(OBJECT_FILES) \
 	    -o $(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_LIBRARY_VERSION)
 	chmod a+x $(BUILD_DIR)/libutf8lex.so.$(UTF8LEX_LIBRARY_VERSION)
