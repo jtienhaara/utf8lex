@@ -151,7 +151,7 @@ jobs:
       BUILDER_IMAGE_BASE: "utf8lex-builder"
       UTF8LEX_VERSION: "${{github.ref_name}}"
       SHARED_LIBRARY_BASE: "libutf8lex.so"
-      POGRAM_BASE: "utf8lex"
+      PROGRAM_BASE: "utf8lex"
     steps:
       - id: checkout
         name: Checkout
@@ -263,7 +263,7 @@ jobs:
       BUILDER_IMAGE_BASE: "utf8lex-builder"
       UTF8LEX_VERSION: "${{github.ref_name}}"
       SHARED_LIBRARY_BASE: "libutf8lex.so"
-      POGRAM_BASE: "utf8lex"
+      PROGRAM_BASE: "utf8lex"
     steps:
       - id: checkout
         name: Checkout
@@ -397,7 +397,7 @@ jobs:
       BUILDER_IMAGE_BASE: "utf8lex-builder"
       UTF8LEX_VERSION: "${{github.ref_name}}"
       SHARED_LIBRARY_BASE: "libutf8lex.so"
-      POGRAM_BASE: "utf8lex"
+      PROGRAM_BASE: "utf8lex"
     steps:
       - id: checkout
         name: Checkout
