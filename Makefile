@@ -17,7 +17,7 @@
 #
 
 .PHONY: all
-all: build test
+all: build test examples
 
 .PHONY: build-container
 build-container:
@@ -54,6 +54,12 @@ clean:
 	    && make clean
 	cd tests/integration \
 	    && make clean
+
+.PHONY: examples
+examples:
+	cd examples \
+	    && make build \
+	    && make run
 
 .PHONY: test
 test: unit_tests integration_tests

@@ -2078,6 +2078,11 @@ static utf8lex_error_t utf8lex_generate_write_rules(
   {
     return UTF8LEX_ERROR_STATE;
   }
+  else if (is_first == true)
+  {
+    fprintf(stderr, "ERROR generating yy_rules_init(): no rules in the 2nd section\n");
+    return UTF8LEX_ERROR_STATE;
+  }
 
 
   // Close yy_rules_init() function declaration:

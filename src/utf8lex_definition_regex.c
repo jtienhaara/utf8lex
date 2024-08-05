@@ -76,7 +76,8 @@ utf8lex_error_t utf8lex_regex_definition_init(
   else if (self->regex == NULL)
   {
     fprintf(stderr,
-            "*** utf8lex: pcre2 compiled NULL regex\n");
+            "*** utf8lex: pcre2 compiled NULL regex from pattern: %s\n",
+            pattern);
     utf8lex_regex_definition_clear((utf8lex_definition_t *) self);
 
     return UTF8LEX_ERROR_BAD_REGEX;

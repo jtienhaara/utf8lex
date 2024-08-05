@@ -1,17 +1,191 @@
+// =====================================================================
+// Since an entire source file can be mmapped in, when we print an error
+// message, we only want to grab some of it.  The yylex_error() procedure
+// uses this to pull in some context.
+// ---------------------------------------------------------------------
+static utf8lex_error_t yylex_fill_some_of_remaining_buffer(
+        unsigned char *some_of_remaining_buffer,
+        utf8lex_state_t *state,
+        size_t buffer_bytes,
+        size_t max_bytes
+        )
+{
+  if (some_of_remaining_buffer == NULL
+      || state == NULL
+      || state->buffer == NULL
+      || state->buffer->loc == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+  else if (buffer_bytes <= (size_t) 0
+           || max_bytes <= (size_t) 0)
+  {
+    return UTF8LEX_ERROR_BAD_LENGTH;
+  }
+
+  off_t start_byte = (off_t) state->buffer->loc[UTF8LEX_UNIT_BYTE].start;
+
+  size_t num_bytes;
+  if (buffer_bytes < max_bytes)
+  {
+    num_bytes = buffer_bytes;
+  }
+  else
+  {
+    num_bytes = max_bytes - 1;
+  }
+  strncpy(some_of_remaining_buffer,
+          &(state->buffer->str->bytes[start_byte]),
+          num_bytes);
+  some_of_remaining_buffer[num_bytes] = 0;
+
+  bool is_first_eof = true;
+  off_t c = (off_t) 0;
+  for (c = (off_t) 0; c <= (off_t) (max_bytes - 4); c ++)
+  {
+    if (some_of_remaining_buffer[c] == 0)
+    {
+      break;
+    }
+    else if (some_of_remaining_buffer[c] == '\r'
+             || some_of_remaining_buffer[c] == '\n')
+    {
+      if (is_first_eof == false
+          || c >= (max_bytes - 6))
+      {
+        some_of_remaining_buffer[c] = 0;
+      }
+      else
+      {
+        // We have enough room to shift everything,
+        // and insert an extra character, so we'll put in
+        // "\\r" or "\\n".
+        for (int d = num_bytes; d > c; d --)
+        {
+          some_of_remaining_buffer[d] = some_of_remaining_buffer[d - 1];
+        }
+        if (some_of_remaining_buffer[c] == '\r')
+        {
+          some_of_remaining_buffer[c + 1] = 'r';
+        }
+        else if (some_of_remaining_buffer[c] == '\n')
+        {
+          some_of_remaining_buffer[c + 1] = 'n';
+        }
+        else
+        {
+          some_of_remaining_buffer[c + 1] = '?';
+        }
+        some_of_remaining_buffer[c] = '\\';
+        if ((num_bytes + 1) < max_bytes)
+        {
+          some_of_remaining_buffer[num_bytes + 1] = 0;
+        }
+        else
+        {
+          some_of_remaining_buffer[num_bytes] = 0;
+        }
+        is_first_eof = false;
+        c += 2;
+      }
+    }
+  }
+  if (c >= (off_t) max_bytes)
+  {
+    some_of_remaining_buffer[max_bytes - 4] = '.';
+    some_of_remaining_buffer[max_bytes - 3] = '.';
+    some_of_remaining_buffer[max_bytes - 2] = '.';
+    some_of_remaining_buffer[max_bytes - 1] = 0;
+  }
+
+  return UTF8LEX_OK;
+}
+
+
+// =====================================================================
+// Helper to initialize a statically declared utf8lex_string_t.
+// ---------------------------------------------------------------------
+static utf8lex_error_t yylex_string(
+        utf8lex_string_t *str,
+        int max_length_bytes,
+        unsigned char *content
+        )
+{
+  utf8lex_error_t error = utf8lex_string_init(
+      str,  // self
+      (size_t) max_length_bytes,  // max_length_bytes
+      (size_t) 0,  // length_bytes
+      content);  // bytes
+  return error;
+}
+
+
+// =====================================================================
+// Prints an error message to stderr, then returns the error code.
+// ---------------------------------------------------------------------
+static utf8lex_error_t yylex_error(
+        utf8lex_error_t error
+        )
+{
+  if (error == UTF8LEX_OK)
+  {
+    return UTF8LEX_OK;
+  }
+  else if (YY_STATE.buffer == NULL)
+  {
+    return error;
+  }
+
+  size_t max_length_bytes;  // How many bytes have been allocated.
+  size_t length_bytes;  // How many bytes have been written.
+  unsigned char *bytes;
+
+  unsigned char error_name[256];
+  utf8lex_string_t error_string;
+  utf8lex_error_t string_error = yylex_string(&error_string, 256, error_name);
+  string_error = utf8lex_error_string(&error_string, error);
+  if (string_error != UTF8LEX_OK)
+  {
+    return error;
+  }
+
+  unsigned char some_of_remaining_buffer[32];
+  utf8lex_error_t fill_error = yylex_fill_some_of_remaining_buffer(
+      some_of_remaining_buffer,
+      &YY_STATE,
+      (size_t) YY_STATE.buffer->str->length_bytes,
+      (size_t) 32);
+  if (fill_error == UTF8LEX_OK)
+  {
+    fprintf(stderr,
+            "ERROR (%s) yylex failed to parse %d.%d: \"%s\"\n",
+            error_name,
+            YY_STATE.loc[UTF8LEX_UNIT_LINE].start + 1,
+            YY_STATE.loc[UTF8LEX_UNIT_CHAR].start,
+            some_of_remaining_buffer);
+  }
+
+  return error;
+}
+
+
+// =====================================================================
+// Begin lexing.
+// ---------------------------------------------------------------------
 utf8lex_error_t yylex_start(
         unsigned char *path
         )
 {
   if (path == NULL)
   {
-    return UTF8LEX_ERROR_NULL_POINTER;
+    return yylex_error(UTF8LEX_ERROR_NULL_POINTER);
   }
 
   // Initialize YY_FIRST_RULE, and the database of definitions and rules:
   utf8lex_error_t error = yy_rules_init();
   if (error != UTF8LEX_OK)
   {
-    return error;
+    return yylex_error(error);
   }
 
   // Minimally initialize the string and buffer contents:
@@ -28,7 +202,7 @@ utf8lex_error_t yylex_start(
                               path);  // path
   if (error != UTF8LEX_OK)
   {
-    return error;
+    return yylex_error(error);
   }
 
   // Initialize the lexing state:
@@ -36,13 +210,16 @@ utf8lex_error_t yylex_start(
                              &YY_BUFFER);  // buffer
   if (error != UTF8LEX_OK)
   {
-    return error;
+    return yylex_error(error);
   }
 
   return UTF8LEX_OK;
 }
 
 
+// =====================================================================
+// Lex with utf8 locations (including grapheme # etc).
+// ---------------------------------------------------------------------
 int yyutf8lex(
         utf8lex_token_t *token_or_null,
         utf8lex_lloc_t *location_or_null
@@ -69,6 +246,7 @@ int yyutf8lex(
   }
   else if (error != UTF8LEX_OK)
   {
+    yylex_error(error);
     return YYerror;
   }
 
@@ -117,7 +295,9 @@ int yyutf8lex(
 }
 
 
-// Traditional yylex():
+// =====================================================================
+// Traditional yylex(), with no location tracking.
+// ---------------------------------------------------------------------
 int yylex()
 {
   return yyutf8lex(NULL,  // token_or_null
@@ -125,20 +305,23 @@ int yylex()
 }
 
 
+// =====================================================================
+// Finish lexing.
+// ---------------------------------------------------------------------
 utf8lex_error_t yylex_end()
 {
   // Unmap the mmap'ed file:
   utf8lex_error_t error = utf8lex_buffer_munmap(YY_STATE.buffer);
   if (error != UTF8LEX_OK)
   {
-    return error;
+    return yylex_error(error);
   }
 
   // Teardown:
   error = utf8lex_state_clear(&YY_STATE);
   if (error != UTF8LEX_OK)
   {
-    return error;
+    return yylex_error(error);
   }
 
   utf8lex_rule_t *rule = YY_FIRST_RULE;
@@ -154,14 +337,14 @@ utf8lex_error_t yylex_end()
     error = utf8lex_rule_clear(rule);
     if (error != UTF8LEX_OK)
     {
-      return error;
+      return yylex_error(error);
     }
     rule = rule->next;
   }
 
   if (rule != NULL)
   {
-    return UTF8LEX_ERROR_INFINITE_LOOP;
+    return yylex_error(UTF8LEX_ERROR_INFINITE_LOOP);
   }
 
   utf8lex_definition_t *definition = YY_FIRST_DEFINITION;
@@ -184,14 +367,14 @@ utf8lex_error_t yylex_end()
     error = definition->definition_type->clear(definition);
     if (error != UTF8LEX_OK)
     {
-      return error;
+      return yylex_error(error);
     }
     definition = definition->next;
   }
 
   if (definition != NULL)
   {
-    return UTF8LEX_ERROR_INFINITE_LOOP;
+    return yylex_error(UTF8LEX_ERROR_INFINITE_LOOP);
   }
 
   return UTF8LEX_OK;

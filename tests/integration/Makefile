@@ -1,4 +1,11 @@
+#
+# SRC_DIR is required for header files:
+#
 SRC_DIR ?= ../../src
+
+#
+# BUILD_DIR is required for libraries and executables:
+#
 BUILD_DIR ?= ../../build
 
 #
@@ -38,7 +45,6 @@ $(TEST_BUILD_DIR)/%.o: %.c
 # Rule for $(PROGRAMS):
 $(TEST_BUILD_DIR)/%: $(TEST_BUILD_DIR)/%.o
 	$(LD) $(LDFLAGS) $< -o $@
-	rm -f $<
 
 .PHONY: build
 build: $(PROGRAMS)
@@ -82,7 +88,6 @@ run-test_utf8lex_generate:
 	    $(TEST_BUILD_DIR)/test_utf8lex_generate_001.o \
 	    $(TEST_BUILD_DIR)/test_l_file.o \
 	    -o $(TEST_BUILD_DIR)/test_utf8lex_generate_001
-	rm -f test_utf8lex_generate_001.o
 	$(TEST_BUILD_DIR)/test_utf8lex_generate_001 \
 	    test_l_file_001_input.txt \
 	    test_l_file_001_expected_output.txt \

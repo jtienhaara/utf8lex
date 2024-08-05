@@ -73,12 +73,12 @@ $(LIBRARY): $(OBJECT_FILES)
 	        fi \
 	    && ln -s -f libutf8lex.so.$(UTF8LEX_VERSION) \
 	        libutf8lex.so
-	rm -f $(OBJECT_FILES)
 
 # Rules for $(PROGRAM):
 $(BUILD_DIR)/utf8lex.o: utf8lex.c
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
+
 $(PROGRAM): $(BUILD_DIR)/utf8lex.o
 	$(LD) $(LDFLAGS_PROGRAM) $< -o $@
 	cd $(BUILD_DIR) \
@@ -89,7 +89,6 @@ $(PROGRAM): $(BUILD_DIR)/utf8lex.o
 	        fi \
 	    && ln -s -f utf8lex.$(UTF8LEX_VERSION) \
 	        utf8lex
-	rm -f $<
 
 .PHONY: build
 build: $(LIBRARY) $(PROGRAM)

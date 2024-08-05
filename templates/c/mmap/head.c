@@ -17,6 +17,7 @@
  *       BSD license
  */
 #include <stdio.h>
+#include <string.h>  // For strlen(), strcpy(), strcat, strncpy
 
 #include "utf8lex.h"
 

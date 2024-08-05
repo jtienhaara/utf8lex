@@ -45,7 +45,6 @@ $(TEST_BUILD_DIR)/%.o: %.c
 # Rule for $(PROGRAMS):
 $(TEST_BUILD_DIR)/%: $(TEST_BUILD_DIR)/%.o
 	$(LD) $(LDFLAGS) $< -o $@
-	rm -f $<
 
 .PHONY: build
 build: $(PROGRAMS)
