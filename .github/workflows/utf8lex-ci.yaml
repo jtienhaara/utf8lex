@@ -530,6 +530,7 @@ jobs:
           - linux/s390x
     env:
       BUILD_DIR: ./build
+      EXAMPLES_DIR: ./examples
       EXAMPLES_BUILD_DIR: ./examples/build
       BUILDER_IMAGE_BASE: "utf8lex-builder"
       UTF8LEX_VERSION: "${{github.ref_name}}"
@@ -631,6 +632,7 @@ jobs:
           chmod -R a+w ${{env.BUILD_DIR}}
           chmod a+x ${{env.BUILD_DIR}}/${{env.PROGRAM}}
           mkdir -p ${{env.EXAMPLES_BUILD_DIR}}/
+          chmod -R a+w ${{env.EXAMPLES_DIR}}
           chmod -R a+w ${{env.EXAMPLES_BUILD_DIR}}
           #
           # docker run documentation:
