@@ -62,6 +62,12 @@ run-test_utf8lex:
 	        || exit 1; \
 	done
 
+#
+# Turn test_utf8lex_generate_001.l into test_utf8lex_generate_001.c
+# Compile test_utf8lex_generate_001.c into an executable
+# Use test_utf8lex_generate_001 to parse test_l_file_001_input.txt
+# Make sure the output is the same as expected.
+#
 .PHONY: run-test_utf8lex_generate
 run-test_utf8lex_generate:
 	$(TEST_BUILD_DIR)/test_utf8lex_generate \
