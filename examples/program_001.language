@@ -7,12 +7,23 @@
 // The example_lexer will output the tokens read by the lexical analyzer,
 // followed by EOF:
 //
-//     TOKEN: COMMENT_SINGLE_LINE "// This is an example programming language file.\n"
-//     TOKEN: COMMENT_SINGLE_LINE "// Lex it by building the example_lexer program in this directory (make build),\n"
+//     TOKEN: rule_16 "// This is an example programming language file."
+//     TOKEN: rule_1 "\n"
+//     TOKEN: rule_16 "// Lex it by building the example_lexer program in this directory (make build),"
+//     TOKEN: rule_1 "\n"
+//     TOKEN: rule_16 "// then run:"
+//     TOKEN: rule_1 "\n"
+//     TOKEN: rule_16 "//"
+//     TOKEN: rule_1 "\n"
+//     TOKEN: rule_16 "//     example_lexer program_001.language"
 //     ...
 //     EOF
 //
 x = 6 * 9
+x=6*9
+x    =       6      *   9
+int x = 6 * 9
+int    x=6*9
 y = "This is a double quoted string with \" in the middle."
 z = 'This is a single quoted string with \" and \' and \\'
 empty_string = ""

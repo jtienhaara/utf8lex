@@ -64,3 +64,28 @@ utf8lex_error_t utf8lex_string_clear(
 
   return UTF8LEX_OK;
 }
+
+// Helper to initialize a statically declared utf8lex_string_t.
+utf8lex_error_t utf8lex_string(
+        utf8lex_string_t *self,
+        int max_length_bytes,
+        unsigned char *content
+        )
+{
+  if (self == NULL
+      || content == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+  else if (max_length_bytes <= 0)
+  {
+    return UTF8LEX_ERROR_BAD_LENGTH;
+  }
+
+  utf8lex_error_t error = utf8lex_string_init(
+      self,  // self
+      (size_t) max_length_bytes,  // max_length_bytes
+      (size_t) 0,  // length_bytes
+      content);  // bytes
+  return error;
+}

@@ -58,9 +58,15 @@ int main(int argc, char *argv[])
   error = yylex_start(input_file_path);
   if (error != UTF8LEX_OK)
   {
-    fprintf(stderr, "ERROR Failed yylex_start(\"%s\"): %d\n",
+    unsigned char error_name[256];
+    error_name[0] = '\0';
+    utf8lex_string_t error_string;
+    utf8lex_error_t string_error = utf8lex_string(&error_string, 256, error_name);
+    string_error = utf8lex_error_string(&error_string, error);
+    fprintf(stderr, "ERROR Failed yylex_start(\"%s\"): %d %s\n",
             input_file_path,
-            (int) error);
+            (int) error,
+            error_name);
     fflush(stdout);
     fflush(stderr);
     return (int) error;
@@ -78,7 +84,6 @@ int main(int argc, char *argv[])
     }
     else if (lex_result == YYerror)
     {
-      fprintf(stderr, "!!! 999\n");
       fprintf(stderr, "ERROR %d\n",
               lex_result);
     }
@@ -94,7 +99,6 @@ int main(int argc, char *argv[])
                                         (size_t) 4096);  // max_bytes
       if (error != UTF8LEX_OK)
       {
-        fprintf(stderr, "!!! 1\n");
         fflush(stdout);
         fflush(stderr);
         return (int) error;
@@ -105,14 +109,13 @@ int main(int argc, char *argv[])
                                     UTF8LEX_PRINTABLE_ALL);  // flags
       if (error != UTF8LEX_OK)
       {
-        fprintf(stderr, "!!! 2\n");
         fflush(stdout);
         fflush(stderr);
         return (int) error;
       }
 
       printf("TOKEN: %s \"%s\"\n",
-              token.definition->name,
+              token.rule->name,
               printable_str);
     }
   }
