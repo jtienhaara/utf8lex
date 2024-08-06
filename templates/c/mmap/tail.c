@@ -1,7 +1,7 @@
 // =====================================================================
 // Since an entire source file can be mmapped in, when we print an error
-// message, we only want to grab some of it.  The yylex_error() procedure
-// uses this to pull in some context.
+// message, we only want to grab some of it.  The yylex_print_error()
+// procedure uses this to pull in some context.
 // ---------------------------------------------------------------------
 static utf8lex_error_t yylex_fill_some_of_remaining_buffer(
         unsigned char *some_of_remaining_buffer,
@@ -103,27 +103,9 @@ static utf8lex_error_t yylex_fill_some_of_remaining_buffer(
 
 
 // =====================================================================
-// Helper to initialize a statically declared utf8lex_string_t.
-// ---------------------------------------------------------------------
-static utf8lex_error_t yylex_string(
-        utf8lex_string_t *str,
-        int max_length_bytes,
-        unsigned char *content
-        )
-{
-  utf8lex_error_t error = utf8lex_string_init(
-      str,  // self
-      (size_t) max_length_bytes,  // max_length_bytes
-      (size_t) 0,  // length_bytes
-      content);  // bytes
-  return error;
-}
-
-
-// =====================================================================
 // Prints an error message to stderr, then returns the error code.
 // ---------------------------------------------------------------------
-static utf8lex_error_t yylex_error(
+static utf8lex_error_t yylex_print_error(
         utf8lex_error_t error
         )
 {
@@ -142,7 +124,7 @@ static utf8lex_error_t yylex_error(
 
   unsigned char error_name[256];
   utf8lex_string_t error_string;
-  utf8lex_error_t string_error = yylex_string(&error_string, 256, error_name);
+  utf8lex_error_t string_error = utf8lex_string(&error_string, 256, error_name);
   string_error = utf8lex_error_string(&error_string, error);
   if (string_error != UTF8LEX_OK)
   {
@@ -178,14 +160,14 @@ utf8lex_error_t yylex_start(
 {
   if (path == NULL)
   {
-    return yylex_error(UTF8LEX_ERROR_NULL_POINTER);
+    return yylex_print_error(UTF8LEX_ERROR_NULL_POINTER);
   }
 
   // Initialize YY_FIRST_RULE, and the database of definitions and rules:
   utf8lex_error_t error = yy_rules_init();
   if (error != UTF8LEX_OK)
   {
-    return yylex_error(error);
+    return yylex_print_error(error);
   }
 
   // Minimally initialize the string and buffer contents:
@@ -202,7 +184,7 @@ utf8lex_error_t yylex_start(
                               path);  // path
   if (error != UTF8LEX_OK)
   {
-    return yylex_error(error);
+    return yylex_print_error(error);
   }
 
   // Initialize the lexing state:
@@ -210,7 +192,7 @@ utf8lex_error_t yylex_start(
                              &YY_BUFFER);  // buffer
   if (error != UTF8LEX_OK)
   {
-    return yylex_error(error);
+    return yylex_print_error(error);
   }
 
   return UTF8LEX_OK;
@@ -246,7 +228,7 @@ int yyutf8lex(
   }
   else if (error != UTF8LEX_OK)
   {
-    yylex_error(error);
+    yylex_print_error(error);
     return YYerror;
   }
 
@@ -314,14 +296,14 @@ utf8lex_error_t yylex_end()
   utf8lex_error_t error = utf8lex_buffer_munmap(YY_STATE.buffer);
   if (error != UTF8LEX_OK)
   {
-    return yylex_error(error);
+    return yylex_print_error(error);
   }
 
   // Teardown:
   error = utf8lex_state_clear(&YY_STATE);
   if (error != UTF8LEX_OK)
   {
-    return yylex_error(error);
+    return yylex_print_error(error);
   }
 
   utf8lex_rule_t *rule = YY_FIRST_RULE;
@@ -337,14 +319,14 @@ utf8lex_error_t yylex_end()
     error = utf8lex_rule_clear(rule);
     if (error != UTF8LEX_OK)
     {
-      return yylex_error(error);
+      return yylex_print_error(error);
     }
     rule = rule->next;
   }
 
   if (rule != NULL)
   {
-    return yylex_error(UTF8LEX_ERROR_INFINITE_LOOP);
+    return yylex_print_error(UTF8LEX_ERROR_INFINITE_LOOP);
   }
 
   utf8lex_definition_t *definition = YY_FIRST_DEFINITION;
@@ -367,14 +349,14 @@ utf8lex_error_t yylex_end()
     error = definition->definition_type->clear(definition);
     if (error != UTF8LEX_OK)
     {
-      return yylex_error(error);
+      return yylex_print_error(error);
     }
     definition = definition->next;
   }
 
   if (definition != NULL)
   {
-    return yylex_error(UTF8LEX_ERROR_INFINITE_LOOP);
+    return yylex_print_error(UTF8LEX_ERROR_INFINITE_LOOP);
   }
 
   return UTF8LEX_OK;

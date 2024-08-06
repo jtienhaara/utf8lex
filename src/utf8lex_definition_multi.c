@@ -43,7 +43,7 @@ utf8lex_error_t utf8lex_reference_init(
   {
     return UTF8LEX_ERROR_NULL_POINTER;
   }
-  else if (min <= 0)
+  else if (min < 0)
   {
     return UTF8LEX_ERROR_BAD_MIN;
   }

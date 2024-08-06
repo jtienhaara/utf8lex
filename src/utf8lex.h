@@ -107,7 +107,7 @@ enum _ENUM_utf8lex_error
   UTF8LEX_ERROR_BAD_OFFSET,  // Negative offset, or too close to end of string.
   UTF8LEX_ERROR_BAD_START,  // Negative start, or too close to end of string.
   UTF8LEX_ERROR_BAD_AFTER,  // After is neither reset (-1) nor valid new start.
-  UTF8LEX_ERROR_BAD_MIN,  // Min must be 1 or greater.
+  UTF8LEX_ERROR_BAD_MIN,  // Min must be 0 or greater.
   UTF8LEX_ERROR_BAD_MAX,  // Max must be >= min, or -1 for no limit.
   UTF8LEX_ERROR_BAD_MULTI_TYPE,  // Multi type must be sequence, OR, etc.
   UTF8LEX_ERROR_BAD_REGEX,  // Could not compile regex definition.
@@ -159,16 +159,24 @@ extern utf8lex_error_t utf8lex_string_clear(
         );
 
 // Print state (location) to the specified string:
-utf8lex_error_t utf8lex_state_string(
+extern utf8lex_error_t utf8lex_state_string(
         utf8lex_string_t *str,
         utf8lex_state_t *state
         );
 
 // Print error message to the specified string:
-utf8lex_error_t utf8lex_error_string(
+extern utf8lex_error_t utf8lex_error_string(
         utf8lex_string_t *str,
         utf8lex_error_t error
         );
+
+// Helper to initialize a statically declared utf8lex_string_t.
+extern utf8lex_error_t utf8lex_string(
+        utf8lex_string_t *self,
+        int max_length_bytes,
+        unsigned char *content
+        );
+
 
 // No more than (this many) buffers can be chained together:
 #define UTF8LEX_BUFFER_STRINGS_MAX 16384

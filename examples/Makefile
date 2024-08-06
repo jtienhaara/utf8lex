@@ -59,11 +59,11 @@ $(EXAMPLES_BUILD_DIR)/%.o: %.c
 # Rules for $(PROGRAM)_*:
 $(PROGRAM)_tokens: $(patsubst %.c,$(EXAMPLES_BUILD_DIR)/%.o,$(NON_GENERATED_SOURCE_FILES)) $(EXAMPLES_BUILD_DIR)/programming_tokens.o
 	$(LD) $(LDFLAGS) $^ -o $@
-	rm -f programming_tokens.c
+	mv programming_tokens.c $(EXAMPLES_BUILD_DIR)/
 
 $(PROGRAM)_kludgy_grammar: $(patsubst %.c,$(EXAMPLES_BUILD_DIR)/%.o,$(NON_GENERATED_SOURCE_FILES)) $(EXAMPLES_BUILD_DIR)/programming_kludgy_grammar.o
 	$(LD) $(LDFLAGS) $^ -o $@
-	rm -f programming_kludgy_grammar.c
+	mv programming_kludgy_grammar.c  $(EXAMPLES_BUILD_DIR)/
 
 .PHONY: build
 build: $(GENERATED_SOURCE_FILES) $(OBJECT_FILES) $(PROGRAM)_tokens $(PROGRAM)_kludgy_grammar
