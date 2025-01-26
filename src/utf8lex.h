@@ -1,6 +1,6 @@
 /*
  * utf8lex
- * Copyright © 2023-2024 Johann Tienhaara
+ * Copyright © 2023-2025 Johann Tienhaara
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -107,6 +107,7 @@ enum _ENUM_utf8lex_error
   UTF8LEX_ERROR_BAD_OFFSET,  // Negative offset, or too close to end of string.
   UTF8LEX_ERROR_BAD_START,  // Negative start, or too close to end of string.
   UTF8LEX_ERROR_BAD_AFTER,  // After is neither reset (-1) nor valid new start.
+  UTF8LEX_ERROR_BAD_HASH,  // Hash is incorrect.
   UTF8LEX_ERROR_BAD_MIN,  // Min must be 0 or greater.
   UTF8LEX_ERROR_BAD_MAX,  // Max must be >= min, or -1 for no limit.
   UTF8LEX_ERROR_BAD_MULTI_TYPE,  // Multi type must be sequence, OR, etc.
@@ -138,6 +139,8 @@ struct _STRUCT_utf8lex_location
   int start;  // First byte / char / grapheme / and so on of a token.
   int length;  // # of bytes / chars / graphemes / and so on of a token.
   int after;  // Either -1, or reset the start location to this, if >= 0.
+
+  unsigned long hash;  // The sum of bytes / chars / graphemes / and so on.
 };
 
 
@@ -189,8 +192,8 @@ struct _STRUCT_utf8lex_buffer
   int fd;  // File descriptor, or -1 if no open file backs this buffer.
   FILE *fp;  // File descriptor for fopen(), fread(), or NULL.
 
-  utf8lex_location_t loc[UTF8LEX_UNIT_MAX];
-  utf8lex_string_t *str;
+  utf8lex_location_t loc[UTF8LEX_UNIT_MAX];  // Length of str.
+  utf8lex_string_t *str;  // One chunk of text from the file / other source.
   bool is_eof;  // No more bytes to read?  (If so, do not return UTF8LEX_MORE).
 };
 
@@ -736,8 +739,8 @@ extern utf8lex_error_t utf8lex_token_cat_string(
 
 struct _STRUCT_ut8lex_state
 {
-  utf8lex_buffer_t *buffer;
-  utf8lex_location_t loc[UTF8LEX_UNIT_MAX];
+  utf8lex_buffer_t *buffer;  // Current buffer being lexed.
+  utf8lex_location_t loc[UTF8LEX_UNIT_MAX];  // Current location within buffer.
 };
 
 extern utf8lex_error_t utf8lex_state_init(

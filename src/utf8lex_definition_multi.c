@@ -1,6 +1,6 @@
 /*
  * utf8lex
- * Copyright © 2023-2024 Johann Tienhaara
+ * Copyright © 2023-2025 Johann Tienhaara
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -511,14 +511,17 @@ static utf8lex_error_t utf8lex_lex_multi(
     multi_state.loc[unit].start = state->loc[unit].start;
     multi_state.loc[unit].length = 0;
     multi_state.loc[unit].after = -1;
+    multi_state.loc[unit].hash = (unsigned long) 0;
 
     multi_buffer.loc[unit].start = state->buffer->loc[unit].start;
     multi_buffer.loc[unit].length = 0;
     multi_buffer.loc[unit].after = -1;
+    multi_buffer.loc[unit].hash = (unsigned long) 0;
 
     sequence_loc[unit].start = state->loc[unit].start;
     sequence_loc[unit].length = (int) 0;
     sequence_loc[unit].after = (int) -1;  // No reset after token.
+    sequence_loc[unit].hash = (unsigned long) 0;
   }
 
   utf8lex_reference_t *reference = multi->references;
@@ -581,13 +584,22 @@ static utf8lex_error_t utf8lex_lex_multi(
         multi_buffer.loc[unit].start += child_token.loc[unit].length;
         multi_buffer.loc[unit].length = 0;
         multi_buffer.loc[unit].after = child_token.loc[unit].after;
+        multi_buffer.loc[unit].hash
+          <<= (8 * child_token.loc[UTF8LEX_UNIT_BYTE].length);
+        multi_buffer.loc[unit].hash |= child_token.loc[unit].hash;
 
         multi_state.loc[unit].start += child_token.loc[unit].length;
         multi_state.loc[unit].length = 0;
         multi_state.loc[unit].after = child_token.loc[unit].after;
+        multi_state.loc[unit].hash
+          <<= (8 * child_token.loc[UTF8LEX_UNIT_BYTE].length);
+        multi_state.loc[unit].hash |= child_token.loc[unit].hash;
 
         sequence_loc[unit].length += child_token.loc[unit].length;
         sequence_loc[unit].after = child_token.loc[unit].after;
+        sequence_loc[unit].hash
+          <<= (8 * child_token.loc[UTF8LEX_UNIT_BYTE].length);
+        sequence_loc[unit].hash |= child_token.loc[unit].hash;
       }
     }
 
@@ -648,6 +660,7 @@ static utf8lex_error_t utf8lex_lex_multi(
     state->loc[unit].start = sequence_loc[unit].start;
     state->loc[unit].length = sequence_loc[unit].length;
     state->loc[unit].after = sequence_loc[unit].after;
+    state->loc[unit].hash = sequence_loc[unit].hash;
   }
 
   error = utf8lex_token_init(

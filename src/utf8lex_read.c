@@ -1,6 +1,6 @@
 /*
  * utf8lex
- * Copyright © 2023-2024 Johann Tienhaara
+ * Copyright © 2023-2025 Johann Tienhaara
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -71,6 +71,7 @@ utf8lex_error_t utf8lex_read_grapheme(
   size_t total_lines_read = (size_t) 0;
   off_t after_char = (off_t) -1;
   off_t after_grapheme = (off_t) -1;
+  unsigned long hash = (unsigned long) 0;
   for (int u8c = 0; ; u8c ++)
   {
     unsigned char *str_pointer = (unsigned char *)
@@ -222,6 +223,15 @@ utf8lex_error_t utf8lex_read_grapheme(
     total_chars_read += (size_t) 1;
     total_lines_read += (size_t) num_lines_read;
 
+    // Hash bytes and chars read in:
+    for (off_t byte_offset = (off_t) 0;
+         byte_offset < (off_t) utf8proc_num_bytes_read;
+         byte_offset ++)
+    {
+      hash <<= 8;
+      hash |= (unsigned long) str_pointer[byte_offset];
+    }
+
     // Keep reading more bytes until we find a grapheme boundary
     // (or run out of bytes).
     prev_codepoint = utf8proc_codepoint;
@@ -238,15 +248,19 @@ utf8lex_error_t utf8lex_read_grapheme(
   // Do not change: loc_pointer[UTF8LEX_UNIT_BYTE].start
   loc_pointer[UTF8LEX_UNIT_BYTE].length = (int) total_bytes_read;
   loc_pointer[UTF8LEX_UNIT_BYTE].after = (int) -1;  // Never reset.
+  loc_pointer[UTF8LEX_UNIT_BYTE].hash = (unsigned long) hash;
   // Do not change: loc_pointer[UTF8LEX_UNIT_CHAR].start
   loc_pointer[UTF8LEX_UNIT_CHAR].length = (int) total_chars_read;
   loc_pointer[UTF8LEX_UNIT_CHAR].after = (int) after_char;
+  loc_pointer[UTF8LEX_UNIT_CHAR].hash = (unsigned long) hash;
   // Do not change: loc_pointer[UTF8LEX_UNIT_GRAPHEME].start
   loc_pointer[UTF8LEX_UNIT_GRAPHEME].length = (int) 1;
   loc_pointer[UTF8LEX_UNIT_GRAPHEME].after = (int) after_grapheme;  // -1 or 0
+  loc_pointer[UTF8LEX_UNIT_GRAPHEME].hash = (unsigned long) hash;
   // Do not change: loc_pointer[UTF8LEX_UNIT_LINE].start
   loc_pointer[UTF8LEX_UNIT_LINE].length = (int) total_lines_read;
   loc_pointer[UTF8LEX_UNIT_LINE].after = (int) -1;  // Never reset.
+  loc_pointer[UTF8LEX_UNIT_LINE].hash = (unsigned long) 0;  // Don't hash lines.
   *codepoint_pointer = first_codepoint;
   // We only set the category/ies according to the first codepoint
   // of the grapheme cluster.  The remainder of the characters

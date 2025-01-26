@@ -1,6 +1,6 @@
 /*
  * utf8lex
- * Copyright © 2023-2024 Johann Tienhaara
+ * Copyright © 2023-2025 Johann Tienhaara
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -160,6 +160,10 @@ utf8lex_error_t utf8lex_error_string(
   case UTF8LEX_ERROR_BAD_AFTER:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
                                  "UTF8LEX_ERROR_BAD_AFTER");
+    break;
+  case UTF8LEX_ERROR_BAD_HASH:
+    num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
+                                 "UTF8LEX_ERROR_BAD_HASH");
     break;
   case UTF8LEX_ERROR_BAD_MIN:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,

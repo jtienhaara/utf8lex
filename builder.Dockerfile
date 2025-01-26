@@ -1,6 +1,6 @@
 #
 # utf8lex
-# Copyright © 2023-2024 Johann Tienhaara
+# Copyright © 2023-2025 Johann Tienhaara
 # All rights reserved
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,13 +19,13 @@
 #
 
 #
-# @version Last updated 2024-08-03
+# @version Last updated 2025-01-26
 # Debian Bookworm (Debian 12)
 # Image from:
 #
 #     https://hub.docker.com/_/debian
 #
-FROM debian:12.6-slim
+FROM debian:12.9-slim
 
 #
 # Docker's builtin TARGETARCH build arg:

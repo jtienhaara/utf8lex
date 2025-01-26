@@ -1,6 +1,6 @@
 /*
  * utf8lex
- * Copyright © 2023-2024 Johann Tienhaara
+ * Copyright © 2023-2025 Johann Tienhaara
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -83,6 +83,7 @@ utf8lex_error_t utf8lex_literal_definition_init(
     state.loc[unit].start = 0;
     state.loc[unit].length = 0;
     state.loc[unit].after = -1;
+    state.loc[unit].hash = (unsigned long) 0;
   }
 
   off_t offset = (off_t) 0;
@@ -133,6 +134,8 @@ utf8lex_error_t utf8lex_literal_definition_init(
       literal_loc[unit].length += grapheme_loc[unit].length;
       // Possible resets to char, grapheme position due to newlines:
       literal_loc[unit].after = grapheme_loc[unit].after;
+      // Hash of the grapheme (unsigned long, can wrap to 0):
+      literal_loc[unit].hash = grapheme_loc[unit].hash;
     }
   }
 
@@ -152,6 +155,7 @@ utf8lex_error_t utf8lex_literal_definition_init(
     self->loc[unit].start = literal_loc[unit].start;
     self->loc[unit].length = literal_loc[unit].length;
     self->loc[unit].after = literal_loc[unit].after;
+    self->loc[unit].hash = literal_loc[unit].hash;
   }
 
   if (self->base.prev == NULL)
@@ -278,6 +282,7 @@ static utf8lex_error_t utf8lex_lex_literal(
     token_loc[unit].start = state->loc[unit].start;
     token_loc[unit].length = literal->loc[unit].length;
     token_loc[unit].after = literal->loc[unit].after;  // -1 or new location.
+    token_loc[unit].hash = literal->loc[unit].hash;
   }
 
   utf8lex_error_t error = utf8lex_token_init(

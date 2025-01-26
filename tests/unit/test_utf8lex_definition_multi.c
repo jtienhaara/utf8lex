@@ -1,6 +1,6 @@
 /*
  * utf8lex
- * Copyright © 2023-2024 Johann Tienhaara
+ * Copyright © 2023-2025 Johann Tienhaara
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +18,6 @@
 
 #include <stdio.h>
 #include <string.h>  // For strcpy()
-#include <unistd.h>  // For read()
 
 #include "utf8lex.h"
 

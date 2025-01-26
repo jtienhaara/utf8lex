@@ -1,6 +1,6 @@
 /*
  * utf8lex
- * Copyright © 2023-2024 Johann Tienhaara
+ * Copyright © 2023-2025 Johann Tienhaara
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -89,6 +89,7 @@ utf8lex_error_t utf8lex_token_init(
     {
       return UTF8LEX_ERROR_BAD_AFTER;
     }
+    // We don't generate UTF8LEX_ERROR_BAD_HASH errors here.
   }
   int start_byte = state->buffer->loc[UTF8LEX_UNIT_BYTE].start;
   int length_bytes = token_loc[UTF8LEX_UNIT_BYTE].length;
@@ -119,6 +120,8 @@ utf8lex_error_t utf8lex_token_init(
     // Possible reset (both relative buffer and absolute state)
     // start locations (for chars, graphemes only) after this token:
     self->loc[unit].after = token_loc[unit].after;
+    // Hash of the token (unsigned long, can wrap to 0):
+    self->loc[unit].hash = token_loc[unit].hash;
   }
 
   return UTF8LEX_OK;

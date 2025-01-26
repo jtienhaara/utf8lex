@@ -1,6 +1,6 @@
 /*
  * utf8lex
- * Copyright © 2023-2024 Johann Tienhaara
+ * Copyright © 2023-2025 Johann Tienhaara
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -293,7 +293,7 @@ static utf8lex_error_t test_utf8lex(
     utf8lex_token_copy_string(&token,
                               token_bytes,
                               (size_t) 256);
-    printf("        test_utf8lex: %s (%s) \"%s\" @(%d/%d/%d/%d)[%d/%d/%d/%d]\n",
+    printf("        test_utf8lex: %s (%s) \"%s\" @(%d/%d/%d/%d)[%d/%d/%d/%d] hash(%ul/%ul/%ul/%ul)\n",
            token.rule->name,
            token.rule->definition->definition_type->name,
            token_bytes,
@@ -304,7 +304,11 @@ static utf8lex_error_t test_utf8lex(
            token.loc[UTF8LEX_UNIT_BYTE].length,
            token.loc[UTF8LEX_UNIT_CHAR].length,
            token.loc[UTF8LEX_UNIT_GRAPHEME].length,
-           token.loc[UTF8LEX_UNIT_LINE].length
+           token.loc[UTF8LEX_UNIT_LINE].hash,
+           token.loc[UTF8LEX_UNIT_BYTE].hash,
+           token.loc[UTF8LEX_UNIT_CHAR].hash,
+           token.loc[UTF8LEX_UNIT_GRAPHEME].hash,
+           token.loc[UTF8LEX_UNIT_LINE].hash
            );
   }
 

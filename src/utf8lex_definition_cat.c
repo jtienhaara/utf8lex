@@ -1,6 +1,6 @@
 /*
  * utf8lex
- * Copyright © 2023-2024 Johann Tienhaara
+ * Copyright © 2023-2025 Johann Tienhaara
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -157,6 +157,7 @@ static utf8lex_error_t utf8lex_lex_cat(
     token_loc[unit].start = state->loc[unit].start;
     token_loc[unit].length = (int) 0;
     token_loc[unit].after = -1;  // No reset.
+    token_loc[unit].hash = (unsigned long) 0;
   }
 
   utf8lex_cat_definition_t *cat_definition =
@@ -228,6 +229,8 @@ static utf8lex_error_t utf8lex_lex_cat(
       token_loc[unit].length += grapheme_loc[unit].length;
       // Possible resets to char, grapheme position due to newlines:
       token_loc[unit].after = grapheme_loc[unit].after;
+      // Hash of the grapheme (unsigned long, can wrap to 0):
+      token_loc[unit].hash = grapheme_loc[unit].hash;
     }
   }
 
