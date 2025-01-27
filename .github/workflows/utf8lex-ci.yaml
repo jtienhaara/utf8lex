@@ -61,8 +61,6 @@ jobs:
         name: Set a non-slashy MATRIX_PLATFORM environment variable
         run: |
           echo "MATRIX_PLATFORM=${{matrix.platform}}" \
-              | sed 's|/main||' \
-              | sed 's|/linux||' \
               | sed 's|/|\.|g' \
               > $GITHUB_ENV
 
@@ -181,8 +179,6 @@ jobs:
         name: Set a non-slashy MATRIX_PLATFORM environment variable
         run: |
           echo "MATRIX_PLATFORM=${{matrix.platform}}" \
-              | sed 's|/main||' \
-              | sed 's|/linux||' \
               | sed 's|/|\.|g' \
               > $GITHUB_ENV
 
@@ -295,8 +291,6 @@ jobs:
         name: Set a non-slashy MATRIX_PLATFORM environment variable
         run: |
           echo "MATRIX_PLATFORM=${{matrix.platform}}" \
-              | sed 's|/main||' \
-              | sed 's|/linux||' \
               | sed 's|/|\.|g' \
               >> $GITHUB_ENV
 
@@ -432,8 +426,6 @@ jobs:
         name: Set a non-slashy MATRIX_PLATFORM environment variable
         run: |
           echo "MATRIX_PLATFORM=${{matrix.platform}}" \
-              | sed 's|/main||' \
-              | sed 's|/linux||' \
               | sed 's|/|\.|g' \
               >> $GITHUB_ENV
 
@@ -571,8 +563,6 @@ jobs:
         name: Set a non-slashy MATRIX_PLATFORM environment variable
         run: |
           echo "MATRIX_PLATFORM=${{matrix.platform}}" \
-              | sed 's|/main||' \
-              | sed 's|/linux||' \
               | sed 's|/|\.|g' \
               >> $GITHUB_ENV
 
