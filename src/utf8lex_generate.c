@@ -1216,7 +1216,7 @@ static utf8lex_error_t utf8lex_generate_definition(
     &(lex->db.multi_definitions[md]);
 
   // Now parse the definition.
-  // DEF1 ...defintiion... (space first).
+  // DEF1 ...definition... (space first).
   utf8lex_lex_state_t lex_state = UTF8LEX_LEX_STATE_DEFINITION;
   if (is_rule == true)
   {
@@ -1456,7 +1456,7 @@ static utf8lex_error_t utf8lex_generate_definition(
               unresolved_reference = unresolved_reference->next;
             }
             if (unresolved_reference != NULL) {
-              fprintf(stderr, "ERROR utf8lex No such defintiion [%d.%d]: %s\n",
+              fprintf(stderr, "ERROR utf8lex No such definition [%d.%d]: %s\n",
                       state->loc[UTF8LEX_UNIT_LINE].start + 1,
                       state->loc[UTF8LEX_UNIT_CHAR].start,
                       unresolved_reference->definition_name);
@@ -2613,6 +2613,272 @@ static utf8lex_error_t utf8lex_generate_write_rules(
     }
 
     line_bytes = snprintf(line, max_bytes,
+                          "    if (error == UTF8LEX_ERROR_NOT_FOUND) {\n");
+    if (line_bytes >= max_bytes) {
+      fprintf(stderr, "ERROR 163.1 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_BAD_LENGTH;
+    }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) {
+      fprintf(stderr, "ERROR 165.1 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_FILE_WRITE;
+    }
+    line_bytes = snprintf(line, max_bytes,
+                          "      utf8lex_reference_t *unresolved_reference =\n");
+    if (line_bytes >= max_bytes) {
+      fprintf(stderr, "ERROR 163.2 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_BAD_LENGTH;
+    }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) {
+      fprintf(stderr, "ERROR 165.2 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_FILE_WRITE;
+    }
+    line_bytes = snprintf(line, max_bytes,
+                          "        YY_MULTI_DEFINITIONS[%d].references;\n",
+                          md);
+    if (line_bytes >= max_bytes) {
+      fprintf(stderr, "ERROR 163.3 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_BAD_LENGTH;
+    }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) {
+      fprintf(stderr, "ERROR 165.3 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_FILE_WRITE;
+    }
+    line_bytes = snprintf(line, max_bytes,
+                          "      for (int infinite_loop_protector = 0;\n");
+    if (line_bytes >= max_bytes) {
+      fprintf(stderr, "ERROR 163.4 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_BAD_LENGTH;
+    }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) {
+      fprintf(stderr, "ERROR 165.4 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_FILE_WRITE;
+    }
+    line_bytes = snprintf(line, max_bytes,
+                          "           infinite_loop_protector < UTF8LEX_REFERENCES_LENGTH_MAX;\n");
+    if (line_bytes >= max_bytes) {
+      fprintf(stderr, "ERROR 163.5 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_BAD_LENGTH;
+    }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) {
+      fprintf(stderr, "ERROR 165.5 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_FILE_WRITE;
+    }
+    line_bytes = snprintf(line, max_bytes,
+                          "           infinite_loop_protector ++)\n");
+    if (line_bytes >= max_bytes) {
+      fprintf(stderr, "ERROR 163.6 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_BAD_LENGTH;
+    }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) {
+      fprintf(stderr, "ERROR 165.6 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_FILE_WRITE;
+    }
+    line_bytes = snprintf(line, max_bytes,
+                          "      {\n");
+    if (line_bytes >= max_bytes) {
+      fprintf(stderr, "ERROR 163.7 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_BAD_LENGTH;
+    }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) {
+      fprintf(stderr, "ERROR 165.7 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_FILE_WRITE;
+    }
+    line_bytes = snprintf(line, max_bytes,
+                          "        if (unresolved_reference == NULL) {\n");
+    if (line_bytes >= max_bytes) {
+      fprintf(stderr, "ERROR 163.8 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_BAD_LENGTH;
+    }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) {
+      fprintf(stderr, "ERROR 165.8 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_FILE_WRITE;
+    }
+    line_bytes = snprintf(line, max_bytes,
+                          "          break;\n");
+    if (line_bytes >= max_bytes) {
+      fprintf(stderr, "ERROR 163.9 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_BAD_LENGTH;
+    }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) {
+      fprintf(stderr, "ERROR 165.9 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_FILE_WRITE;
+    }
+    line_bytes = snprintf(line, max_bytes,
+                          "        }\n");
+    if (line_bytes >= max_bytes) {
+      fprintf(stderr, "ERROR 163.10 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_BAD_LENGTH;
+    }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) {
+      fprintf(stderr, "ERROR 165.10 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_FILE_WRITE;
+    }
+    line_bytes = snprintf(line, max_bytes,
+                          "        else if (unresolved_reference->definition_or_null == NULL) {\n");
+    if (line_bytes >= max_bytes) {
+      fprintf(stderr, "ERROR 163.11 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_BAD_LENGTH;
+    }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) {
+      fprintf(stderr, "ERROR 165.11 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_FILE_WRITE;
+    }
+    line_bytes = snprintf(line, max_bytes,
+                          "          // This is the unresolved definition.\n");
+    if (line_bytes >= max_bytes) {
+      fprintf(stderr, "ERROR 163.12 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_BAD_LENGTH;
+    }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) {
+      fprintf(stderr, "ERROR 165.12 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_FILE_WRITE;
+    }
+    line_bytes = snprintf(line, max_bytes,
+                          "          break;\n");
+    if (line_bytes >= max_bytes) {
+      fprintf(stderr, "ERROR 163.13 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_BAD_LENGTH;
+    }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) {
+      fprintf(stderr, "ERROR 165.13 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_FILE_WRITE;
+    }
+    line_bytes = snprintf(line, max_bytes,
+                          "        }\n");
+    if (line_bytes >= max_bytes) {
+      fprintf(stderr, "ERROR 163.14 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_BAD_LENGTH;
+    }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) {
+      fprintf(stderr, "ERROR 165.14 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_FILE_WRITE;
+    }
+    line_bytes = snprintf(line, max_bytes,
+                          "        unresolved_reference = unresolved_reference->next;\n");
+    if (line_bytes >= max_bytes) {
+      fprintf(stderr, "ERROR 163.15 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_BAD_LENGTH;
+    }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) {
+      fprintf(stderr, "ERROR 165.15 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_FILE_WRITE;
+    }
+    line_bytes = snprintf(line, max_bytes,
+                          "      }\n");
+    if (line_bytes >= max_bytes) {
+      fprintf(stderr, "ERROR 163.16 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_BAD_LENGTH;
+    }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) {
+      fprintf(stderr, "ERROR 165.16 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_FILE_WRITE;
+    }
+    line_bytes = snprintf(line, max_bytes,
+                          "      if (unresolved_reference != NULL) {\n");
+    if (line_bytes >= max_bytes) {
+      fprintf(stderr, "ERROR 163.17 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_BAD_LENGTH;
+    }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) {
+      fprintf(stderr, "ERROR 165.17 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_FILE_WRITE;
+    }
+    line_bytes = snprintf(line, max_bytes,
+                          "        fprintf(stderr, \"ERROR utf8lex No such definition [%%d.%%d]: %%s\\n\",\n");
+    if (line_bytes >= max_bytes) {
+      fprintf(stderr, "ERROR 163.18 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_BAD_LENGTH;
+    }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) {
+      fprintf(stderr, "ERROR 165.18 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_FILE_WRITE;
+    }
+    line_bytes = snprintf(line, max_bytes,
+                          "                YY_STATE.loc[UTF8LEX_UNIT_LINE].start + 1,\n");
+    if (line_bytes >= max_bytes) {
+      fprintf(stderr, "ERROR 163.19 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_BAD_LENGTH;
+    }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) {
+      fprintf(stderr, "ERROR 165.19 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_FILE_WRITE;
+    }
+    line_bytes = snprintf(line, max_bytes,
+                          "                YY_STATE.loc[UTF8LEX_UNIT_CHAR].start,\n");
+    if (line_bytes >= max_bytes) {
+      fprintf(stderr, "ERROR 163.20 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_BAD_LENGTH;
+    }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) {
+      fprintf(stderr, "ERROR 165.20 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_FILE_WRITE;
+    }
+    line_bytes = snprintf(line, max_bytes,
+                          "                unresolved_reference->definition_name);\n");
+    if (line_bytes >= max_bytes) {
+      fprintf(stderr, "ERROR 163.21 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_BAD_LENGTH;
+    }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) {
+      fprintf(stderr, "ERROR 165.21 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_FILE_WRITE;
+    }
+    line_bytes = snprintf(line, max_bytes,
+                          "        return error;\n");
+    if (line_bytes >= max_bytes) {
+      fprintf(stderr, "ERROR 163.22 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_BAD_LENGTH;
+    }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) {
+      fprintf(stderr, "ERROR 165.22 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_FILE_WRITE;
+    }
+    line_bytes = snprintf(line, max_bytes,
+                          "      }\n");
+    if (line_bytes >= max_bytes) {
+      fprintf(stderr, "ERROR 163.23 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_BAD_LENGTH;
+    }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) {
+      fprintf(stderr, "ERROR 165.23 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_FILE_WRITE;
+    }
+    line_bytes = snprintf(line, max_bytes,
+                          "    }\n");
+    if (line_bytes >= max_bytes) {
+      fprintf(stderr, "ERROR 163.24 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_BAD_LENGTH;
+    }
+    bytes_written = write(fd_out, line, line_bytes);
+    if (bytes_written != line_bytes) {
+      fprintf(stderr, "ERROR 165.24 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
+      return UTF8LEX_ERROR_FILE_WRITE;
+    }
+
+    line_bytes = snprintf(line, max_bytes,
                           "    if (error != UTF8LEX_OK) { return error; }\n");
     if (line_bytes >= max_bytes) {
       fprintf(stderr, "ERROR 164 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
@@ -3513,7 +3779,7 @@ static utf8lex_error_t utf8lex_generate_parse(
         unresolved_reference = unresolved_reference->next;
       }
       if (unresolved_reference != NULL) {
-        fprintf(stderr, "ERROR utf8lex No such defintiion [%d.%d]: %s\n",
+        fprintf(stderr, "ERROR utf8lex No such definition [%d.%d]: %s\n",
                 state_pointer->loc[UTF8LEX_UNIT_LINE].start + 1,
                 state_pointer->loc[UTF8LEX_UNIT_CHAR].start,
                 unresolved_reference->definition_name);

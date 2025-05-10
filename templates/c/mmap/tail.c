@@ -118,10 +118,6 @@ static utf8lex_error_t yylex_print_error(
     return error;
   }
 
-  size_t max_length_bytes;  // How many bytes have been allocated.
-  size_t length_bytes;  // How many bytes have been written.
-  unsigned char *bytes;
-
   unsigned char error_name[256];
   utf8lex_string_t error_string;
   utf8lex_error_t string_error = utf8lex_string(&error_string, 256, error_name);
