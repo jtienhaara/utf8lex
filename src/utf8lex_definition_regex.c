@@ -259,7 +259,7 @@ static utf8lex_error_t utf8lex_lex_regex(
                               pcre2_error,  // errorcode
                               (PCRE2_UCHAR *) pcre2_error_message,  // buffer
                               (PCRE2_SIZE) 256);  // bufflen
-    fprintf(stderr, "*** ut8flex: pcre2 regex match error: %s\n",
+    fprintf(stderr, "*** utf8lex: pcre2 regex match error: %s\n",
             pcre2_error_message);
     fflush(stderr);
     pcre2_match_data_free(match);
