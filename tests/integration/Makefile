@@ -94,6 +94,8 @@ run-test_utf8lex:
 #
 .PHONY: run-test_utf8lex_generate
 run-test_utf8lex_generate:
+	echo "================================================================"
+	echo "test_utf8lex_generate 001:"
 	$(TEST_BUILD_DIR)/test_utf8lex_generate \
 	    . \
 	    ../../templates/c/mmap \
@@ -110,6 +112,26 @@ run-test_utf8lex_generate:
 	    test_l_file_001_input.txt \
 	    test_l_file_001_expected_output.txt \
 	    $(TEST_BUILD_DIR)/test_l_file_001_actual_output.txt
+	echo "----------------------------------------------------------------"
+	echo "================================================================"
+	echo "test_utf8lex_generate 002:"
+	$(TEST_BUILD_DIR)/test_utf8lex_generate \
+	    . \
+	    ../../templates/c/mmap \
+	    $(TEST_BUILD_DIR) \
+	    test_utf8lex_generate_002
+	$(CC) $(CFLAGS) \
+	    -c $(TEST_BUILD_DIR)/test_utf8lex_generate_002.c \
+	    -o $(TEST_BUILD_DIR)/test_utf8lex_generate_002.o
+	$(LD) $(LDFLAGS) \
+	    $(TEST_BUILD_DIR)/test_utf8lex_generate_002.o \
+	    $(TEST_BUILD_DIR)/test_l_file.o \
+	    -o $(TEST_BUILD_DIR)/test_utf8lex_generate_002
+	$(TEST_BUILD_DIR)/test_utf8lex_generate_002 \
+	    test_l_file_002_input.txt \
+	    test_l_file_002_expected_output.txt \
+	    $(TEST_BUILD_DIR)/test_l_file_002_actual_output.txt
+	echo "----------------------------------------------------------------"
 
 .PHONY: debug
 debug:

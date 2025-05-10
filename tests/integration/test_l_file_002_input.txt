@@ -1,0 +1,5 @@
+// Mu language lexer test.
+/* Multi-line comment with * and / and \*/ and *\/
+   ends here. */
+int foo;
+string id: /^[_a-zA-Z][_a-zA-Z0-9]*$/
