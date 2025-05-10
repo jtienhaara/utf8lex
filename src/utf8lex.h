@@ -43,7 +43,7 @@ typedef enum _ENUM_utf8lex_printable_flag       utf8lex_printable_flag_t;
 typedef struct _STRUCT_utf8lex_reference        utf8lex_reference_t;
 typedef struct _STRUCT_utf8lex_regex_definition utf8lex_regex_definition_t;
 typedef struct _STRUCT_utf8lex_rule             utf8lex_rule_t;
-typedef struct _STRUCT_ut8lex_state             utf8lex_state_t;
+typedef struct _STRUCT_ut8flex_state            utf8lex_state_t;
 typedef struct _STRUCT_utf8lex_string           utf8lex_string_t;
 typedef struct _STRUCT_utf8lex_target_language  utf8lex_target_language_t;
 typedef struct _STRUCT_utf8lex_token            utf8lex_token_t;
@@ -737,7 +737,7 @@ extern utf8lex_error_t utf8lex_token_cat_string(
         unsigned char *str,  // Text will be concatenated starting at '\0'.
         size_t max_bytes);
 
-struct _STRUCT_ut8lex_state
+struct _STRUCT_utf8lex_state
 {
   utf8lex_buffer_t *buffer;  // Current buffer being lexed.
   utf8lex_location_t loc[UTF8LEX_UNIT_MAX];  // Current location within buffer.
