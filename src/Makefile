@@ -58,7 +58,8 @@ SOURCE_FILES ?= \
 	utf8lex_string.c \
 	utf8lex_sub_token.c \
 	utf8lex_target_language_c.c \
-	utf8lex_token.c
+	utf8lex_token.c \
+	utf8lex.c
 
 OBJECT_FILES = \
 	$(patsubst %.c,$(BUILD_DIR)/%.o,$(SOURCE_FILES))
