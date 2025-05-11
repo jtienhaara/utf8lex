@@ -235,6 +235,36 @@ utf8lex_error_t utf8lex_token_clear(
     self->loc[unit].after = -2;
   }
 
+  utf8lex_sub_token_t *sub_token = self->sub_tokens;
+  bool is_infinite_loop = true;
+  for (int infinite_loop_protector = 0;
+       infinite_loop_protector < UTF8LEX_SUB_TOKENS_LENGTH_MAX;
+       infinite_loop_protector ++)
+  {
+    if (sub_token == NULL)
+    {
+      is_infinite_loop = false;
+      break;
+    }
+
+    utf8lex_sub_token_t *next_sub_token = sub_token->next;
+
+    utf8lex_error_t error = utf8lex_sub_token_clear(sub_token);
+    if (error != UTF8LEX_OK)
+    {
+      UTF8LEX_DEBUG("EXIT utf8lex_token_clear()");
+      return error;
+    }
+
+    sub_token = next_sub_token;
+  }
+
+  if (is_infinite_loop)
+  {
+    UTF8LEX_DEBUG("EXIT utf8lex_token_clear()");
+    return UTF8LEX_ERROR_INFINITE_LOOP;
+  }
+
   self->sub_tokens = NULL;
   self->parent_or_null = NULL;
 

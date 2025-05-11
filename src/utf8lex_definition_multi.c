@@ -586,6 +586,8 @@ static utf8lex_error_t utf8lex_lex_multi(
   uint32_t infinite_loop = UTF8LEX_REFERENCES_LENGTH_MAX;
   bool is_infinite_loop = true;
   utf8lex_definition_t *matching_definition = NULL;
+  utf8lex_sub_token_t *first_sub_token = NULL;
+  utf8lex_sub_token_t *prev_sub_token = NULL;
   for (uint32_t r = 0; r < infinite_loop; r ++)
   {
     if (reference == NULL)
@@ -636,6 +638,31 @@ static utf8lex_error_t utf8lex_lex_multi(
       {
         UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
         return error;
+      }
+
+      // The child_token matched the current child definition.
+      child_token.definition = definition;
+
+      // Create a sub-token for the matching child.
+      uint32_t st = state->num_used_sub_tokens;
+      utf8lex_sub_token_t *sub_token = &(state->sub_tokens[st]);
+      st ++;
+      state->num_used_sub_tokens = st;
+      error = utf8lex_sub_token_init(
+              sub_token,  // self
+              prev_sub_token,  // prev
+              &child_token,  // token_to_copy
+              &multi_state);  // state
+      if (error != UTF8LEX_OK)
+      {
+        UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
+        return error;
+      }
+      sub_token->token.parent_or_null = token_pointer;
+      prev_sub_token = sub_token;
+      if (first_sub_token == NULL)
+      {
+        first_sub_token = sub_token;
       }
 
       for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
@@ -740,6 +767,8 @@ static utf8lex_error_t utf8lex_lex_multi(
     UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
     return error;
   }
+
+  token_pointer->sub_tokens = first_sub_token;
 
   UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
   return UTF8LEX_OK;

@@ -154,11 +154,34 @@ utf8lex_error_t utf8lex_sub_token_find(
       UTF8LEX_DEBUG("EXIT utf8lex_sub_token_find()");
       return UTF8LEX_ERROR_NULL_POINTER;
     }
-    else if (strcmp(sub_token->name, name) == 0)
+
+    if (strcmp(sub_token->name, name) == 0)
     {
       *found_pointer = sub_token;
       is_infinite_loop = false;
       break;
+    }
+
+    if (sub_token->token.sub_tokens != NULL)
+    {
+      // Depth-first search.
+      // TODO We do not currently protect against infinite recursion...
+      // TODO Should switch to a loop.
+      utf8lex_error_t error = utf8lex_sub_token_find(
+          sub_token->token.sub_tokens,  // first_sub_token
+          name,  // name
+          found_pointer  // found_pointer
+          );
+      if (error == UTF8LEX_OK)
+      {
+        is_infinite_loop = false;
+        break;
+      }
+      else if (error != UTF8LEX_ERROR_NOT_FOUND)
+      {
+        UTF8LEX_DEBUG("EXIT utf8lex_sub_token_find()");
+        return error;
+      }
     }
 
     sub_token = sub_token->next;
@@ -221,6 +244,28 @@ utf8lex_error_t utf8lex_sub_token_find_by_id(
       *found_pointer = sub_token;
       is_infinite_loop = false;
       break;
+    }
+
+    if (sub_token->token.sub_tokens != NULL)
+    {
+      // Depth-first search.
+      // TODO We do not currently protect against infinite recursion...
+      // TODO Should switch to a loop.
+      utf8lex_error_t error = utf8lex_sub_token_find_by_id(
+          sub_token->token.sub_tokens,  // first_sub_token
+          id,  // id
+          found_pointer  // found_pointer
+          );
+      if (error == UTF8LEX_OK)
+      {
+        is_infinite_loop = false;
+        break;
+      }
+      else if (error != UTF8LEX_ERROR_NOT_FOUND)
+      {
+        UTF8LEX_DEBUG("EXIT utf8lex_sub_token_find()");
+        return error;
+      }
     }
 
     sub_token = sub_token->next;

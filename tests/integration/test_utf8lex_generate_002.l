@@ -89,11 +89,8 @@ WHITESPACE              [\h]
 
 %%
 
-COMMENT_MULTI_LINE { printf("!!! COMMENT_MULTI_LINE\n"); fflush(stdout); }
+COMMENT_MULTI_LINE { char comment_body[256]; utf8lex_sub_token_t *sub_token = NULL; utf8lex_error_t error = utf8lex_sub_token_find(token->sub_tokens, "COMMENT_MULTI_LINE_BODY", &sub_token); if (error != UTF8LEX_OK) { comment_body[0] = '\0'; } else { utf8lex_sub_token_copy_string(sub_token, comment_body, 256); } printf("!!! COMMENT_MULTI_LINE with body: %s\n", comment_body); fflush(stdout); }
 COMMENT_SINGLE_LINE { printf("!!! COMMENT_SINGLE_LINE\n"); fflush(stdout); }
-
-COMMENT_MULTI_LINE_OPEN { printf("!!! COMMENT_MULTI_LINE_OPEN\n"); fflush(stdout); }
-COMMENT_MULTI_LINE_CLOSE { printf("!!! COMMENT_MULTI_LINE_CLOSE\n"); fflush(stdout); }
 
 PATTERN_INT_RANGE { printf("!!! PATTERN_INT_RANGE\n"); fflush(stdout); }
 PATTERN_FLOAT_RANGE { printf("!!! PATTERN_FLOAT_RANGE\n"); fflush(stdout); }
