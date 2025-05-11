@@ -38,6 +38,8 @@ utf8lex_error_t utf8lex_rule_init(
         size_t code_length_bytes  // (size_t) -1 to use strlen(code).
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_rule_init()");
+
   if (self == NULL
       || name == NULL
       || definition == NULL
@@ -45,11 +47,13 @@ utf8lex_error_t utf8lex_rule_init(
       || definition->definition_type->lex == NULL
       || code == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_rule_init()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (prev != NULL
            && prev->next != NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_rule_init()");
     return UTF8LEX_ERROR_CHAIN_INSERT;
   }
 
@@ -67,20 +71,23 @@ utf8lex_error_t utf8lex_rule_init(
   {
     self->code_length_bytes = code_length_bytes;
   }
-  if (self->prev != NULL)
+
+  if (self->prev == NULL)
+  {
+    self->id = (uint32_t) 1;
+  }
+  else
   {
     self->id = self->prev->id + 1;
-    if (self->id >= UTF8LEX_RULES_DB_LENGTH_MAX)
+    if (self->id > UTF8LEX_RULES_DB_LENGTH_MAX)
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_rule_init()");
       return UTF8LEX_ERROR_MAX_LENGTH;
     }
     self->prev->next = self;
   }
-  else
-  {
-    self->id = (uint32_t) 0;
-  }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_rule_init()");
   return UTF8LEX_OK;
 }
 
@@ -88,8 +95,11 @@ utf8lex_error_t utf8lex_rule_clear(
         utf8lex_rule_t *self
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_rule_clear()");
+
   if (self == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_rule_clear()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
@@ -118,6 +128,7 @@ utf8lex_error_t utf8lex_rule_clear(
   self->code = NULL;
   self->code_length_bytes = (size_t) -1;
 
+  UTF8LEX_DEBUG("EXIT utf8lex_rule_clear()");
   return UTF8LEX_OK;
 }
 
@@ -128,10 +139,13 @@ utf8lex_error_t utf8lex_rule_find(
         utf8lex_rule_t ** found_pointer  // Gets set when found.
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_rule_find()");
+
   if (first_rule == NULL
       || name == NULL
       || found_pointer == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_rule_find()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
@@ -160,13 +174,16 @@ utf8lex_error_t utf8lex_rule_find(
 
   if (is_infinite_loop == true)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_rule_find()");
     return UTF8LEX_ERROR_INFINITE_LOOP;
   }
   else if (*found_pointer == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_rule_find()");
     return UTF8LEX_ERROR_NOT_FOUND;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_rule_find()");
   return UTF8LEX_OK;
 }
 
@@ -176,12 +193,19 @@ utf8lex_error_t utf8lex_rule_find_by_id(
         utf8lex_rule_t ** found_pointer  // Gets set when found.
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_rule_find_by_id()");
+
   if (first_rule == NULL
       || found_pointer == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_rule_find_by_id()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
-
+  else if (id == (uint32_t) 0)
+  {
+    UTF8LEX_DEBUG("EXIT utf8lex_rule_find_by_id()");
+    return UTF8LEX_ERROR_BAD_ID;
+  }
 
   utf8lex_rule_t *rule = first_rule;
   uint32_t infinite_loop = UTF8LEX_RULES_DB_LENGTH_MAX;
@@ -189,7 +213,12 @@ utf8lex_error_t utf8lex_rule_find_by_id(
   *found_pointer = NULL;
   for (uint32_t d = 0; d < infinite_loop; d ++)
   {
-    if (rule->id == id)
+    if (rule->id == (uint32_t) 0)
+    {
+      UTF8LEX_DEBUG("EXIT utf8lex_rule_find_by_id()");
+      return UTF8LEX_ERROR_BAD_ID;
+    }
+    else if (rule->id == id)
     {
       *found_pointer = rule;
       is_infinite_loop = false;
@@ -208,12 +237,15 @@ utf8lex_error_t utf8lex_rule_find_by_id(
 
   if (is_infinite_loop == true)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_rule_find_by_id()");
     return UTF8LEX_ERROR_INFINITE_LOOP;
   }
   else if (*found_pointer == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_rule_find_by_id()");
     return UTF8LEX_ERROR_NOT_FOUND;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_rule_find_by_id()");
   return UTF8LEX_OK;
 }

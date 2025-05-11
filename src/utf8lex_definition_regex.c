@@ -37,15 +37,19 @@ utf8lex_error_t utf8lex_regex_definition_init(
         unsigned char *pattern
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_regex_definition_init()");
+
   if (self == NULL
       || name == NULL
       || pattern == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_regex_definition_init()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (prev != NULL
            && prev->next != NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_regex_definition_init()");
     return UTF8LEX_ERROR_CHAIN_INSERT;
   }
 
@@ -71,6 +75,7 @@ utf8lex_error_t utf8lex_regex_definition_init(
             "*** utf8lex: pcre2 regex compile error: %s\n", pcre2_error_string);
     utf8lex_regex_definition_clear((utf8lex_definition_t *) self);
 
+    UTF8LEX_DEBUG("EXIT utf8lex_regex_definition_init()");
     return UTF8LEX_ERROR_BAD_REGEX;
   }
   else if (self->regex == NULL)
@@ -80,6 +85,7 @@ utf8lex_error_t utf8lex_regex_definition_init(
             pattern);
     utf8lex_regex_definition_clear((utf8lex_definition_t *) self);
 
+    UTF8LEX_DEBUG("EXIT utf8lex_regex_definition_init()");
     return UTF8LEX_ERROR_BAD_REGEX;
   }
 
@@ -91,18 +97,20 @@ utf8lex_error_t utf8lex_regex_definition_init(
 
   if (self->base.prev == NULL)
   {
-    self->base.id = (uint32_t) 0;
+    self->base.id = (uint32_t) 1;
   }
   else
   {
     self->base.id = self->base.prev->id + 1;
-    if (self->base.id >= UTF8LEX_DEFINITIONS_DB_LENGTH_MAX)
+    if (self->base.id > UTF8LEX_DEFINITIONS_DB_LENGTH_MAX)
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_regex_definition_init()");
       return UTF8LEX_ERROR_MAX_LENGTH;
     }
     self->base.prev->next = (utf8lex_definition_t *) self;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_regex_definition_init()");
   return UTF8LEX_OK;
 }
 
@@ -110,12 +118,16 @@ utf8lex_error_t utf8lex_regex_definition_clear(
         utf8lex_definition_t *self  // Must be utf8lex_regex_definition_t *
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_regex_definition_clear()");
+
   if (self == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_regex_definition_clear()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (self->definition_type != UTF8LEX_DEFINITION_TYPE_REGEX)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_regex_definition_clear()");
     return UTF8LEX_ERROR_DEFINITION_TYPE;
   }
 
@@ -142,6 +154,7 @@ utf8lex_error_t utf8lex_regex_definition_clear(
   regex_definition->pattern = NULL;
   regex_definition->regex = NULL;
 
+  UTF8LEX_DEBUG("EXIT utf8lex_regex_definition_clear()");
   return UTF8LEX_OK;
 }
 
@@ -152,6 +165,8 @@ static utf8lex_error_t utf8lex_lex_regex(
         utf8lex_token_t *token_pointer
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_lex_regex()");
+
   if (rule == NULL
       || rule->definition == NULL
       || rule->definition->definition_type == NULL
@@ -161,11 +176,13 @@ static utf8lex_error_t utf8lex_lex_regex(
       || state->buffer->str == NULL
       || token_pointer == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_lex_regex()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (rule->definition->definition_type
            != UTF8LEX_DEFINITION_TYPE_REGEX)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_lex_regex()");
     return UTF8LEX_ERROR_DEFINITION_TYPE;
   }
 
@@ -182,6 +199,7 @@ static utf8lex_error_t utf8lex_lex_regex(
       NULL);  // gcontext.
   if (match == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_lex_regex()");
     return UTF8LEX_ERROR_STATE;
   }
 
@@ -233,6 +251,7 @@ static utf8lex_error_t utf8lex_lex_regex(
   if (pcre2_error == PCRE2_ERROR_NOMATCH)
   {
     pcre2_match_data_free(match);
+    UTF8LEX_DEBUG("EXIT utf8lex_lex_regex()");
     return UTF8LEX_NO_MATCH;
   }
   else if (pcre2_error == PCRE2_ERROR_PARTIAL)
@@ -242,11 +261,13 @@ static utf8lex_error_t utf8lex_lex_regex(
     {
       // No more bytes can be read in, we're at EOF.
       // Bad UTF-8 character at the end of the buffer.
+      UTF8LEX_DEBUG("EXIT utf8lex_lex_regex()");
       return UTF8LEX_ERROR_BAD_UTF8;
     }
     else
     {
       // Need to read more bytes for the full grapheme.
+      UTF8LEX_DEBUG("EXIT utf8lex_lex_regex()");
       return UTF8LEX_MORE;
     }
   }
@@ -263,6 +284,7 @@ static utf8lex_error_t utf8lex_lex_regex(
             pcre2_error_message);
     fflush(stderr);
     pcre2_match_data_free(match);
+    UTF8LEX_DEBUG("EXIT utf8lex_lex_regex()");
     return UTF8LEX_ERROR_REGEX;
   }
 
@@ -270,6 +292,7 @@ static utf8lex_error_t utf8lex_lex_regex(
   if (num_ovectors == (uint32_t) 0)
   {
     pcre2_match_data_free(match);
+    UTF8LEX_DEBUG("EXIT utf8lex_lex_regex()");
     return UTF8LEX_ERROR_REGEX;
   }
 
@@ -286,6 +309,7 @@ static utf8lex_error_t utf8lex_lex_regex(
 
   if (match_length_bytes == (size_t) 0)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_lex_regex()");
     return UTF8LEX_NO_MATCH;
   }
 
@@ -334,6 +358,7 @@ static utf8lex_error_t utf8lex_lex_regex(
     {
       // pcre2 matched something that utf8proc either needs MORE bytes for,
       // or rejected outright.
+      UTF8LEX_DEBUG("EXIT utf8lex_lex_regex()");
       return error;
     }
 
@@ -371,9 +396,11 @@ static utf8lex_error_t utf8lex_lex_regex(
       state);  // For buffer and absolute location.
   if (error != UTF8LEX_OK)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_lex_regex()");
     return error;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_lex_regex()");
   return UTF8LEX_OK;
 }
 

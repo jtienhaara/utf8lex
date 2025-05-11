@@ -33,15 +33,19 @@ utf8lex_error_t utf8lex_buffer_mmap(
         unsigned char *path
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_buffer_mmap()");
+
   if (self == NULL
       || self->loc == NULL
       || self->str == NULL
       || path == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_mmap()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (self->str->bytes != NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_mmap()");
     return UTF8LEX_ERROR_BUFFER_INITIALIZED;
   }
 
@@ -49,6 +53,7 @@ utf8lex_error_t utf8lex_buffer_mmap(
   int fd = open(path, O_RDONLY);
   if (fd < 0)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_mmap()");
     return UTF8LEX_ERROR_FILE_OPEN;
   }
 
@@ -57,6 +62,7 @@ utf8lex_error_t utf8lex_buffer_mmap(
   if (error_code != 0)
   {
     close(fd);
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_mmap()");
     return UTF8LEX_ERROR_FILE_SIZE;
   }
 
@@ -64,6 +70,7 @@ utf8lex_error_t utf8lex_buffer_mmap(
   if (file_size <= (size_t) 0)  // mmap() requires a length > 0.
   {
     close(fd);
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_mmap()");
     return UTF8LEX_ERROR_FILE_EMPTY;
   }
 
@@ -77,6 +84,7 @@ utf8lex_error_t utf8lex_buffer_mmap(
       || mapped_file == NULL)
   {
     close(fd);
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_mmap()");
     return UTF8LEX_ERROR_FILE_MMAP;
   }
 
@@ -103,6 +111,7 @@ utf8lex_error_t utf8lex_buffer_mmap(
     self->loc[unit].length = 0;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_buffer_mmap()");
   return UTF8LEX_OK;
 }
 
@@ -111,22 +120,27 @@ utf8lex_error_t utf8lex_buffer_munmap(
         utf8lex_buffer_t *self
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_buffer_munmap()");
+
   if (self == NULL
       || self->loc == NULL
       || self->str == NULL
       || self->str->bytes == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_munmap()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (self->str->max_length_bytes <= (size_t) 0
            || self->str->length_bytes <= (size_t) 0)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_munmap()");
     return UTF8LEX_ERROR_BAD_LENGTH;
   }
 
   int munmap_error = munmap(self->str->bytes, self->str->length_bytes);
   if (munmap_error != 0)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_munmap()");
     return UTF8LEX_ERROR_FILE_MMAP;
   }
 
@@ -145,6 +159,7 @@ utf8lex_error_t utf8lex_buffer_munmap(
     self->loc[unit].length = -1;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_buffer_munmap()");
   return UTF8LEX_OK;
 }
 
@@ -155,19 +170,24 @@ utf8lex_error_t utf8lex_buffer_read(
         int fd
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_buffer_read()");
+
   if (self == NULL
       || self->loc == NULL
       || self->str == NULL
       || self->str->bytes == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_read()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (self->str->max_length_bytes <= (size_t) 0)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_read()");
     return UTF8LEX_ERROR_BAD_LENGTH;
   }
   else if (fd < 0)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_read()");
     return UTF8LEX_ERROR_FILE_DESCRIPTOR;
   }
 
@@ -178,6 +198,7 @@ utf8lex_error_t utf8lex_buffer_read(
                              read_length_bytes);
   if (length_bytes < (size_t) 0)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_read()");
     return UTF8LEX_ERROR_FILE_READ;
   }
 
@@ -208,6 +229,7 @@ utf8lex_error_t utf8lex_buffer_read(
     self->loc[unit].length = 0;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_buffer_read()");
   return UTF8LEX_OK;
 }
 
@@ -218,16 +240,20 @@ utf8lex_error_t utf8lex_buffer_readf(
         FILE *fp
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_buffer_readf()");
+
   if (self == NULL
       || self->loc == NULL
       || self->str == NULL
       || self->str->bytes == NULL
       || fp == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_readf()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (self->str->max_length_bytes <= (size_t) 0)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_readf()");
     return UTF8LEX_ERROR_BAD_LENGTH;
   }
 
@@ -239,6 +265,7 @@ utf8lex_error_t utf8lex_buffer_readf(
                               fp);
   if (length_bytes < (size_t) 0)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_readf()");
     return UTF8LEX_ERROR_FILE_READ;
   }
 
@@ -269,5 +296,6 @@ utf8lex_error_t utf8lex_buffer_readf(
     self->loc[unit].length = 0;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_buffer_readf()");
   return UTF8LEX_OK;
 }

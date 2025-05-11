@@ -41,6 +41,8 @@ CFLAGS = -Werror -fPIC -I$(SRC_DIR) --debug
 LD = gcc
 LDFLAGS = -Wl,--no-as-needed -lpcre2-8 -lutf8proc -L$(UTF8LEX_LIBRARY_DIR) -Wl,-rpath,$(UTF8LEX_LIBRARY_DIR) -lutf8lex
 
+RUNTIME_LEAK_OPTIONS = --leak-check=yes --error-exitcode=66 --suppressions=valgrind_suppressions.txt
+
 EXAMPLES_BUILD_DIR ?= ./build
 
 LEX_FILES = \
@@ -67,7 +69,7 @@ LC_CTYPE = en_US.UTF-8
 
 # Rule for $(GENERATED_SOURCE_FILES):
 %.c: %.l
-	$(BUILD_DIR)/utf8lex $<
+	valgrind $(RUNTIME_LEAK_OPTIONS) $(BUILD_DIR)/utf8lex $<
 
 # Rule for $(OBJECT_FILES):
 $(EXAMPLES_BUILD_DIR)/%.o: %.c

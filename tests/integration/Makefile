@@ -41,6 +41,8 @@ CFLAGS = -Werror -fPIC -I$(SRC_DIR) --debug
 LD = gcc
 LDFLAGS = -Wl,--no-as-needed -lpcre2-8 -lutf8proc -L$(UTF8LEX_LIBRARY_DIR) -Wl,-rpath,$(UTF8LEX_LIBRARY_DIR) -lutf8lex
 
+RUNTIME_LEAK_OPTIONS = --leak-check=yes --error-exitcode=66 --suppressions=valgrind_suppressions.txt
+
 TEST_BUILD_DIR ?= ../build
 
 SOURCE_FILES ?= \
@@ -82,7 +84,7 @@ run-test_utf8lex:
 	do \
 	    echo ""; \
 	    echo "$$TEST_FILE:"; \
-	        $(TEST_BUILD_DIR)/test_utf8lex "$$TEST_FILE" \
+	        valgrind $(RUNTIME_LEAK_OPTIONS) $(TEST_BUILD_DIR)/test_utf8lex "$$TEST_FILE" \
 	        || exit 1; \
 	done
 
@@ -96,7 +98,7 @@ run-test_utf8lex:
 run-test_utf8lex_generate:
 	echo "================================================================"
 	echo "test_utf8lex_generate 001:"
-	$(TEST_BUILD_DIR)/test_utf8lex_generate \
+	valgrind $(RUNTIME_LEAK_OPTIONS) $(TEST_BUILD_DIR)/test_utf8lex_generate \
 	    . \
 	    ../../templates/c/mmap \
 	    $(TEST_BUILD_DIR) \
@@ -115,7 +117,7 @@ run-test_utf8lex_generate:
 	echo "----------------------------------------------------------------"
 	echo "================================================================"
 	echo "test_utf8lex_generate 002:"
-	$(TEST_BUILD_DIR)/test_utf8lex_generate \
+	valgrind $(RUNTIME_LEAK_OPTIONS) $(TEST_BUILD_DIR)/test_utf8lex_generate \
 	    . \
 	    ../../templates/c/mmap \
 	    $(TEST_BUILD_DIR) \
@@ -136,4 +138,6 @@ run-test_utf8lex_generate:
 .PHONY: debug
 debug:
 	ls ./core > /dev/null \
+	    && readelf -a core \
+	    && objdump --syms $(UTF8LEX_LIBRARY_DIR)/libutf8lex.so | grep -v '\*UND\*' \
 	    && gdb $(TEST_BUILD_DIR)/test_utf8lex_generate ./core

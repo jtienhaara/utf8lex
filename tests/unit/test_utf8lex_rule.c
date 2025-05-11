@@ -267,6 +267,42 @@ utf8lex_error_t test_utf8lex_rule_find()
     return error;
   }
 
+  // Now clean up the definitions and rules:
+  error = utf8lex_cat_definition_clear(&(definition_1.base));
+  if (error != UTF8LEX_OK) { return error; }
+  error = utf8lex_rule_clear(&rule_1);
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_literal_definition_clear(&(definition_2.base));
+  if (error != UTF8LEX_OK) { return error; }
+  error = utf8lex_rule_clear(&rule_2);
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_regex_definition_clear(&(definition_3.base));
+  if (error != UTF8LEX_OK) { return error; }
+  error = utf8lex_rule_clear(&rule_3);
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_cat_definition_clear(&(definition_4.base));
+  if (error != UTF8LEX_OK) { return error; }
+  error = utf8lex_rule_clear(&rule_4);
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_literal_definition_clear(&(definition_5.base));
+  if (error != UTF8LEX_OK) { return error; }
+  error = utf8lex_rule_clear(&rule_5);
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_regex_definition_clear(&(definition_6.base));
+  if (error != UTF8LEX_OK) { return error; }
+  error = utf8lex_rule_clear(&rule_6);
+  if (error != UTF8LEX_OK) { return error; }
+
+  error = utf8lex_literal_definition_clear(&(definition_not_in_db.base));
+  if (error != UTF8LEX_OK) { return error; }
+  error = utf8lex_rule_clear(&rule_not_in_db);
+  if (error != UTF8LEX_OK) { return error; }
+
   return UTF8LEX_OK;
 }
 

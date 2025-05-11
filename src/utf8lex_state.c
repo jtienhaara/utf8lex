@@ -31,10 +31,13 @@ utf8lex_error_t utf8lex_state_string(
         utf8lex_state_t *state
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_state_string()");
+
   if (str == NULL
       || str->bytes == NULL
       || state == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_state_string()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
@@ -54,9 +57,11 @@ utf8lex_error_t utf8lex_state_string(
   if (num_bytes_written >= str->max_length_bytes)
   {
     // The error string was truncated.
+    UTF8LEX_DEBUG("EXIT utf8lex_state_string()");
     return UTF8LEX_ERROR_BAD_LENGTH;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_state_string()");
   return UTF8LEX_OK;
 }
 
@@ -66,9 +71,12 @@ utf8lex_error_t utf8lex_state_init(
         utf8lex_buffer_t *buffer
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_state_init()");
+
   if (self == NULL
       || buffer == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_state_init()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
@@ -82,6 +90,10 @@ utf8lex_error_t utf8lex_state_init(
     self->loc[unit].after = -2;
   }
 
+  self->num_used_sub_tokens = (uint32_t) 0;
+  // We do not initialize each sub-token until we need it.
+
+  UTF8LEX_DEBUG("EXIT utf8lex_state_init()");
   return UTF8LEX_OK;
 }
 
@@ -89,8 +101,11 @@ utf8lex_error_t utf8lex_state_clear(
         utf8lex_state_t *self
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_state_clear()");
+
   if (self == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_state_clear()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
@@ -104,5 +119,6 @@ utf8lex_error_t utf8lex_state_clear(
     self->loc[unit].after = -2;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_state_clear()");
   return UTF8LEX_OK;
 }

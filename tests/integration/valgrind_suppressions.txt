@@ -1,0 +1,126 @@
+{
+   libpcre2_suppressions_Memcheck_Addr1_1
+   Memcheck:Addr1
+   fun:pcre2_substring_length_bynumber_8
+   fun:pcre2_substring_copy_bynumber_8
+   fun:utf8lex_lex_regex
+   fun:utf8lex_lex
+   fun:test_utf8lex
+   fun:main
+}
+{
+   libpcre2_suppressions_Memcheck_Addr1_2
+   Memcheck:Addr1
+   fun:pcre2_substring_length_bynumber_8
+   fun:pcre2_substring_copy_bynumber_8
+   fun:utf8lex_lex_regex
+   fun:utf8lex_lex
+   fun:utf8lex_generate_parse
+   fun:utf8lex_generate
+   fun:test_utf8lex_generate_c_mmap
+   fun:test_utf8lex_generate
+   fun:main
+}
+{
+   libpcre2_suppressions_Memcheck_Addr2_1
+   Memcheck:Addr2
+   fun:pcre2_substring_length_bynumber_8
+   fun:pcre2_substring_copy_bynumber_8
+   fun:utf8lex_lex_regex
+   fun:utf8lex_lex
+   fun:test_utf8lex
+   fun:main
+}
+{
+   libpcre2_suppressions_Memcheck_Addr2_2
+   Memcheck:Addr2
+   fun:pcre2_substring_length_bynumber_8
+   fun:pcre2_substring_copy_bynumber_8
+   fun:utf8lex_lex_regex
+   fun:utf8lex_lex
+   fun:utf8lex_generate_parse
+   fun:utf8lex_generate
+   fun:test_utf8lex_generate_c_mmap
+   fun:test_utf8lex_generate
+   fun:main
+}
+{
+   libpcre2_suppressions_Memcheck_Addr4_1
+   Memcheck:Addr4
+   fun:pcre2_substring_length_bynumber_8
+   fun:pcre2_substring_copy_bynumber_8
+   fun:utf8lex_lex_regex
+   fun:utf8lex_lex
+   fun:test_utf8lex
+   fun:main
+}
+{
+   libpcre2_suppressions_Memcheck_Addr4_2
+   Memcheck:Addr4
+   fun:pcre2_substring_length_bynumber_8
+   fun:pcre2_substring_copy_bynumber_8
+   fun:utf8lex_lex_regex
+   fun:utf8lex_lex
+   fun:utf8lex_generate_parse
+   fun:utf8lex_generate
+   fun:test_utf8lex_generate_c_mmap
+   fun:test_utf8lex_generate
+   fun:main
+}
+{
+   libpcre2_suppressions_Memcheck_Addr8_1
+   Memcheck:Addr8
+   fun:pcre2_substring_length_bynumber_8
+   fun:pcre2_substring_copy_bynumber_8
+   fun:utf8lex_lex_regex
+   fun:utf8lex_lex
+   fun:test_utf8lex
+   fun:main
+}
+{
+   libpcre2_suppressions_Memcheck_Addr8_2
+   Memcheck:Addr8
+   fun:pcre2_substring_length_bynumber_8
+   fun:pcre2_substring_copy_bynumber_8
+   fun:utf8lex_lex_regex
+   fun:utf8lex_lex
+   fun:utf8lex_generate_parse
+   fun:utf8lex_generate
+   fun:test_utf8lex_generate_c_mmap
+   fun:test_utf8lex_generate
+   fun:main
+}
+{
+   libpcre2_suppressions_Memcheck_Addr8_3
+   Memcheck:Addr8
+   fun:pcre2_substring_copy_bynumber_8
+   fun:utf8lex_lex_regex
+   fun:utf8lex_lex
+   fun:test_utf8lex
+   fun:main
+}
+{
+   libpcre2_suppressions_Memcheck_Addr8_4
+   Memcheck:Addr8
+   fun:pcre2_substring_copy_bynumber_8
+   fun:utf8lex_lex_regex
+   fun:utf8lex_lex
+   fun:utf8lex_generate_parse
+   fun:utf8lex_generate
+   fun:test_utf8lex_generate_c_mmap
+   fun:test_utf8lex_generate
+   fun:main
+}
+{
+   libpcre2_suppressions_Memcheck_Addr8_5
+   Memcheck:Addr8
+   fun:pcre2_substring_copy_bynumber_8
+   fun:utf8lex_lex_regex
+   fun:utf8lex_lex
+   fun:utf8lex_generate_definition
+   fun:utf8lex_generate_parse
+   fun:utf8lex_generate
+   fun:test_utf8lex_generate_c_mmap
+   fun:test_utf8lex_generate
+   fun:main
+}

@@ -27,14 +27,18 @@ utf8lex_error_t utf8lex_error_string(
         utf8lex_error_t error
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_error_string()");
+
   if (str == NULL
       || str->bytes == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_error_string()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (error < UTF8LEX_OK
            || error > UTF8LEX_ERROR_MAX)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_error_string()");
     return UTF8LEX_ERROR_BAD_ERROR;
   }
 
@@ -165,6 +169,10 @@ utf8lex_error_t utf8lex_error_string(
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
                                  "UTF8LEX_ERROR_BAD_HASH");
     break;
+  case UTF8LEX_ERROR_BAD_ID:
+    num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
+                                 "UTF8LEX_ERROR_BAD_ID");
+    break;
   case UTF8LEX_ERROR_BAD_MIN:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
                                  "UTF8LEX_ERROR_BAD_MIN");
@@ -207,14 +215,17 @@ utf8lex_error_t utf8lex_error_string(
   default:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
                                  "unknown error %d", (int) error);
+    UTF8LEX_DEBUG("EXIT utf8lex_error_string()");
     return UTF8LEX_ERROR_BAD_ERROR;
   }
 
   if (num_bytes_written >= str->max_length_bytes)
   {
     // The error string was truncated.
+    UTF8LEX_DEBUG("EXIT utf8lex_error_string()");
     return UTF8LEX_ERROR_BAD_LENGTH;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_error_string()");
   return UTF8LEX_OK;
 }

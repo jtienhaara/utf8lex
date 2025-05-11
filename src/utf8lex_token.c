@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <inttypes.h>  // For uint32_t.
+#include <stdbool.h>  // For bool, true, false.
 #include <string.h>  // For memcpy().
 
 #include "utf8lex.h"
@@ -35,6 +36,8 @@ utf8lex_error_t utf8lex_token_init(
         utf8lex_state_t *state  // For buffer and absolute location.
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_token_init()");
+
   if (self == NULL
       || rule == NULL
       || definition == NULL
@@ -45,6 +48,7 @@ utf8lex_error_t utf8lex_token_init(
       || state->buffer->loc == NULL
       || state->buffer->str == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_token_init()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
@@ -55,6 +59,7 @@ utf8lex_error_t utf8lex_token_init(
   {
     if (state->buffer->loc[unit].start < 0)
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_token_init()");
       return UTF8LEX_ERROR_BAD_START;
     }
   }
@@ -66,6 +71,7 @@ utf8lex_error_t utf8lex_token_init(
   {
     if (state->loc[unit].start < 0)
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_token_init()");
       return UTF8LEX_ERROR_BAD_START;
     }
   }
@@ -79,14 +85,17 @@ utf8lex_error_t utf8lex_token_init(
     // not relative to the buffer:
     if (token_loc[unit].start != state->loc[unit].start)
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_token_init()");
       return UTF8LEX_ERROR_BAD_START;
     }
     else if (token_loc[unit].length < 0)
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_token_init()");
       return UTF8LEX_ERROR_BAD_LENGTH;
     }
     else if (token_loc[unit].after < -1)  // -1 (reset) is OK.
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_token_init()");
       return UTF8LEX_ERROR_BAD_AFTER;
     }
     // We don't generate UTF8LEX_ERROR_BAD_HASH errors here.
@@ -95,10 +104,12 @@ utf8lex_error_t utf8lex_token_init(
   int length_bytes = token_loc[UTF8LEX_UNIT_BYTE].length;
   if (length_bytes <= 0)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_token_init()");
     return UTF8LEX_ERROR_BAD_LENGTH;
   }
   else if ((start_byte + length_bytes) > state->buffer->str->length_bytes)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_token_init()");
     return UTF8LEX_ERROR_BAD_LENGTH;
   }
 
@@ -124,6 +135,75 @@ utf8lex_error_t utf8lex_token_init(
     self->loc[unit].hash = token_loc[unit].hash;
   }
 
+  self->sub_tokens = NULL;
+  self->parent_or_null = NULL;
+
+  UTF8LEX_DEBUG("EXIT utf8lex_token_init()");
+  return UTF8LEX_OK;
+}
+
+utf8lex_error_t utf8lex_token_copy(
+        utf8lex_token_t *from,
+        utf8lex_token_t *to,
+        utf8lex_state_t *state
+        )
+{
+  UTF8LEX_DEBUG("ENTER utf8lex_token_copy()");
+
+  if (from == NULL
+      || to == NULL
+      || state == NULL)
+  {
+    UTF8LEX_DEBUG("EXIT utf8lex_token_copy()");
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  utf8lex_error_t error = utf8lex_token_init(
+          to,  // self
+          from->rule,  // rule
+          from->definition,  // definition
+          from->loc,  // token_loc
+          state);  // state
+  if (error != UTF8LEX_OK)
+  {
+    UTF8LEX_DEBUG("EXIT utf8lex_token_copy()");
+    return error;
+  }
+
+  // Now we need to take ownership of any / all sub-tokens,
+  // and add them.
+  utf8lex_sub_token_t *sub_token = from->sub_tokens;
+  bool is_infinite_loop = true;
+  for (int infinite_loop_protector = 0;
+       infinite_loop_protector < UTF8LEX_SUB_TOKENS_LENGTH_MAX;
+       infinite_loop_protector ++)
+  {
+    if (sub_token == NULL)
+    {
+      is_infinite_loop = false;
+      break;
+    }
+
+    if (to->sub_tokens == NULL)
+    {
+      to->sub_tokens = sub_token;
+      from->sub_tokens = NULL;
+    }
+
+    sub_token->token.parent_or_null = to;
+
+    sub_token = sub_token->next;
+  }
+
+  if (is_infinite_loop)
+  {
+    UTF8LEX_DEBUG("EXIT utf8lex_token_copy()");
+    return UTF8LEX_ERROR_INFINITE_LOOP;
+  }
+
+  to->parent_or_null = from->parent_or_null;
+
+  UTF8LEX_DEBUG("EXIT utf8lex_token_copy()");
   return UTF8LEX_OK;
 }
 
@@ -131,8 +211,11 @@ utf8lex_error_t utf8lex_token_clear(
         utf8lex_token_t *self
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_token_clear()");
+
   if (self == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_token_clear()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
@@ -152,19 +235,27 @@ utf8lex_error_t utf8lex_token_clear(
     self->loc[unit].after = -2;
   }
 
+  self->sub_tokens = NULL;
+  self->parent_or_null = NULL;
+
+  UTF8LEX_DEBUG("EXIT utf8lex_token_clear()");
   return UTF8LEX_OK;
 }
 
 
+// Copies the token text into the specified string, overwriting it.
 // Returns UTF8LEX_MORE if the destination string truncates the token:
-extern utf8lex_error_t utf8lex_token_copy_string(
+utf8lex_error_t utf8lex_token_copy_string(
         utf8lex_token_t *self,
         unsigned char *str,
         size_t max_bytes)
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_token_copy_string()");
+
   if (self == NULL
       || str == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_token_copy_string()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
@@ -172,14 +263,17 @@ extern utf8lex_error_t utf8lex_token_copy_string(
   int length_bytes = self->length_bytes;
   if (start_byte < 0)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_token_copy_string()");
     return UTF8LEX_ERROR_BAD_START;
   }
   else if (length_bytes < 0)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_token_copy_string()");
     return UTF8LEX_ERROR_BAD_LENGTH;
   }
   else if ((size_t) (start_byte + length_bytes) > self->str->length_bytes)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_token_copy_string()");
     return UTF8LEX_ERROR_BAD_LENGTH;
   }
 
@@ -195,21 +289,27 @@ extern utf8lex_error_t utf8lex_token_copy_string(
 
   if (num_bytes != length_bytes)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_token_copy_string()");
     return UTF8LEX_MORE;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_token_copy_string()");
   return UTF8LEX_OK;
 }
 
+// Concatenates the token text to the end of the specified string.
 // Returns UTF8LEX_MORE if the destination string truncates the token:
 utf8lex_error_t utf8lex_token_cat_string(
         utf8lex_token_t *self,
         unsigned char *str,  // Text will be concatenated starting at '\0'.
         size_t max_bytes)
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_token_cat_string()");
+
   if (self == NULL
       || str == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_token_cat_string()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
@@ -217,6 +317,7 @@ utf8lex_error_t utf8lex_token_cat_string(
   size_t reduced_max = max_bytes - length;
   if (reduced_max <= (size_t) 0)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_token_cat_string()");
     return UTF8LEX_MORE;
   }
 
@@ -227,5 +328,6 @@ utf8lex_error_t utf8lex_token_cat_string(
                               str_offset,  // str
                               reduced_max);  // max_bytes
 
+  UTF8LEX_DEBUG("EXIT utf8lex_token_cat_string()");
   return error;
 }

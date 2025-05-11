@@ -204,6 +204,22 @@ utf8lex_error_t test_utf8lex_definition_find()
     return error;
   }
 
+  // Clean up:
+  error = utf8lex_cat_definition_clear(&(definition_1.base));
+  if (error != UTF8LEX_OK) { return error; }
+  error = utf8lex_literal_definition_clear(&(definition_2.base));
+  if (error != UTF8LEX_OK) { return error; }
+  error = utf8lex_regex_definition_clear(&(definition_3.base));
+  if (error != UTF8LEX_OK) { return error; }
+  error = utf8lex_cat_definition_clear(&(definition_4.base));
+  if (error != UTF8LEX_OK) { return error; }
+  error = utf8lex_literal_definition_clear(&(definition_5.base));
+  if (error != UTF8LEX_OK) { return error; }
+  error = utf8lex_regex_definition_clear(&(definition_6.base));
+  if (error != UTF8LEX_OK) { return error; }
+  error = utf8lex_literal_definition_clear(&(not_in_db.base));
+  if (error != UTF8LEX_OK) { return error; }
+
   return UTF8LEX_OK;
 }
 

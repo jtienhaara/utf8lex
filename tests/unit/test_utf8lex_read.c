@@ -2987,9 +2987,9 @@ static utf8lex_error_t test_utf8lex_read_grapheme_unicode()
   if (error != UTF8LEX_OK) { return error; }
 
   // -------------------------------------------------------------------
-  // !!! printf("!!!%c%c%c%c!!!\n", (char) 0x09, (char) 0x05, (char) 0x03, (char) 0x10); fflush(stdout);
-  // !!! error = UTF8LEX_ERROR_BAD_LENGTH;
-  // !!! if (error != UTF8LEX_OK) { return error; }
+  // printf(">>>%c%c%c%c<<<\n", (char) 0x09, (char) 0x05, (char) 0x03, (char) 0x10); fflush(stdout);
+  // error = UTF8LEX_ERROR_BAD_LENGTH;
+  // if (error != UTF8LEX_OK) { return error; }
   grapheme = "הַֽ";
   // 0xD794D6B7D6BD (237034257503933) 6 bytes 3 chars 1 grapheme
   // ה + ַ + ֽ = 

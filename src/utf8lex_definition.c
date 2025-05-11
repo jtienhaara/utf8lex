@@ -35,10 +35,13 @@ utf8lex_error_t utf8lex_definition_find(
         utf8lex_definition_t ** found_pointer  // Gets set when found.
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_definition_find()");
+
   if (first_definition == NULL
       || name == NULL
       || found_pointer == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_definition_find()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
@@ -67,13 +70,16 @@ utf8lex_error_t utf8lex_definition_find(
 
   if (is_infinite_loop == true)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_definition_find()");
     return UTF8LEX_ERROR_INFINITE_LOOP;
   }
   else if (*found_pointer == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_definition_find()");
     return UTF8LEX_ERROR_NOT_FOUND;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_definition_find()");
   return UTF8LEX_OK;
 }
 
@@ -83,12 +89,19 @@ utf8lex_error_t utf8lex_definition_find_by_id(
         utf8lex_definition_t ** found_pointer  // Gets set when found.
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_definition_find_by_id()");
+
   if (first_definition == NULL
       || found_pointer == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_definition_find_by_id()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
-
+  else if (id == (uint32_t) 0)
+  {
+    UTF8LEX_DEBUG("EXIT utf8lex_definition_find_by_id()");
+    return UTF8LEX_ERROR_BAD_ID;
+  }
 
   utf8lex_definition_t *definition = first_definition;
   uint32_t infinite_loop = UTF8LEX_DEFINITIONS_DB_LENGTH_MAX;
@@ -96,7 +109,12 @@ utf8lex_error_t utf8lex_definition_find_by_id(
   *found_pointer = NULL;
   for (uint32_t d = 0; d < infinite_loop; d ++)
   {
-    if (definition->id == id)
+    if (definition->id == (uint32_t) 0)
+    {
+      UTF8LEX_DEBUG("EXIT utf8lex_definition_find_by_id()");
+      return UTF8LEX_ERROR_BAD_ID;
+    }
+    else if (definition->id == id)
     {
       *found_pointer = definition;
       is_infinite_loop = false;
@@ -115,13 +133,16 @@ utf8lex_error_t utf8lex_definition_find_by_id(
 
   if (is_infinite_loop == true)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_definition_find_by_id()");
     return UTF8LEX_ERROR_INFINITE_LOOP;
   }
   else if (*found_pointer == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_definition_find_by_id()");
     return UTF8LEX_ERROR_NOT_FOUND;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_definition_find_by_id()");
   return UTF8LEX_OK;
 }
 
@@ -149,13 +170,17 @@ utf8lex_error_t utf8lex_printable_str(
         utf8lex_printable_flag_t flags  // Which char(s) to convert.  Default ALL.
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_printable_str()");
+
   if (printable_str == NULL
       || str == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_printable_str()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (max_bytes <= (size_t) 0)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_printable_str()");
     return UTF8LEX_ERROR_BAD_MAX;
   }
 
@@ -314,6 +339,7 @@ utf8lex_error_t utf8lex_printable_str(
     {
       // Can't fit the printable characters plus \0 into the target.
       printable_str[target_offset] = '\0';
+      UTF8LEX_DEBUG("EXIT utf8lex_printable_str()");
       return UTF8LEX_MORE;
     }
 
@@ -328,5 +354,6 @@ utf8lex_error_t utf8lex_printable_str(
   printable_str[target_offset] = '\0';
   target_offset ++;
 
+  UTF8LEX_DEBUG("EXIT utf8lex_printable_str()");
   return UTF8LEX_OK;
 }

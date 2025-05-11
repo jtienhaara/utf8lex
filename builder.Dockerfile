@@ -59,6 +59,10 @@ ENV TZ=UTC/UTC
 #         and writing of UTF-8-encoded characters.
 #     make
 #         Traditional make.  Required for building things from Makefiles.
+#     strace
+#         For troubleshooting.
+#     valgrind
+#         For troubleshooting and finding memory leaks.
 #
 RUN apt-get update --yes \
     && apt-get install --no-install-recommends --yes \
@@ -70,6 +74,8 @@ RUN apt-get update --yes \
        libutf8proc2 \
        locales \
        make \
+       strace \
+       valgrind \
     && apt-get clean
 
 ENV LC_CTYPE=C.utf8

@@ -47,11 +47,14 @@ static utf8lex_error_t yylex_from_template(
         unsigned char *name
         )
 {
+  UTF8LEX_DEBUG("ENTER yylex_from_template()");
+
   if (lex_dir == NULL
       || template_dir == NULL
       || generated_dir == NULL
       || name == NULL)
   {
+    UTF8LEX_DEBUG("EXIT yylex_from_template()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
@@ -140,9 +143,11 @@ static utf8lex_error_t yylex_from_template(
       fflush(stderr);
     }
 
+    UTF8LEX_DEBUG("EXIT yylex_from_template()");
     return error;
   }
 
+  UTF8LEX_DEBUG("EXIT yylex_from_template()");
   return UTF8LEX_OK;
 }
 
@@ -151,6 +156,8 @@ static utf8lex_error_t yylex(
         unsigned char *source_l_file
         )
 {
+  UTF8LEX_DEBUG("ENTER yylex()");
+
   utf8lex_error_t error = UTF8LEX_OK;
 
   // TODO Make this platform-independent:
@@ -217,6 +224,7 @@ static utf8lex_error_t yylex(
   if (strcmp("l", extension) != 0)
   {
     fprintf(stderr, "ERROR Expected '.l' extension, not '.%s'\n", extension);
+    UTF8LEX_DEBUG("EXIT yylex()");
     return UTF8LEX_ERROR_FILE_OPEN;
   }
 
@@ -237,9 +245,11 @@ static utf8lex_error_t yylex(
               name);
   if (error != UTF8LEX_OK)
   {
+    UTF8LEX_DEBUG("EXIT yylex()");
     return error;
   }
 
+  UTF8LEX_DEBUG("EXIT yylex()");
   return UTF8LEX_OK;
 }
 
@@ -249,6 +259,8 @@ int main(
         char *argv[]
         )
 {
+  UTF8LEX_DEBUG("ENTER main()");
+
   if (argc != 2)
   {
     fprintf(stderr, "Usage: %s (lex-file)\n",
@@ -257,6 +269,7 @@ int main(
     fprintf(stderr, "(lex-file):\n");
     fprintf(stderr, "    Full path to the .l file to source.\n");
     fprintf(stderr, "    A .c file will be generated in the same directory.\n");
+    UTF8LEX_DEBUG("EXIT main()");
     return 1;
   }
 
@@ -269,12 +282,14 @@ int main(
     printf("SUCCESS lexing\n");
     fflush(stdout);
     fflush(stderr);
+    UTF8LEX_DEBUG("EXIT main()");
     return 0;
   }
   else
   {
     fflush(stdout);
     fflush(stderr);
+    UTF8LEX_DEBUG("EXIT main()");
     return (int) error;
   }
 }

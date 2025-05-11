@@ -256,13 +256,17 @@ utf8lex_error_t utf8lex_format_cat(
         unsigned char *str_pointer
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_format_cat()");
+
   if (cat <= UTF8LEX_CAT_NONE
       || cat >= UTF8LEX_CAT_MAX)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_format_cat()");
     return UTF8LEX_ERROR_CAT;
   }
   else if (str_pointer == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_format_cat()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
@@ -770,14 +774,17 @@ utf8lex_error_t utf8lex_format_cat(
   {
     fprintf(stderr, "*** utf8lex bug: utf8lex_format_cat() remaining = %d\n",
             (int) remaining_cat);
+    UTF8LEX_DEBUG("EXIT utf8lex_format_cat()");
     return UTF8LEX_ERROR_CAT;
   }
   else if (remaining_num_bytes == (size_t) 0)
   {
     fprintf(stderr, "*** utf8lex bug: utf8lex_format_cat() too many bytes\n");
+    UTF8LEX_DEBUG("EXIT utf8lex_format_cat()");
     return UTF8LEX_ERROR_CAT;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_format_cat()");
   return UTF8LEX_OK;
 }
 
@@ -788,9 +795,12 @@ utf8lex_error_t utf8lex_parse_cat(
         unsigned char *str
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_parse_cat()");
+
   if (cat_pointer == NULL
       || str == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_parse_cat()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
@@ -1013,6 +1023,7 @@ utf8lex_error_t utf8lex_parse_cat(
               "*** utf8lex_parse_cat(): unknown category starting at %d: \"%s\"\n",
               (int) c,
               ptr);
+      UTF8LEX_DEBUG("EXIT utf8lex_parse_cat()");
       return UTF8LEX_ERROR_CAT;
     }
 
@@ -1032,6 +1043,7 @@ utf8lex_error_t utf8lex_parse_cat(
                 "*** utf8lex_parse_cat(): invalid text starting at %d: \"%s\"\n",
                 (int) o,
                 ptr);
+        UTF8LEX_DEBUG("EXIT utf8lex_parse_cat()");
         return UTF8LEX_ERROR_CAT;
       }
     }
@@ -1061,11 +1073,13 @@ utf8lex_error_t utf8lex_parse_cat(
               str);
     }
 
+    UTF8LEX_DEBUG("EXIT utf8lex_parse_cat()");
     return UTF8LEX_ERROR_CAT;
   }
 
   *cat_pointer = cat;
 
+  UTF8LEX_DEBUG("EXIT utf8lex_parse_cat()");
   return UTF8LEX_OK;
 }
 
@@ -1075,8 +1089,11 @@ static utf8lex_error_t utf8lex_cat_from_utf8proc_category(
         utf8lex_cat_t *cat_pointer
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_cat_from_utf8proc_category()");
+
   if (cat_pointer == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_cat_from_utf8proc_category()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
@@ -1210,6 +1227,7 @@ static utf8lex_error_t utf8lex_cat_from_utf8proc_category(
     break;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_cat_from_utf8proc_category()");
   return error;
 }
 
@@ -1222,8 +1240,11 @@ static utf8lex_error_t utf8lex_cat_ext(
         utf8lex_cat_t *cat_pointer
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_cat_ext()");
+
   if (cat_pointer == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_cat_ext()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
@@ -1263,6 +1284,7 @@ static utf8lex_error_t utf8lex_cat_ext(
   // default: do nothing.
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_cat_ext()");
   return UTF8LEX_OK;
 }
 
@@ -1275,8 +1297,11 @@ utf8lex_error_t utf8lex_cat_codepoint(
         utf8lex_cat_t *cat_pointer
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_cat_codepoint()");
+
   if (cat_pointer == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_cat_codepoint()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
@@ -1290,6 +1315,7 @@ utf8lex_error_t utf8lex_cat_codepoint(
   {
     // Couldn't figure out the first UTF-8 character's category.
     // Maybe a utf8lex bug?
+    UTF8LEX_DEBUG("EXIT utf8lex_cat_codepoint()");
     return error;
   }
 
@@ -1302,10 +1328,12 @@ utf8lex_error_t utf8lex_cat_codepoint(
   {
     // Couldn't figure out the first UTF-8 character's category.
     // Maybe a utf8lex bug?
+    UTF8LEX_DEBUG("EXIT utf8lex_cat_codepoint()");
     return error;
   }
 
   *cat_pointer = utf8lex_cat;
 
+  UTF8LEX_DEBUG("EXIT utf8lex_cat_codepoint()");
   return UTF8LEX_OK;
 }

@@ -32,10 +32,13 @@ utf8lex_error_t utf8lex_lex(
         utf8lex_token_t *token_pointer
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_lex()");
+
   if (first_rule == NULL
       || state == NULL
       || token_pointer == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_lex()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
@@ -60,11 +63,13 @@ utf8lex_error_t utf8lex_lex(
       if (state->buffer->is_eof == true)
       {
         // Done lexing.
+        UTF8LEX_DEBUG("EXIT utf8lex_lex()");
         return UTF8LEX_EOF;
       }
       else
       {
         // Please, sir, may I have some more?
+        UTF8LEX_DEBUG("EXIT utf8lex_lex()");
         return UTF8LEX_MORE;
       }
     }
@@ -104,6 +109,7 @@ utf8lex_error_t utf8lex_lex(
     else if (error == UTF8LEX_MORE)
     {
       // Need to read more bytes before trying again.
+      UTF8LEX_DEBUG("EXIT utf8lex_lex()");
       return error;
     }
     else if (error == UTF8LEX_OK)
@@ -114,7 +120,9 @@ utf8lex_error_t utf8lex_lex(
     }
     else
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_lex()");
       // Some other error.  Return the error to the caller.
+      UTF8LEX_DEBUG("EXIT utf8lex_lex()");
       return error;
     }
   }
@@ -123,6 +131,7 @@ utf8lex_error_t utf8lex_lex(
   // or 2) not matched any rule.
   if (matched == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_lex()");
     return UTF8LEX_NO_MATCH;
   }
 
@@ -152,5 +161,6 @@ utf8lex_error_t utf8lex_lex(
     state->loc[unit].after = -1;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_lex()");
   return UTF8LEX_OK;
 }

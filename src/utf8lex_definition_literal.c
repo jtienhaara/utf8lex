@@ -35,21 +35,26 @@ utf8lex_error_t utf8lex_literal_definition_init(
         unsigned char *str
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_literal_definition_init()");
+
   if (self == NULL
       || name == NULL
       || str == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_literal_definition_init()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (prev != NULL
            && prev->next != NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_literal_definition_init()");
     return UTF8LEX_ERROR_CHAIN_INSERT;
   }
 
   size_t num_bytes = strlen(str);
   if (num_bytes == (size_t) 0)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_literal_definition_init()");
     return UTF8LEX_ERROR_EMPTY_DEFINITION;
   }
 
@@ -119,6 +124,7 @@ utf8lex_error_t utf8lex_literal_definition_init(
     {
       // The literal is a string that utf8proc either needs MORE bytes for,
       // or rejected outright.  We can't accept it.
+      UTF8LEX_DEBUG("EXIT utf8lex_literal_definition_init()");
       return error;
     }
 
@@ -160,18 +166,20 @@ utf8lex_error_t utf8lex_literal_definition_init(
 
   if (self->base.prev == NULL)
   {
-    self->base.id = (uint32_t) 0;
+    self->base.id = (uint32_t) 1;
   }
   else
   {
     self->base.id = self->base.prev->id + 1;
-    if (self->base.id >= UTF8LEX_DEFINITIONS_DB_LENGTH_MAX)
+    if (self->base.id > UTF8LEX_DEFINITIONS_DB_LENGTH_MAX)
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_literal_definition_init()");
       return UTF8LEX_ERROR_MAX_LENGTH;
     }
     self->base.prev->next = (utf8lex_definition_t *) self;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_literal_definition_init()");
   return UTF8LEX_OK;
 }
 
@@ -179,12 +187,16 @@ utf8lex_error_t utf8lex_literal_definition_clear(
         utf8lex_definition_t *self  // Must be utf8lex_literal_definition_t *
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_literal_definition_clear()");
+
   if (self == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_literal_definition_clear()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (self->definition_type != UTF8LEX_DEFINITION_TYPE_LITERAL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_literal_definition_clear()");
     return UTF8LEX_ERROR_DEFINITION_TYPE;
   }
 
@@ -213,6 +225,7 @@ utf8lex_error_t utf8lex_literal_definition_clear(
     literal_definition->loc[unit].after = -2;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_literal_definition_clear()");
   return UTF8LEX_OK;
 }
 
@@ -223,6 +236,8 @@ static utf8lex_error_t utf8lex_lex_literal(
         utf8lex_token_t *token_pointer
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_lex_literal()");
+
   if (rule == NULL
       || rule->definition == NULL
       || rule->definition->definition_type == NULL
@@ -232,11 +247,13 @@ static utf8lex_error_t utf8lex_lex_literal(
       || state->buffer->str == NULL
       || token_pointer == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_lex_literal()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (rule->definition->definition_type
            != UTF8LEX_DEFINITION_TYPE_LITERAL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_lex_literal()");
     return UTF8LEX_ERROR_DEFINITION_TYPE;
   }
 
@@ -253,6 +270,7 @@ static utf8lex_error_t utf8lex_lex_literal(
   {
     if (state->buffer->str->bytes[offset + c] != literal->str[c])
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_lex_literal()");
       return UTF8LEX_NO_MATCH;
     }
   }
@@ -264,11 +282,13 @@ static utf8lex_error_t utf8lex_lex_literal(
     if (state->buffer->is_eof)
     {
       // No more bytes can be read in, we're at EOF.
+      UTF8LEX_DEBUG("EXIT utf8lex_lex_literal()");
       return UTF8LEX_NO_MATCH;
     }
     else
     {
       // Need to read more bytes for the full grapheme.
+      UTF8LEX_DEBUG("EXIT utf8lex_lex_literal()");
       return UTF8LEX_MORE;
     }
   }
@@ -293,9 +313,11 @@ static utf8lex_error_t utf8lex_lex_literal(
       state);  // For buffer and absolute location.
   if (error != UTF8LEX_OK)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_lex_literal()");
     return error;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_lex_literal()");
   return UTF8LEX_OK;
 }
 

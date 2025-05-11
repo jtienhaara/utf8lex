@@ -37,24 +37,30 @@ utf8lex_error_t utf8lex_reference_init(
         utf8lex_multi_definition_t *parent  // Parent multi-definition.
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_reference_init()");
+
   if (self == NULL
       || name == NULL
       || parent == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_reference_init()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (min < 0)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_reference_init()");
     return UTF8LEX_ERROR_BAD_MIN;
   }
   else if (max != -1
            && max < min)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_reference_init()");
     return UTF8LEX_ERROR_BAD_MAX;
   }
   else if (prev != NULL
            && prev->next != NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_reference_init()");
     return UTF8LEX_ERROR_CHAIN_INSERT;
   }
 
@@ -73,6 +79,7 @@ utf8lex_error_t utf8lex_reference_init(
   {
     if (self->prev != NULL)
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_reference_init()");
       return UTF8LEX_ERROR_STATE;
     }
 
@@ -80,6 +87,7 @@ utf8lex_error_t utf8lex_reference_init(
   }
   else if (self->prev == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_reference_init()");
     return UTF8LEX_ERROR_STATE;
   }
 
@@ -88,6 +96,7 @@ utf8lex_error_t utf8lex_reference_init(
     self->prev->next = self;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_reference_init()");
   return UTF8LEX_OK;
 }
 
@@ -95,8 +104,11 @@ utf8lex_error_t utf8lex_reference_clear(
         utf8lex_reference_t *self
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_reference_clear()");
+
   if (self == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_reference_clear()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
@@ -118,6 +130,7 @@ utf8lex_error_t utf8lex_reference_clear(
   self->next = NULL;
   self->prev = NULL;
 
+  UTF8LEX_DEBUG("EXIT utf8lex_reference_clear()");
   return UTF8LEX_OK;
 }
 
@@ -126,10 +139,13 @@ utf8lex_error_t utf8lex_reference_resolve(
         utf8lex_definition_t *db
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_reference_resolve()");
+
   if (self == NULL
       || self->parent == NULL
       || db == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_reference_resolve()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
@@ -165,6 +181,7 @@ utf8lex_error_t utf8lex_reference_resolve(
     }
     else if (error != UTF8LEX_ERROR_NOT_FOUND)
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_reference_resolve()");
       return error;
     }
 
@@ -173,19 +190,23 @@ utf8lex_error_t utf8lex_reference_resolve(
 
   if (is_infinite_loop == true)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_reference_resolve()");
     return UTF8LEX_ERROR_INFINITE_LOOP;
   }
   else if (error == UTF8LEX_OK)
   {
     if (self->definition_or_null == NULL)
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_reference_resolve()");
       return UTF8LEX_ERROR_NULL_POINTER;
     }
 
+    UTF8LEX_DEBUG("EXIT utf8lex_reference_resolve()");
     return UTF8LEX_OK;
   }
   else if (error != UTF8LEX_ERROR_NOT_FOUND)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_reference_resolve()");
     return error;
   }
 
@@ -197,13 +218,16 @@ utf8lex_error_t utf8lex_reference_resolve(
   if (error == UTF8LEX_OK
       && self->definition_or_null == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_reference_resolve()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (error != UTF8LEX_OK)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_reference_resolve()");
     return error;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_reference_resolve()");
   return UTF8LEX_OK;
 }
 
@@ -216,19 +240,24 @@ utf8lex_error_t utf8lex_multi_definition_init(
         utf8lex_multi_type_t multi_type  // Sequence or ORed references, etc.
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_multi_definition_init()");
+
   if (self == NULL
       || name == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_multi_definition_init()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (prev != NULL
            && prev->next != NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_multi_definition_init()");
     return UTF8LEX_ERROR_CHAIN_INSERT;
   }
   else if (multi_type <= UTF8LEX_MULTI_TYPE_NONE
            || multi_type >= UTF8LEX_MULTI_TYPE_MAX)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_multi_definition_init()");
     return UTF8LEX_ERROR_BAD_MULTI_TYPE;
   }
 
@@ -249,6 +278,7 @@ utf8lex_error_t utf8lex_multi_definition_init(
     {
       if (self->base.prev != NULL)
       {
+        UTF8LEX_DEBUG("EXIT utf8lex_multi_definition_init()");
         return UTF8LEX_ERROR_STATE;
       }
 
@@ -256,24 +286,27 @@ utf8lex_error_t utf8lex_multi_definition_init(
     }
     else if (self->base.prev == NULL)
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_multi_definition_init()");
       return UTF8LEX_ERROR_STATE;
     }
   }
 
   if (self->base.prev == NULL)
   {
-    self->base.id = (uint32_t) 0;
+    self->base.id = (uint32_t) 1;
   }
   else
   {
     self->base.id = self->base.prev->id + 1;
-    if (self->base.id >= UTF8LEX_DEFINITIONS_DB_LENGTH_MAX)
+    if (self->base.id > UTF8LEX_DEFINITIONS_DB_LENGTH_MAX)
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_multi_definition_init()");
       return UTF8LEX_ERROR_MAX_LENGTH;
     }
     self->base.prev->next = (utf8lex_definition_t *) self;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_multi_definition_init()");
   return UTF8LEX_OK;
 }
 
@@ -282,12 +315,16 @@ utf8lex_error_t utf8lex_multi_definition_clear(
         utf8lex_definition_t *self
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_multi_definition_clear()");
+
   if (self == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_multi_definition_clear()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (self->definition_type != UTF8LEX_DEFINITION_TYPE_MULTI)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_multi_definition_clear()");
     return UTF8LEX_ERROR_DEFINITION_TYPE;
   }
 
@@ -319,6 +356,7 @@ utf8lex_error_t utf8lex_multi_definition_clear(
     utf8lex_error_t error = utf8lex_reference_clear(reference);
     if (error != UTF8LEX_OK)
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_multi_definition_clear()");
       return error;
     }
 
@@ -327,6 +365,7 @@ utf8lex_error_t utf8lex_multi_definition_clear(
 
   if (is_infinite_loop == true)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_multi_definition_clear()");
     return UTF8LEX_ERROR_INFINITE_LOOP;
   }
 
@@ -346,12 +385,14 @@ utf8lex_error_t utf8lex_multi_definition_clear(
     if (child->definition_type == NULL
         || child->definition_type->clear == NULL)
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_multi_definition_clear()");
       return UTF8LEX_ERROR_NULL_POINTER;
     }
 
     utf8lex_error_t error = child->definition_type->clear(child);
     if (error != UTF8LEX_OK)
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_multi_definition_clear()");
       return error;
     }
 
@@ -360,6 +401,7 @@ utf8lex_error_t utf8lex_multi_definition_clear(
 
   if (is_infinite_loop == true)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_multi_definition_clear()");
     return UTF8LEX_ERROR_INFINITE_LOOP;
   }
 
@@ -372,6 +414,7 @@ utf8lex_error_t utf8lex_multi_definition_clear(
 
   multi_definition->parent = NULL;
 
+  UTF8LEX_DEBUG("EXIT utf8lex_multi_definition_clear()");
   return UTF8LEX_OK;
 }
 
@@ -381,13 +424,17 @@ utf8lex_error_t utf8lex_multi_definition_resolve(
         utf8lex_definition_t *db  // The main database to resolve references.
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_multi_definition_resolve()");
+
   if (self == NULL
       || db == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_multi_definition_resolve()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (self->references == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_multi_definition_resolve()");
     return UTF8LEX_ERROR_EMPTY_DEFINITION;
   }
 
@@ -406,6 +453,7 @@ utf8lex_error_t utf8lex_multi_definition_resolve(
                                                       db);
     if (error != UTF8LEX_OK)
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_multi_definition_resolve()");
       return error;
     }
 
@@ -414,6 +462,7 @@ utf8lex_error_t utf8lex_multi_definition_resolve(
 
   if (is_infinite_loop == true)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_multi_definition_resolve()");
     return UTF8LEX_ERROR_INFINITE_LOOP;
   }
 
@@ -431,6 +480,7 @@ utf8lex_error_t utf8lex_multi_definition_resolve(
     if (child->definition_type == NULL
         || child->definition_type->clear == NULL)
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_multi_definition_resolve()");
       return UTF8LEX_ERROR_NULL_POINTER;
     }
     else if (child->definition_type != UTF8LEX_DEFINITION_TYPE_MULTI)
@@ -445,6 +495,7 @@ utf8lex_error_t utf8lex_multi_definition_resolve(
                                                              db);  // db
     if (error != UTF8LEX_OK)
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_multi_definition_resolve()");
       return error;
     }
 
@@ -453,9 +504,11 @@ utf8lex_error_t utf8lex_multi_definition_resolve(
 
   if (is_infinite_loop == true)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_multi_definition_resolve()");
     return UTF8LEX_ERROR_INFINITE_LOOP;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_multi_definition_resolve()");
   return UTF8LEX_OK;
 }
 
@@ -466,6 +519,8 @@ static utf8lex_error_t utf8lex_lex_multi(
         utf8lex_token_t *token_pointer
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_lex_multi()");
+
   if (rule == NULL
       || rule->definition == NULL
       || rule->definition->definition_type == NULL
@@ -475,11 +530,13 @@ static utf8lex_error_t utf8lex_lex_multi(
       || state->buffer->str == NULL
       || token_pointer == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (rule->definition->definition_type
            != UTF8LEX_DEFINITION_TYPE_MULTI)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
     return UTF8LEX_ERROR_DEFINITION_TYPE;
   }
 
@@ -488,6 +545,7 @@ static utf8lex_error_t utf8lex_lex_multi(
 
   if (multi->references == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
     return UTF8LEX_ERROR_EMPTY_DEFINITION;
   }
 
@@ -539,10 +597,12 @@ static utf8lex_error_t utf8lex_lex_multi(
     utf8lex_definition_t *definition = reference->definition_or_null;
     if (definition == NULL)
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
       return UTF8LEX_ERROR_UNRESOLVED_DEFINITION;
     }
     else if (definition->definition_type == NULL)
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
       return UTF8LEX_ERROR_NULL_POINTER;
     }
 
@@ -574,6 +634,7 @@ static utf8lex_error_t utf8lex_lex_multi(
       }
       else if (error != UTF8LEX_OK)
       {
+        UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
         return error;
       }
 
@@ -605,6 +666,7 @@ static utf8lex_error_t utf8lex_lex_multi(
 
     if (m == UTF8LEX_REFERENCES_LENGTH_MAX)
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
       return UTF8LEX_ERROR_INFINITE_LOOP;
     }
     else if (m < reference->min
@@ -613,6 +675,7 @@ static utf8lex_error_t utf8lex_lex_multi(
       // Carry on searching for a definition that matches the incoming text.
       if (reference->next == NULL)
       {
+        UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
         return UTF8LEX_NO_MATCH;
       }
 
@@ -621,6 +684,7 @@ static utf8lex_error_t utf8lex_lex_multi(
     }
     else if (m < reference->min)
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
       return UTF8LEX_NO_MATCH;
     }
     else if (multi->multi_type == UTF8LEX_MULTI_TYPE_OR)
@@ -645,10 +709,12 @@ static utf8lex_error_t utf8lex_lex_multi(
 
   if (is_infinite_loop == true)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
     return UTF8LEX_ERROR_INFINITE_LOOP;
   }
   else if (matching_definition == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
     return UTF8LEX_ERROR_STATE;
   }
 
@@ -671,9 +737,11 @@ static utf8lex_error_t utf8lex_lex_multi(
       state);  // For buffer and absolute location.
   if (error != UTF8LEX_OK)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
     return error;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
   return UTF8LEX_OK;
 }
 

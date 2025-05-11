@@ -34,9 +34,12 @@ utf8lex_error_t utf8lex_buffer_init(
         bool is_eof
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_buffer_init()");
+
   if (self == NULL
       || str == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_init()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
@@ -62,6 +65,7 @@ utf8lex_error_t utf8lex_buffer_init(
     self->prev->next = self;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_buffer_init()");
   return UTF8LEX_OK;
 }
 
@@ -69,8 +73,11 @@ utf8lex_error_t utf8lex_buffer_clear(
         utf8lex_buffer_t *self
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_buffer_clear()");
+
   if (self == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_clear()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
@@ -101,6 +108,7 @@ utf8lex_error_t utf8lex_buffer_clear(
     self->loc[unit].length = -1;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_buffer_clear()");
   return UTF8LEX_OK;
 }
 
@@ -110,14 +118,18 @@ utf8lex_error_t utf8lex_buffer_add(
         utf8lex_buffer_t *tail
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_buffer_add()");
+
   if (self == NULL
       || tail == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_add()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (tail->prev != NULL
            || tail->next != NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_add()");
     return UTF8LEX_ERROR_CHAIN_INSERT;
   }
 
@@ -138,8 +150,10 @@ utf8lex_error_t utf8lex_buffer_add(
 
   if (tail->prev != buffer)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_add()");
     return UTF8LEX_ERROR_INFINITE_LOOP;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_buffer_add()");
   return UTF8LEX_OK;
 }

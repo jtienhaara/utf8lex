@@ -105,7 +105,7 @@ typedef struct _STRUCT_utf8lex_test_expression
 
 
 // NUMBER, ID, EQUALS3, EQUALS, PLUS, MINUS, SPACE:
-static utf8lex_error_t test_utf8lex_create_db(
+static utf8lex_error_t test_utf8lex_db_init(
         utf8lex_test_db_t *db
         )
 {
@@ -266,6 +266,103 @@ static utf8lex_error_t test_utf8lex_create_db(
 
   db->last_definition = prev_definition;
   db->last_rule = prev_rule;
+
+  return UTF8LEX_OK;
+}
+
+static utf8lex_error_t test_utf8lex_db_clear(
+        utf8lex_test_db_t *db
+        )
+{
+  if (db == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  utf8lex_error_t error = UTF8LEX_OK;
+
+  error = utf8lex_cat_definition_clear(&(db->number_definition.base));
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+  error = utf8lex_rule_clear(&(db->number_rule));
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+
+  error = utf8lex_regex_definition_clear(&(db->id_definition.base));
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+  error = utf8lex_rule_clear(&(db->id_rule));
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+
+  error = utf8lex_literal_definition_clear(&(db->equals3_definition.base));
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+  error = utf8lex_rule_clear(&(db->equals3_rule));
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+
+  error = utf8lex_literal_definition_clear(&(db->equals_definition.base));
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+  error = utf8lex_rule_clear(&(db->equals_rule));
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+
+  error = utf8lex_literal_definition_clear(&(db->plus_definition.base));
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+  error = utf8lex_rule_clear(&(db->plus_rule));
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+
+  error = utf8lex_literal_definition_clear(&(db->minus_definition.base));
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+  error = utf8lex_rule_clear(&(db->minus_rule));
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+
+  error = utf8lex_regex_definition_clear(&(db->space_definition.base));
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+  error = utf8lex_rule_clear(&(db->space_rule));
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+
+  db->definitions_db = NULL;
+  db->rules_db = NULL;
+
+  db->last_definition = NULL;
+  db->last_rule = NULL;
 
   return UTF8LEX_OK;
 }
@@ -633,7 +730,7 @@ static utf8lex_error_t test_utf8lex_operator()
   utf8lex_error_t error = UTF8LEX_OK;
 
   utf8lex_test_db_t db;
-  error = test_utf8lex_create_db(&db);
+  error = test_utf8lex_db_init(&db);
   if (error != UTF8LEX_OK)
   {
     return error;
@@ -828,6 +925,13 @@ static utf8lex_error_t test_utf8lex_operator()
   error = utf8lex_rule_clear(&lex_rule);
   if (error != UTF8LEX_OK) { return error; }
 
+  // Clean up the db:
+  error = test_utf8lex_db_clear(&db);
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+
   return UTF8LEX_OK;
 }
 
@@ -838,7 +942,7 @@ static utf8lex_error_t test_utf8lex_declaration()
   utf8lex_error_t error = UTF8LEX_OK;
 
   utf8lex_test_db_t db;
-  error = test_utf8lex_create_db(&db);
+  error = test_utf8lex_db_init(&db);
   if (error != UTF8LEX_OK)
   {
     return error;
@@ -940,6 +1044,13 @@ static utf8lex_error_t test_utf8lex_declaration()
   error = utf8lex_rule_clear(&lex_rule);
   if (error != UTF8LEX_OK) { return error; }
 
+  // Clean up the db:
+  error = test_utf8lex_db_clear(&db);
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+
   return UTF8LEX_OK;
 }
 
@@ -950,7 +1061,7 @@ static utf8lex_error_t test_utf8lex_operand()
   utf8lex_error_t error = UTF8LEX_OK;
 
   utf8lex_test_db_t db;
-  error = test_utf8lex_create_db(&db);
+  error = test_utf8lex_db_init(&db);
   if (error != UTF8LEX_OK)
   {
     return error;
@@ -1083,6 +1194,13 @@ static utf8lex_error_t test_utf8lex_operand()
   error = utf8lex_rule_clear(&lex_rule);
   if (error != UTF8LEX_OK) { return error; }
 
+  // Clean up the db:
+  error = test_utf8lex_db_clear(&db);
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+
   return UTF8LEX_OK;
 }
 
@@ -1094,7 +1212,7 @@ static utf8lex_error_t test_utf8lex_expression()
   utf8lex_error_t error = UTF8LEX_OK;
 
   utf8lex_test_db_t db;
-  error = test_utf8lex_create_db(&db);
+  error = test_utf8lex_db_init(&db);
   if (error != UTF8LEX_OK)
   {
     return error;
@@ -1291,6 +1409,13 @@ static utf8lex_error_t test_utf8lex_expression()
   printf("  Tearing down 'expression' rule and definition:\n");
   error = utf8lex_rule_clear(&lex_rule);
   if (error != UTF8LEX_OK) { return error; }
+
+  // Clean up the db:
+  error = test_utf8lex_db_clear(&db);
+  if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
 
   return UTF8LEX_OK;
 }

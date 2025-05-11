@@ -48,12 +48,15 @@ SOURCE_FILES ?= \
 	utf8lex_definition_regex.c \
 	utf8lex_error.c \
 	utf8lex_file.c \
-	utf8lex_generate.c \
+	utf8lex_generate_1.c \
+	utf8lex_generate_2.c \
+	utf8lex_generate_3.c \
 	utf8lex_lex.c \
 	utf8lex_read.c \
 	utf8lex_rule.c \
 	utf8lex_state.c \
 	utf8lex_string.c \
+	utf8lex_sub_token.c \
 	utf8lex_target_language_c.c \
 	utf8lex_token.c
 
@@ -76,8 +79,20 @@ $(BUILD_DIR)/%.o: %.c
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+.PHONY: check_source_files_list
+check_source_files_list:
+	@for SOURCE_FILE in *.c; \
+	do \
+	    OBJECT_FILE=`echo "$$SOURCE_FILE" | sed 's|\\.[a-zA-Z0-9]$$|\\.o|'`; \
+	    if test ! -f "$(BUILD_DIR)/$$OBJECT_FILE"; \
+	    then \
+	        echo "ERROR source file $$SOURCE_FILE did not generate an object file $(BUILD_DIR)/$$OBJECT_FILE.  Is it included in the Makefile?" >&2; \
+	        exit 1; \
+	    fi; \
+	done
+
 # Rule for .so library files:
-$(LIBRARY): $(OBJECT_FILES)
+$(LIBRARY): $(OBJECT_FILES) check_source_files_list
 	$(LD) $(LDFLAGS_LIBRARY)  \
 	    -Wl,-soname,libutf8lex.so.$(UTF8LEX_MAJOR) \
 	    $(OBJECT_FILES) \

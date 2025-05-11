@@ -46,17 +46,21 @@ utf8lex_error_t utf8lex_read_grapheme(
         utf8lex_cat_t *cat_pointer  // Mutable.
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_read_grapheme()");
+
   if (state == NULL
       || offset_pointer == NULL
       || loc_pointer == NULL
       || codepoint_pointer == NULL
       || cat_pointer == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_read_grapheme()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (*offset_pointer < (off_t) 0
            || *offset_pointer >= state->buffer->str->length_bytes)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_read_grapheme()");
     return UTF8LEX_ERROR_BAD_START;
   }
 
@@ -95,6 +99,7 @@ utf8lex_error_t utf8lex_read_grapheme(
         if (u8c == 0)
         {
           // We haven't read any bytes so far.  How did we get here...?
+          UTF8LEX_DEBUG("EXIT utf8lex_read_grapheme()");
           error = UTF8LEX_NO_MATCH;  // Should we also return ..._EOF from here?
           break;
         }
@@ -160,6 +165,7 @@ utf8lex_error_t utf8lex_read_grapheme(
       else
       {
         // Finished reading at least 1 codepoint.  Done.
+        UTF8LEX_DEBUG("EXIT utf8lex_read_grapheme()");
         // We'll return to this bad character the next time we lex.
         error = UTF8LEX_OK;
         break;
@@ -199,6 +205,7 @@ utf8lex_error_t utf8lex_read_grapheme(
     if (error != UTF8LEX_OK)
     {
       // Maybe a utf8lex bug?
+      UTF8LEX_DEBUG("EXIT utf8lex_read_grapheme()");
       return error;
     }
     if (u8c == 0)
@@ -240,6 +247,7 @@ utf8lex_error_t utf8lex_read_grapheme(
   if (error != UTF8LEX_OK)
   {
     // Could be bad UTF-8, or need more bytes, etc.
+    UTF8LEX_DEBUG("EXIT utf8lex_read_grapheme()");
     return error;
   }
 
@@ -268,5 +276,6 @@ utf8lex_error_t utf8lex_read_grapheme(
   // so we ignore them for categorizationg purposes.
   *cat_pointer = first_cat;
 
+  UTF8LEX_DEBUG("EXIT utf8lex_read_grapheme()");
   return UTF8LEX_OK;
 }

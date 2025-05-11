@@ -35,28 +35,35 @@ utf8lex_error_t utf8lex_cat_definition_init(
         int max  // Maximum consecutive occurrences (-1 = no limit).
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_cat_definition_init()");
+
   if (self == NULL
       || name == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_cat_definition_init()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (prev != NULL
            && prev->next != NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_cat_definition_init()");
     return UTF8LEX_ERROR_CHAIN_INSERT;
   }
   else if (cat <= UTF8LEX_CAT_NONE
            || cat >= UTF8LEX_CAT_MAX)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_cat_definition_init()");
     return UTF8LEX_ERROR_CAT;
   }
   else if (min <= 0)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_cat_definition_init()");
     return UTF8LEX_ERROR_BAD_MIN;
   }
   else if (max != -1
            && max < min)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_cat_definition_init()");
     return UTF8LEX_ERROR_BAD_MAX;
   }
 
@@ -71,18 +78,20 @@ utf8lex_error_t utf8lex_cat_definition_init(
 
   if (self->base.prev == NULL)
   {
-    self->base.id = (uint32_t) 0;
+    self->base.id = (uint32_t) 1;
   }
   else
   {
     self->base.id = self->base.prev->id + 1;
-    if (self->base.id >= UTF8LEX_DEFINITIONS_DB_LENGTH_MAX)
+    if (self->base.id > UTF8LEX_DEFINITIONS_DB_LENGTH_MAX)
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_cat_definition_init()");
       return UTF8LEX_ERROR_MAX_LENGTH;
     }
     self->base.prev->next = (utf8lex_definition_t *) self;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_cat_definition_init()");
   return UTF8LEX_OK;
 }
 
@@ -90,12 +99,16 @@ utf8lex_error_t utf8lex_cat_definition_clear(
         utf8lex_definition_t *self  // Must be utf8lex_cat_definition_t *
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_cat_definition_clear()");
+
   if (self == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_cat_definition_clear()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (self->definition_type != UTF8LEX_DEFINITION_TYPE_CAT)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_cat_definition_clear()");
     return UTF8LEX_ERROR_DEFINITION_TYPE;
   }
 
@@ -119,6 +132,7 @@ utf8lex_error_t utf8lex_cat_definition_clear(
   cat_definition->min = 0;
   cat_definition->max = 0;
 
+  UTF8LEX_DEBUG("EXIT utf8lex_cat_definition_clear()");
   return UTF8LEX_OK;
 }
 
@@ -129,6 +143,8 @@ static utf8lex_error_t utf8lex_lex_cat(
         utf8lex_token_t *token_pointer
         )
 {
+  UTF8LEX_DEBUG("ENTER utf8lex_lex_cat()");
+
   if (rule == NULL
       || rule->definition == NULL
       || rule->definition->definition_type == NULL
@@ -140,11 +156,13 @@ static utf8lex_error_t utf8lex_lex_cat(
       || state->buffer->str == NULL
       || token_pointer == NULL)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_lex_cat()");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (rule->definition->definition_type
            != UTF8LEX_DEFINITION_TYPE_CAT)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_lex_cat()");
     return UTF8LEX_ERROR_DEFINITION_TYPE;
   }
 
@@ -181,17 +199,20 @@ static utf8lex_error_t utf8lex_lex_cat(
 
     if (error == UTF8LEX_MORE)
     {
+      UTF8LEX_DEBUG("EXIT utf8lex_lex_cat()");
       return error;
     }
     else if (error != UTF8LEX_OK)
     {
       if (ug < cat_definition->min)
       {
+        UTF8LEX_DEBUG("EXIT utf8lex_lex_cat()");
         return error;
       }
       else
       {
         // Finished reading at least (min) graphemes.  Done.
+        UTF8LEX_DEBUG("EXIT utf8lex_lex_cat()");
         // We'll return to this bad UTF-8 grapheme the next time we lex.
         break;
       }
@@ -207,6 +228,7 @@ static utf8lex_error_t utf8lex_lex_cat(
       // Not the category we're looking for, and we haven't found
       // at least (min) graphemes matching this category, so fail
       // with no match.
+      UTF8LEX_DEBUG("EXIT utf8lex_lex_cat()");
       return UTF8LEX_NO_MATCH;
     }
     else
@@ -243,9 +265,11 @@ static utf8lex_error_t utf8lex_lex_cat(
       state);  // For buffer and absolute location.
   if (error != UTF8LEX_OK)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_lex_cat()");
     return error;
   }
 
+  UTF8LEX_DEBUG("EXIT utf8lex_lex_cat()");
   return UTF8LEX_OK;
 }
 

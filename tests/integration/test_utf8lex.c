@@ -322,6 +322,98 @@ static utf8lex_error_t test_utf8lex(
     return error;
   }
 
+  // Clean up:
+  error = utf8lex_cat_definition_clear(&(number_definition.base));
+  if (error != UTF8LEX_OK)
+  {
+    printf("  test_utf8lex: FAILED\n");
+    return error;
+  }
+  error = utf8lex_rule_clear(&NUMBER);
+  if (error != UTF8LEX_OK)
+  {
+    printf("  test_utf8lex: FAILED\n");
+    return error;
+  }
+
+  error = utf8lex_regex_definition_clear(&(id_definition.base));
+  if (error != UTF8LEX_OK)
+  {
+    printf("  test_utf8lex: FAILED\n");
+    return error;
+  }
+  error = utf8lex_rule_clear(&ID);
+  if (error != UTF8LEX_OK)
+  {
+    printf("  test_utf8lex: FAILED\n");
+    return error;
+  }
+
+  error = utf8lex_literal_definition_clear(&(equals3_definition.base));
+  if (error != UTF8LEX_OK)
+  {
+    printf("  test_utf8lex: FAILED\n");
+    return error;
+  }
+  error = utf8lex_rule_clear(&EQUALS3);
+  if (error != UTF8LEX_OK)
+  {
+    printf("  test_utf8lex: FAILED\n");
+    return error;
+  }
+
+  error = utf8lex_literal_definition_clear(&(equals_definition.base));
+  if (error != UTF8LEX_OK)
+  {
+    printf("  test_utf8lex: FAILED\n");
+    return error;
+  }
+  error = utf8lex_rule_clear(&EQUALS);
+  if (error != UTF8LEX_OK)
+  {
+    printf("  test_utf8lex: FAILED\n");
+    return error;
+  }
+
+  error = utf8lex_literal_definition_clear(&(plus_definition.base));
+  if (error != UTF8LEX_OK)
+  {
+    printf("  test_utf8lex: FAILED\n");
+    return error;
+  }
+  error = utf8lex_rule_clear(&PLUS);
+  if (error != UTF8LEX_OK)
+  {
+    printf("  test_utf8lex: FAILED\n");
+    return error;
+  }
+
+  error = utf8lex_literal_definition_clear(&(minus_definition.base));
+  if (error != UTF8LEX_OK)
+  {
+    printf("  test_utf8lex: FAILED\n");
+    return error;
+  }
+  error = utf8lex_rule_clear(&MINUS);
+  if (error != UTF8LEX_OK)
+  {
+    printf("  test_utf8lex: FAILED\n");
+    return error;
+  }
+
+  error = utf8lex_regex_definition_clear(&(space_definition.base));
+  if (error != UTF8LEX_OK)
+  {
+    printf("  test_utf8lex: FAILED\n");
+    return error;
+  }
+  error = utf8lex_rule_clear(&SPACE);
+  if (error != UTF8LEX_OK)
+  {
+    printf("  test_utf8lex: FAILED\n");
+    return error;
+  }
+
   printf("  test_utf8lex: SUCCESS\n");
   return UTF8LEX_OK;
 }

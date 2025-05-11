@@ -45,6 +45,7 @@ typedef struct _STRUCT_utf8lex_regex_definition utf8lex_regex_definition_t;
 typedef struct _STRUCT_utf8lex_rule             utf8lex_rule_t;
 typedef struct _STRUCT_utf8lex_state            utf8lex_state_t;
 typedef struct _STRUCT_utf8lex_string           utf8lex_string_t;
+typedef struct _STRUCT_utf8lex_sub_token        utf8lex_sub_token_t;
 typedef struct _STRUCT_utf8lex_target_language  utf8lex_target_language_t;
 typedef struct _STRUCT_utf8lex_token            utf8lex_token_t;
 typedef enum _ENUM_utf8lex_unit                 utf8lex_unit_t;
@@ -108,6 +109,7 @@ enum _ENUM_utf8lex_error
   UTF8LEX_ERROR_BAD_START,  // Negative start, or too close to end of string.
   UTF8LEX_ERROR_BAD_AFTER,  // After is neither reset (-1) nor valid new start.
   UTF8LEX_ERROR_BAD_HASH,  // Hash is incorrect.
+  UTF8LEX_ERROR_BAD_ID,  // Rule, definition and sub-token ids must be > 0.
   UTF8LEX_ERROR_BAD_MIN,  // Min must be 0 or greater.
   UTF8LEX_ERROR_BAD_MAX,  // Max must be >= min, or -1 for no limit.
   UTF8LEX_ERROR_BAD_MULTI_TYPE,  // Multi type must be sequence, OR, etc.
@@ -375,7 +377,7 @@ struct _STRUCT_utf8lex_definition_type
 // Warning: setting this too high can cause a program to mysteriously
 // segfault at the very start of a static function (as static
 // heap space is being initialized, or something like that.)
-#define UTF8LEX_DEFINITIONS_DB_LENGTH_MAX 4096
+#define UTF8LEX_DEFINITIONS_DB_LENGTH_MAX 1024
 
 struct _STRUCT_utf8lex_definition
 {
@@ -551,15 +553,35 @@ extern utf8lex_definition_type_t *UTF8LEX_DEFINITION_TYPE_MULTI;
 // No more than (this many) utf8lex_multi_definition_t's can be
 // nested using |, (), and so on
 // (to prevent infinite loops due to adding the same definition twice etc).
-#define UTF8LEX_MULTI_DEFINITION_DEPTH_MAX 4096
+#define UTF8LEX_MULTI_DEFINITION_DEPTH_MAX 256
 
 // No more than (this many) utf8lex_reference_t's can be in
 // a multi-definition's references.
 // (to prevent infinite loops due to adding the same reference twice etc).
-#define UTF8LEX_REFERENCES_LENGTH_MAX 4096
+#define UTF8LEX_REFERENCES_LENGTH_MAX 256
+
+// No more than (this many) utf8lex_sub_token_t's can be in
+// a token (to prevent infinite loops).  Note that a sub-token
+// can contain sub-tokens, so this is the maximum size of the entire
+// tree, not just the immediate children of the token.
+#define UTF8LEX_SUB_TOKENS_LENGTH_MAX 256
 
 struct _STRUCT_utf8lex_reference
 {
+  // References are used for multi-definitions.
+  //
+  // Each multi-definition references other definitions in a sequence,
+  // or ORed together, and so on.
+  //
+  //    For example, COMMENT as a multi-definition references
+  //    COMMENT_OPEN, COMMENT_BODY and COMMENT_CLOSE:
+  //
+  //        COMMENT COMMENT_OPEN COMMENT_BODY COMMENT_CLOSE
+  //
+  //    And NUMBER references FLOAT and INT:
+  //
+  //        NUMBER FLOAT | INT
+  //
   // References are NOT thread-safe, because they can be resolved
   // at any time, without locking.  Do NOT share a reference across
   // multiple threads until it has been resolved.
@@ -666,7 +688,7 @@ extern utf8lex_error_t utf8lex_regex_definition_clear(
 // Warning: setting this too high can cause a program to mysteriously
 // segfault at the very start of a static function (as static
 // heap space is being initialized, or something like that.)
-#define UTF8LEX_RULES_DB_LENGTH_MAX 4096
+#define UTF8LEX_RULES_DB_LENGTH_MAX 1024
 
 struct _STRUCT_utf8lex_rule
 {
@@ -703,6 +725,7 @@ extern utf8lex_error_t utf8lex_rule_find_by_id(
         utf8lex_rule_t ** found_pointer  // Gets set when found.
         );
 
+
 struct _STRUCT_utf8lex_token
 {
   utf8lex_rule_t *rule;  // The rule that matched this token.
@@ -713,6 +736,39 @@ struct _STRUCT_utf8lex_token
   utf8lex_string_t *str;
 
   utf8lex_location_t loc[UTF8LEX_UNIT_MAX];  // Absolute location of token.
+
+  // Each token that matches a multi-definition has a sub-token
+  // for each reference definition.
+  //
+  // For example, the token:
+  //
+  //     /* This is a comment */
+  //
+  // might match the whole COMMENT multi-definition, with the toplevel
+  // token containing sub-tokens:
+  //
+  //     COMMENT_OPEN  is_match = true str = "/*"
+  //     COMMENT_BODY  is_match = true str = " This is a comment "
+  //     COMMENT_CLOSE is_match = true str = "*/"
+  //
+  // Or the token:
+  //
+  //     1.2345
+  //
+  // might match the whole NUMBER multi-definition, with the toplevel
+  // token containing sub-tokens:
+  //
+  //     FLOAT is_match = true  str = "1.2345"
+  //     INT   is_match = false str = ""
+  //
+  // Each instance of a variable-length definition is matched.
+  // So, for example, a multi-definition referencing component OPTIONAL?
+  // will generate 0 or 1 sub-tokens for the OPTIONAL reference.
+  // A multi-definition referencing ELEMENT* will generate 0 or more
+  // sub-tokens for the ELEMENT reference.
+  //
+  utf8lex_sub_token_t *sub_tokens;  // Can be NULL.
+  utf8lex_token_t *parent_or_null;  // If this is a sub-token.
 };
 
 extern utf8lex_error_t utf8lex_token_init(
@@ -722,25 +778,101 @@ extern utf8lex_error_t utf8lex_token_init(
         utf8lex_location_t token_loc[UTF8LEX_UNIT_MAX],  // Resets, lengths.
         utf8lex_state_t *state  // For buffer and absolute location.
         );
+extern utf8lex_error_t utf8lex_token_copy(
+        utf8lex_token_t *from,
+        utf8lex_token_t *to,
+        utf8lex_state_t *state
+        );
 extern utf8lex_error_t utf8lex_token_clear(
         utf8lex_token_t *self
         );
 
+// Copies the token text into the specified string, overwriting it.
 // Returns UTF8LEX_MORE if the destination string truncates the token:
 extern utf8lex_error_t utf8lex_token_copy_string(
         utf8lex_token_t *self,
         unsigned char *str,
         size_t max_bytes);
+// Concatenates the token text to the end of the specified string.
 // Returns UTF8LEX_MORE if the destination string truncates the token:
 extern utf8lex_error_t utf8lex_token_cat_string(
         utf8lex_token_t *self,
         unsigned char *str,  // Text will be concatenated starting at '\0'.
         size_t max_bytes);
 
+
+struct _STRUCT_utf8lex_sub_token
+{
+  // Multiple sub-tokens can match a single definition.
+  // For example, with a sequence multi-definition:
+  //
+  //     DIGIT*
+  //
+  // There can be 0 or more sub-tokens matching the DIGIT definition.
+  //
+  // Definitions can also be matched at different levels of a
+  // multi-definition tree.  For example the FLOAT multi-definition
+  // might have multiple instances of the DIGIT reference:
+  //
+  //     FLOAT DIGIT* (DOT DIGIT+)?
+  //
+  // NOT thread-safe.  Do not share a utf8lex_sub_token across threads.
+  //
+  uint32_t id;  // id of this sub-token == id of the matched definition.
+  unsigned char *name;  // sub-token name == name of the matched definition.
+
+  utf8lex_token_t token;
+
+  utf8lex_sub_token_t *next;  
+  utf8lex_sub_token_t *prev;
+};
+
+extern utf8lex_error_t utf8lex_sub_token_init(
+        utf8lex_sub_token_t *self,
+        utf8lex_sub_token_t *prev,
+        utf8lex_token_t *token_to_copy,
+        utf8lex_state_t *state
+        );
+extern utf8lex_error_t utf8lex_sub_token_clear(
+        utf8lex_sub_token_t *self
+        );
+
+extern utf8lex_error_t utf8lex_sub_token_find(
+        utf8lex_sub_token_t *first_sub_token,  // Database to search
+        unsigned char *name,
+        utf8lex_sub_token_t **found_pointer  // Mutable.
+        );
+extern utf8lex_error_t utf8lex_sub_token_find_by_id(
+        utf8lex_sub_token_t *first_sub_token,  // Database to search
+        uint32_t id,
+        utf8lex_sub_token_t **found_pointer  // Mutable.
+        );
+
+// Copies the sub-token text into the specified string, overwriting it.
+// Returns UTF8LEX_MORE if the destination string truncates the sub-token:
+extern utf8lex_error_t utf8lex_sub_token_copy_string(
+        utf8lex_sub_token_t *self,
+        unsigned char *str,
+        size_t max_bytes);
+
+// Concatenates the sub-token text to the end of the specified string.
+// Returns UTF8LEX_MORE if the destination string truncates the sub-token:
+extern utf8lex_error_t utf8lex_sub_token_cat_string(
+        utf8lex_sub_token_t *self,
+        unsigned char *str,  // Text will be concatenated starting at '\0'.
+        size_t max_bytes);
+
+
 struct _STRUCT_utf8lex_state
 {
   utf8lex_buffer_t *buffer;  // Current buffer being lexed.
   utf8lex_location_t loc[UTF8LEX_UNIT_MAX];  // Current location within buffer.
+
+  // Tokens matching multi-definitions have component sub-tokens
+  // matching the children of the multi-definition.
+  // NOT thread-safe -- do not share a utf8lex_state_t across threads.
+  size_t num_used_sub_tokens;
+  utf8lex_sub_token_t sub_tokens[UTF8LEX_SUB_TOKENS_LENGTH_MAX];
 };
 
 extern utf8lex_error_t utf8lex_state_init(
@@ -819,6 +951,10 @@ struct STRUCT_utf8lex_lloc
   int start_line;
   int length_lines;
 };
+
+// Debug trace logs for obnoxious C bugs:
+// #define UTF8LEX_DEBUG(...) fprintf(stdout, "%s %d %s\n", __FILE__, __LINE__, __VA_ARGS__); fflush(stdout)
+#define UTF8LEX_DEBUG(...)
 
 // Common token ids used by .c file generated from .l file:
 #define YYEOF -1
