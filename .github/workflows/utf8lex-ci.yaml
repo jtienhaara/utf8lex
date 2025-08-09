@@ -256,7 +256,7 @@ jobs:
           - linux/arm64
           - linux/mips64le
           - linux/ppc64le
-          - linux/riscv64
+          # Official Debian image hub.docker but not supported: - linux/riscv64
           - linux/s390x
     env:
       BUILD_DIR: ./build
@@ -387,7 +387,7 @@ jobs:
           - linux/arm64
           - linux/mips64le
           - linux/ppc64le
-          - linux/riscv64
+          # Official Debian image hub.docker but not supported: - linux/riscv64
           - linux/s390x
 
     env:
@@ -543,7 +543,7 @@ jobs:
           - linux/arm64
           - linux/mips64le
           - linux/ppc64le
-          - linux/riscv64
+          # Official Debian image hub.docker but not supported: - linux/riscv64
           - linux/s390x
 
     env:
@@ -700,7 +700,7 @@ jobs:
           - linux/arm64
           - linux/mips64le
           - linux/ppc64le
-          - linux/riscv64
+          # Official Debian image hub.docker but not supported: - linux/riscv64
           - linux/s390x
 
     env:
