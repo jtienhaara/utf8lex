@@ -92,11 +92,12 @@ run:
 	        "$$UNIT_TEST" || exit 1; \
 	    else \
 	        ARCHITECTURE=`uname -m`; \
+	        MAYBE_ARM=`echo "$$ARCHITECTURE" | awk '$$0 ~ /^arm.*$$/ { print $$0; }'`; \
 	        echo "Setting extra options for architecture $$ARCHITECTURE..."; \
 	        EXTRA_OPTIONS=""; \
-	        if test "$ARCHITECTURE" = "arm"; \
+	        if test "$$ARCHITECTURE" = "$MAYBE_ARM"; \
 	        then \
-	            echo "  Setting soft stack-size limit on $ARCHITECTURE to 65536 bytes"; \
+	            echo "  Setting soft stack-size limit on $$ARCHITECTURE to 65536 bytes"; \
 	            EXTRA_OPTIONS="--main-stacksize=65536"; \
 	        fi; \
 	        echo "  Extra options for architecture $$ARCHITECTURE: '$$EXTRA_OPTIONS'"; \
