@@ -196,7 +196,7 @@ jobs:
           docker buildx build \
               --file debian.Dockerfile \
               --load \
-              --platform ${{env.DEBIAN_ARCHITECTURE}} \
+              --platform "${{matrix.platform}}" \
               --build-arg ${{env.VALGRIND_PLATFORM}} \
               --tag ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile') }} \
               .
@@ -334,7 +334,7 @@ jobs:
           #
           docker run \
                   --rm \
-                  --platform ${{env.DEBIAN_ARCHITECTURE}} \
+                  --platform "${{matrix.platform}}" \
                   --volume `pwd`:/utf8lex:rw \
                   ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile') }} \
                   make build \
@@ -517,7 +517,7 @@ jobs:
           #
           docker run \
                   --rm \
-                  --platform ${{env.DEBIAN_ARCHITECTURE}} \
+                  --platform "${{matrix.platform}}" \
                   --volume `pwd`:/utf8lex:rw \
                   ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile') }} \
                   make unit_tests \
@@ -673,7 +673,7 @@ jobs:
           #
           docker run \
                   --rm \
-                  --platform ${{env.DEBIAN_ARCHITECTURE}} \
+                  --platform "${{matrix.platform}}" \
                   --volume `pwd`:/utf8lex:rw \
                   ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile') }} \
                   make integration_tests \
@@ -832,7 +832,7 @@ jobs:
           #
           docker run \
                   --rm \
-                  --platform ${{env.DEBIAN_ARCHITECTURE}} \
+                  --platform "${{matrix.platform}}" \
                   --volume `pwd`:/utf8lex:rw \
                   ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile') }} \
                   make examples \
