@@ -19,27 +19,33 @@
 .PHONY: all
 all: build test examples
 
-.PHONY: build-container
-build-container:
-	docker build . \
-	    --file builder.Dockerfile \
-	    --tag utf8lex:latest
+.PHONY: build-debian-container
+build-debian-container:
+	@DEBIAN_ARCHITECTURE=`./get_debian_architecture.sh` \
+	    && VALGRIND_PLATFORM=`./get_valgrind_platform.sh` \
+	    && echo "DEBIAN_ARCHITECTURE='$$DEBIAN_ARCHITECTURE'" \
+	    && echo "VALGRIND_PLATFORM='$$VALGRIND_PLATFORM'" \
+	    && docker build . \
+	        --file debian.Dockerfile \
+	        --platform "$$DEBIAN_ARCHITECTURE" \
+	        --build-arg "VALGRIND_PLATFORM=$$VALGRIND_PLATFORM" \
+	        --tag utf8lex-debian:latest
 
-.PHONY: container
-container: build-container
+.PHONY: debian-container
+debian-container: build-debian-container
 	docker run \
 	    --rm \
 	    --volume `pwd`:/utf8lex:rw \
-	    utf8lex:latest \
+	    utf8lex-debian:latest \
 	    bash -c 'make clean && make all'
 
-.PHONY: container-debug
-container-debug: build-container
+.PHONY: debian-container-debug
+debian-container-debug: build-debian-container
 	docker run \
 	    --rm \
 	    -i --tty \
 	    --volume `pwd`:/utf8lex:rw \
-	    utf8lex:latest \
+	    utf8lex-debian:latest \
 	    bash -c 'make clean && make build && make all && echo "***** No core dump, no debug *****" || make debug'
 
 .PHONY: build

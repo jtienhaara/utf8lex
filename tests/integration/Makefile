@@ -41,6 +41,11 @@ CFLAGS = -Werror -fPIC -I$(SRC_DIR) --debug
 LD = gcc
 LDFLAGS = -Wl,--no-as-needed -lpcre2-8 -lutf8proc -L$(UTF8LEX_LIBRARY_DIR) -Wl,-rpath,$(UTF8LEX_LIBRARY_DIR) -lutf8lex
 
+#
+# By default, assume valgrind is supported and installed.
+# To override and skip valgrind checks, set VALGRIND_PLATFORM="UNSUPPORTED".
+#
+VALGRIND_PLATFORM ?= "supported"
 RUNTIME_LEAK_OPTIONS = --leak-check=yes --error-exitcode=66 --suppressions=valgrind_suppressions.txt
 
 TEST_BUILD_DIR ?= ../build
@@ -80,12 +85,18 @@ run: run-test_utf8lex run-test_utf8lex_generate
 
 .PHONY: run-test_utf8lex
 run-test_utf8lex:
+	@echo "VALGRIND_PLATFORM=$(VALGRIND_PLATFORM)"
 	@for TEST_FILE in test_utf8lex_*.txt; \
 	do \
 	    echo ""; \
 	    echo "$$TEST_FILE:"; \
-	        valgrind $(RUNTIME_LEAK_OPTIONS) $(TEST_BUILD_DIR)/test_utf8lex "$$TEST_FILE" \
-	        || exit 1; \
+	    if test "$(VALGRIND_PLATFORM)" = "UNSUPPORTED"; \
+	    then \
+	        $(TEST_BUILD_DIR)/test_utf8lex "$$TEST_FILE" ; \
+	    else \
+	        valgrind $(RUNTIME_LEAK_OPTIONS) $(TEST_BUILD_DIR)/test_utf8lex "$$TEST_FILE" ; \
+	    fi \
+	    || exit 1; \
 	done
 
 #
@@ -96,13 +107,23 @@ run-test_utf8lex:
 #
 .PHONY: run-test_utf8lex_generate
 run-test_utf8lex_generate:
-	echo "================================================================"
-	echo "test_utf8lex_generate 001:"
-	valgrind $(RUNTIME_LEAK_OPTIONS) $(TEST_BUILD_DIR)/test_utf8lex_generate \
-	    . \
-	    ../../templates/c/mmap \
-	    $(TEST_BUILD_DIR) \
-	    test_utf8lex_generate_001
+	@echo "VALGRIND_PLATFORM=$(VALGRIND_PLATFORM)"
+	@echo "================================================================"
+	@echo "test_utf8lex_generate 001:"
+	if test "$(VALGRIND_PLATFORM)" = "UNSUPPORTED"; \
+	then \
+	    $(TEST_BUILD_DIR)/test_utf8lex_generate \
+	        . \
+	        ../../templates/c/mmap \
+	        $(TEST_BUILD_DIR) \
+	        test_utf8lex_generate_001 ; \
+	else \
+	    valgrind $(RUNTIME_LEAK_OPTIONS) $(TEST_BUILD_DIR)/test_utf8lex_generate \
+	        . \
+	        ../../templates/c/mmap \
+	        $(TEST_BUILD_DIR) \
+	        test_utf8lex_generate_001 ; \
+	fi
 	$(CC) $(CFLAGS) \
 	    -c $(TEST_BUILD_DIR)/test_utf8lex_generate_001.c \
 	    -o $(TEST_BUILD_DIR)/test_utf8lex_generate_001.o
@@ -117,11 +138,20 @@ run-test_utf8lex_generate:
 	echo "----------------------------------------------------------------"
 	echo "================================================================"
 	echo "test_utf8lex_generate 002:"
-	valgrind $(RUNTIME_LEAK_OPTIONS) $(TEST_BUILD_DIR)/test_utf8lex_generate \
-	    . \
-	    ../../templates/c/mmap \
-	    $(TEST_BUILD_DIR) \
-	    test_utf8lex_generate_002
+	if test "$(VALGRIND_PLATFORM)" = "UNSUPPORTED"; \
+	then \
+	    $(TEST_BUILD_DIR)/test_utf8lex_generate \
+	        . \
+	        ../../templates/c/mmap \
+	        $(TEST_BUILD_DIR) \
+	        test_utf8lex_generate_002 ; \
+	else \
+	    valgrind $(RUNTIME_LEAK_OPTIONS) $(TEST_BUILD_DIR)/test_utf8lex_generate \
+	        . \
+	        ../../templates/c/mmap \
+	        $(TEST_BUILD_DIR) \
+	        test_utf8lex_generate_002 ; \
+	fi
 	$(CC) $(CFLAGS) \
 	    -c $(TEST_BUILD_DIR)/test_utf8lex_generate_002.c \
 	    -o $(TEST_BUILD_DIR)/test_utf8lex_generate_002.o

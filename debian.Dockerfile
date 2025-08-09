@@ -17,8 +17,6 @@
 #
 
 #
-
-#
 # @version Last updated 2025-01-26
 # Debian Bookworm (Debian 12)
 # Image from:
@@ -33,6 +31,46 @@ FROM debian:12.9-slim
 #     https://docs.docker.com/engine/reference/builder/?_gl=1*13mno0d*_ga*NjYxNDI5MzM5LjE2OTQxMDIzNzI.*_ga_XJWPQMJYHQ*MTY5NDQ1MzA1OS4yLjEuMTY5NDQ1MzI4Ny4yOC4wLjA.#automatic-platform-args-in-the-global-scope
 #
 ARG TARGETARCH
+
+#
+# Valgrind platform, for checking for memory leaks etc on most platforms.
+# Platforms supported by valgrind:
+#   https://valgrind.org/info/platforms.html
+#
+# TARGETARCH          VALGRIND_PLATFORM
+# ------------------- -------------------
+# i386                X86/Linux (maintenance)
+# ---                 X86/Android
+# ---                 X86/Darwin
+# ---                 X86/FreeBSD
+# ---                 X86/illumos
+# ---                 X86/Solaris
+# amd64               AMD64/Linux
+# ---                 AMD64/FreeBSD
+# ---                 AMD64/illumos
+# ---                 AMD64/FreeBSD
+# ---                 AMD64/Solaris
+# arm32v5             ---
+# ---                 ---
+# arm32v7             ARM/Linux
+# ---                 ARM/Android
+# arm64v8             ARM64/Linux
+# ---                 ARM64/Android
+# ---                 ARM64/FreeBSD
+# ---                 MIPS32/Linux
+# ---                 MIPS32/Android
+# ---                 MIPS64/Linux
+# mips64le            ---
+# ---                 PPC32/Linux
+# ---                 PPC64/Linux
+# ppc64le             PPC64LE/Linux
+# riscv64             ---
+# s390x               S390X/Linux
+#
+# On platforms where valgrind is unsupported (VALGRIND_PLATFORM="UNSUPPORTED"),
+# we run tests without memory checks etc.
+#
+ARG VALGRIND_PLATFORM
 
 USER root
 
@@ -75,7 +113,12 @@ RUN apt-get update --yes \
        locales \
        make \
        strace \
-       valgrind \
+    && if test "$VALGRIND_PLATFORM" != "UNSUPPORTED"; \
+       then \
+           apt-get install --no-install-recommends --yes \
+               valgrind \
+               ; \
+       fi \
     && apt-get clean
 
 ENV LC_CTYPE=C.utf8

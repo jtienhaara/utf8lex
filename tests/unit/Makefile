@@ -34,6 +34,11 @@ CFLAGS = -Werror -fPIC -I$(SRC_DIR) --debug
 LD = gcc
 LDFLAGS = -Wl,--no-as-needed -lpcre2-8 -lutf8proc -L$(UTF8LEX_LIBRARY_DIR) -Wl,-rpath,$(UTF8LEX_LIBRARY_DIR) -lutf8lex
 
+#
+# By default, assume valgrind is supported and installed.
+# To override and skip valgrind checks, set VALGRIND_PLATFORM="UNSUPPORTED".
+#
+VALGRIND_PLATFORM ?= "supported"
 RUNTIME_LEAK_OPTIONS = --leak-check=yes --error-exitcode=66 --suppressions=valgrind_suppressions.txt
 
 TEST_BUILD_DIR ?= ../build
@@ -77,8 +82,14 @@ clean:
 
 .PHONY: run
 run:
-	@for UNIT_TEST in $(PROGRAMS); \
+	@echo "VALGRIND_PLATFORM=$(VALGRIND_PLATFORM)"
+	for UNIT_TEST in $(PROGRAMS); \
 	do \
 	    echo "$$UNIT_TEST:"; \
-	    valgrind $(RUNTIME_LEAK_OPTIONS) "$$UNIT_TEST" || exit 1; \
+	    if test "$(VALGRIND_PLATFORM)" = "UNSUPPORTED"; \
+	    then \
+	        "$$UNIT_TEST" || exit 1; \
+	    else \
+	        valgrind $(RUNTIME_LEAK_OPTIONS) "$$UNIT_TEST" || exit 1; \
+	    fi; \
 	done

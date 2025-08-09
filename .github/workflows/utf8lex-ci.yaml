@@ -37,31 +37,111 @@ on:
       # TODO only on merge (requires if logic https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#running-your-pull_request-workflow-when-a-pull-request-merges)
 
 
+#
+# Platforms supported by qemu GitHub Actions plugin:
+#   https://github.com/docker/setup-qemu-action?tab=readme-ov-file#about
+# Platforms supported by Docker Debian official image:
+#   https://hub.docker.com/_/debian
+# Platforms supported by valgrind:
+#   https://valgrind.org/info/platforms.html
+#
+# ? QEMU/GitHub         Docker/Debian       Valgrind
+# - ------------------- ------------------- -------------------
+# X linux/386           i386                X86/Linux (maintenance)
+#   ---                 ---                 X86/Android
+#   ---                 ---                 X86/Darwin
+#   ---                 ---                 X86/FreeBSD
+#   ---                 ---                 X86/illumos
+#   ---                 ---                 X86/Solaris
+# X linux/amd64         amd64               AMD64/Linux
+#   ---                 ---                 AMD64/FreeBSD
+#   ---                 ---                 AMD64/illumos
+#   ---                 ---                 AMD64/FreeBSD
+#   ---                 ---                 AMD64/Solaris
+#   ---                 arm32v5
+#   linux/arm           ---
+# X linux/arm/v7        arm32v7             ARM/Linux
+#   ---                 ---                 ARM/Android
+# X linux/arm64         arm64v8             ARM64/Linux
+#   ---                 ---                 ARM64/Android
+#   ---                 ---                 ARM64/FreeBSD
+#   ---                 ---                 MIPS32/Linux
+#   ---                 ---                 MIPS32/Android
+# - linux/mips64        ---                 MIPS64/Linux
+# * linux/mips64le      mips64le
+# - ---                 ---                 PPC32/Linux
+# - ---                 ---                 PPC64/Linux
+# X linux/ppc64le       ppc64le             PPC64LE/Linux
+# * linux/riscv64       riscv64
+# X linux/s390x         s390x               S390X/Linux
+#
+# X = QEMU, Docker, Valgrind all supported platform.
+# * = Disable Valgrind.
+#
+# Platform name matrix:
+#
+# QEMU/GitHub         Docker/Debian       Valgrind
+# ------------------- ------------------- -------------------
+# linux/386           i386                X86/Linux (maintenance)
+# linux/amd64         amd64               AMD64/Linux
+# linux/arm/v7        arm32v7             ARM/Linux
+# linux/arm64         arm64v8             ARM64/Linux
+# linux/mips64le      mips64le            UNSUPPORTED
+# linux/ppc64le       ppc64le             PPC64LE/Linux
+# linux/riscv64       riscv64             UNSUPPORTED
+# linux/s390x         s390x               S390X/Linux
+#
+
 jobs:
   # ====================================================================
-  builder_container_image:
+  debian_container_image:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         platform:
+          - linux/386
           - linux/amd64
+          - linux/arm/v7
           - linux/arm64
           - linux/mips64le
-          # !!! 2025-01-26: "build" workflow FAILS on utf8lex_definition_cat for some reason: - linux/ppc64le
-          # !!! 2025-01-26: "build" workflow FAILS on utf8lex_string for some reason: - linux/s390x
+          - linux/ppc64le
+          - linux/riscv64
+          - linux/s390x
+
     env:
       BUILD_DIR: ./build
-      BUILDER_IMAGE_BASE: "utf8lex-builder"
+      DEBIAN_IMAGE_BASE: "utf8lex-debian"
     steps:
       - id: checkout
         name: Checkout
         uses: actions/checkout@v4
 
       - id: matrix-platform-env
-        name: Set a non-slashy MATRIX_PLATFORM environment variable
+        name: Set platform/architecture environment variables.
         run: |
-          echo "MATRIX_PLATFORM=${{matrix.platform}}" \
-              | sed 's|/|\.|g' \
+          echo "DEBIAN_ARCHITECTURE=${{matrix.platform}}" \
+              | awk '
+                     $0 == "linux/386" { print "i386"; }
+                     $0 == "linux/amd64" { print "amd64"; }
+                     $0 == "linux/arm/v7" { print "arm32v7"; }
+                     $0 == "linux/arm64" { print "arm64v8"; }
+                     $0 == "linux/mips64le" { print "mips64le"; }
+                     $0 == "linux/ppc64le" { print "ppc64le"; }
+                     $0 == "linux/riscv64" { print "riscv64"; }
+                     $0 == "linux/s390x" { print "s390x"; }
+                    ' \
+              > $GITHUB_ENV
+          echo "VALGRIND_PLATFORM=${{matrix.platform}}" \
+              | awk '
+                     $0 == "linux/386" { print "X86/Linux"; }
+                     $0 == "linux/amd64" { print "AMD64/Linux"; }
+                     $0 == "linux/arm/v7" { print "ARM/Linux"; }
+                     $0 == "linux/arm64" { print "ARM64/Linux"; }
+                     $0 == "linux/mips64le" { print "UNSUPPORTED"; }
+                     $0 == "linux/ppc64le" { print "PPC64LE/Linux"; }
+                     $0 == "linux/riscv64" { print "UNSUPPORTED"; }
+                     $0 == "linux/s390x" { print "S390X/Linux"; }
+                    ' \
               > $GITHUB_ENV
 
       #
@@ -76,8 +156,8 @@ jobs:
         #
         uses: actions/cache@v4
         with:
-          path: /tmp/builder/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar.gz
-          key: utf8lex-container-image-cache-${{ hashFiles('builder.Dockerfile') }}
+          path: /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar.gz
+          key: utf8lex-debian-container-image-cache-${{ hashFiles('debian.Dockerfile') }}
 
       # Add support for more platforms with QEMU
       # https://github.com/docker/setup-qemu-action
@@ -108,25 +188,26 @@ jobs:
         run: |
           mkdir -p ${{env.BUILD_DIR}}/
           docker buildx build \
-              --file builder.Dockerfile \
+              --file debian.Dockerfile \
               --load \
-              --platform=${{matrix.platform}} \
-              --tag ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('builder.Dockerfile') }} \
+              --platform ${{env.DEBIAN_ARCHITECTURE}} \
+              --build-arg ${{env.VALGRIND_PLATFORM}} \
+              --tag ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile') }} \
               .
           docker image save \
-              --output ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar \
-              ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('builder.Dockerfile') }}
+              --output ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar \
+              ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile') }}
 
-      - id: gzip-builder-container-image
-        name: Gzip utf8lex builder container image
+      - id: gzip-debian-container-image
+        name: Gzip utf8lex Debian container image
         if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
         run: |
-          gzip ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar
+          gzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar
 
       #
       # Do not use actions/cache/save, it doesn't work.
       # Using actions/cache up above adds automagic.
-      # We just copy the builder container image to where the
+      # We just copy the Debian container image to where the
       # cache automagic expects to find it, in /tmp.
       #
       - id: container-image-cache-save
@@ -134,9 +215,9 @@ jobs:
         if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
         run: |
           mkdir -p /tmp/builder/
-          rm -rf /tmp/builder/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar.gz
-          cp ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar.gz \
-              /tmp/builder/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar.gz
+          rm -rf /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar.gz
+          cp ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar.gz \
+              /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar.gz
 
       #
       # https://github.com/actions/upload-artifact
@@ -145,7 +226,7 @@ jobs:
         name: Upload the container image
         uses: actions/upload-artifact@v4
         with:
-          name: ${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar.gz
+          name: ${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar.gz
           path: /tmp/builder/
           if-no-files-found: error
           retention-days: 1
@@ -154,19 +235,22 @@ jobs:
   # ====================================================================
   build:
     needs:
-      - builder_container_image
+      - debian_container_image
     runs-on: ubuntu-latest
     strategy:
       matrix:
         platform:
+          - linux/386
           - linux/amd64
+          - linux/arm/v7
           - linux/arm64
           - linux/mips64le
-          # !!! 2025-01-26: "build" workflow FAILS on utf8lex_definition_cat for some reason: - linux/ppc64le
-          # !!! 2025-01-26: "build" workflow FAILS on utf8lex_string for some reason: - linux/s390x
+          - linux/ppc64le
+          - linux/riscv64
+          - linux/s390x
     env:
       BUILD_DIR: ./build
-      BUILDER_IMAGE_BASE: "utf8lex-builder"
+      DEBIAN_IMAGE_BASE: "utf8lex-debian"
       UTF8LEX_VERSION: "${{github.ref_name}}"
       SHARED_LIBRARY_BASE: "libutf8lex.so"
       PROGRAM_BASE: "utf8lex"
@@ -176,10 +260,19 @@ jobs:
         uses: actions/checkout@v4
 
       - id: matrix-platform-env
-        name: Set a non-slashy MATRIX_PLATFORM environment variable
+        name: Set platform/architecture environment variables.
         run: |
-          echo "MATRIX_PLATFORM=${{matrix.platform}}" \
-              | sed 's|/|\.|g' \
+          echo "DEBIAN_ARCHITECTURE=${{matrix.platform}}" \
+              | awk '
+                     $0 == "linux/386" { print "i386"; }
+                     $0 == "linux/amd64" { print "amd64"; }
+                     $0 == "linux/arm/v7" { print "arm32v7"; }
+                     $0 == "linux/arm64" { print "arm64v8"; }
+                     $0 == "linux/mips64le" { print "mips64le"; }
+                     $0 == "linux/ppc64le" { print "ppc64le"; }
+                     $0 == "linux/riscv64" { print "riscv64"; }
+                     $0 == "linux/s390x" { print "s390x"; }
+                    ' \
               > $GITHUB_ENV
 
       - id: utf8lex-version-env
@@ -194,16 +287,16 @@ jobs:
         name: Download container image
         uses: actions/download-artifact@v4
         with:
-          name: ${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar.gz
+          name: ${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar.gz
           path: /tmp/builder/
 
       - id: copy-container-image
         name: Copy container image to build directory
         run: |
           mkdir -p ${{env.BUILD_DIR}}/
-          cp /tmp/builder/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar.gz \
-              ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar.gz
-          gunzip ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar.gz
+          cp /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar.gz \
+              ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar.gz
+          gunzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar.gz
 
       # Add support for more platforms with QEMU
       # https://github.com/docker/setup-qemu-action
@@ -216,8 +309,8 @@ jobs:
         run: |
           sudo systemctl start docker
           docker image load \
-              --input ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar
-          rm ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar
+              --input ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar
+          rm ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar
           chmod -R a+w ${{env.BUILD_DIR}}
           #
           # docker run documentation:
@@ -225,9 +318,9 @@ jobs:
           #
           docker run \
                   --rm \
-                  --platform ${{matrix.platform}} \
+                  --platform ${{env.DEBIAN_ARCHITECTURE}} \
                   --volume `pwd`:/utf8lex:rw \
-                  ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('builder.Dockerfile') }} \
+                  ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile') }} \
                   make build \
                       BUILD_DIR=../${{env.BUILD_DIR}} \
                       UTF8LEX_VERSION=${{env.UTF8LEX_VERSION}}
@@ -237,15 +330,15 @@ jobs:
         run: |
           mkdir -p /tmp/utf8lex/
           cp ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY}} \
-              /tmp/utf8lex/${{env.SHARED_LIBRARY}}.${{env.MATRIX_PLATFORM}}
+              /tmp/utf8lex/${{env.SHARED_LIBRARY}}.${{env.DEBIAN_ARCHITECTURE}}
           cp ${{env.BUILD_DIR}}/${{env.PROGRAM}} \
-              /tmp/utf8lex/${{env.PROGRAM}}.${{env.MATRIX_PLATFORM}}
+              /tmp/utf8lex/${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}}
 
       - id: upload-utf8lex-library
         name: Upload utf8lex library
         uses: actions/upload-artifact@v4
         with:
-          name: ${{env.SHARED_LIBRARY}}.${{env.MATRIX_PLATFORM}}
+          name: ${{env.SHARED_LIBRARY}}.${{env.DEBIAN_ARCHITECTURE}}
           path: /tmp/utf8lex/
           if-no-files-found: error
           retention-days: 1
@@ -254,7 +347,7 @@ jobs:
         name: Upload utf8lex program
         uses: actions/upload-artifact@v4
         with:
-          name: ${{env.PROGRAM}}.${{env.MATRIX_PLATFORM}}
+          name: ${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}}
           path: /tmp/utf8lex/
           if-no-files-found: error
           retention-days: 1
@@ -264,21 +357,25 @@ jobs:
   # ====================================================================
   unit_tests:
     needs:
-      - builder_container_image
+      - debian_container_image
       - build
     runs-on: ubuntu-latest
     strategy:
       matrix:
         platform:
+          - linux/386
           - linux/amd64
+          - linux/arm/v7
           - linux/arm64
           - linux/mips64le
-          # !!! 2025-01-26: "build" workflow FAILS on utf8lex_definition_cat for some reason: - linux/ppc64le
-          # !!! 2025-01-26: "build" workflow FAILS on utf8lex_string for some reason: - linux/s390x
+          - linux/ppc64le
+          - linux/riscv64
+          - linux/s390x
+
     env:
       BUILD_DIR: ./build
       TEST_BUILD_DIR: ./tests/build
-      BUILDER_IMAGE_BASE: "utf8lex-builder"
+      DEBIAN_IMAGE_BASE: "utf8lex-debian"
       UTF8LEX_VERSION: "${{github.ref_name}}"
       SHARED_LIBRARY_BASE: "libutf8lex.so"
       PROGRAM_BASE: "utf8lex"
@@ -288,26 +385,35 @@ jobs:
         uses: actions/checkout@v4
 
       - id: matrix-platform-env
-        name: Set a non-slashy MATRIX_PLATFORM environment variable
+        name: Set platform/architecture environment variables.
         run: |
-          echo "MATRIX_PLATFORM=${{matrix.platform}}" \
-              | sed 's|/|\.|g' \
-              >> $GITHUB_ENV
+          echo "DEBIAN_ARCHITECTURE=${{matrix.platform}}" \
+              | awk '
+                     $0 == "linux/386" { print "i386"; }
+                     $0 == "linux/amd64" { print "amd64"; }
+                     $0 == "linux/arm/v7" { print "arm32v7"; }
+                     $0 == "linux/arm64" { print "arm64v8"; }
+                     $0 == "linux/mips64le" { print "mips64le"; }
+                     $0 == "linux/ppc64le" { print "ppc64le"; }
+                     $0 == "linux/riscv64" { print "riscv64"; }
+                     $0 == "linux/s390x" { print "s390x"; }
+                    ' \
+              > $GITHUB_ENV
 
       - id: download-container-image
         name: Download container image
         uses: actions/download-artifact@v4
         with:
-          name: ${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar.gz
+          name: ${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar.gz
           path: /tmp/builder/
 
       - id: copy-container-image
         name: Copy container image to build directory
         run: |
           mkdir -p ${{env.BUILD_DIR}}/
-          cp /tmp/builder/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar.gz \
-              ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar.gz
-          gunzip ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar.gz
+          cp /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar.gz \
+              ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar.gz
+          gunzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar.gz
 
       - id: utf8lex-version-env
         name: Set the full utf8lex library and program names, with version
@@ -321,23 +427,23 @@ jobs:
         name: Download utf8lex library
         uses: actions/download-artifact@v4
         with:
-          name: ${{env.SHARED_LIBRARY}}.${{env.MATRIX_PLATFORM}}
+          name: ${{env.SHARED_LIBRARY}}.${{env.DEBIAN_ARCHITECTURE}}
           path: /tmp/utf8lex/
 
       - id: download-utf8lex-program
         name: Download utf8lex program
         uses: actions/download-artifact@v4
         with:
-          name: ${{env.PROGRAM}}.${{env.MATRIX_PLATFORM}}
+          name: ${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}}
           path: /tmp/utf8lex/
 
       - id: copy-utf8lex
         name: Copy utf8lex binaries to build directory
         run: |
           mkdir -p ${{env.BUILD_DIR}}/
-          cp /tmp/utf8lex/${{env.SHARED_LIBRARY}}.${{env.MATRIX_PLATFORM}} \
+          cp /tmp/utf8lex/${{env.SHARED_LIBRARY}}.${{env.DEBIAN_ARCHITECTURE}} \
               ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY}}
-          cp /tmp/utf8lex/${{env.PROGRAM}}.${{env.MATRIX_PLATFORM}} \
+          cp /tmp/utf8lex/${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}} \
               ${{env.BUILD_DIR}}/${{env.PROGRAM}}
 
       - id: sym-link-utf8lex
@@ -373,8 +479,8 @@ jobs:
         run: |
           sudo systemctl start docker
           docker image load \
-              --input ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar
-          rm ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar
+              --input ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar
+          rm ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar
           chmod -R a+w ${{env.BUILD_DIR}}
           chmod a+x ${{env.BUILD_DIR}}/${{env.PROGRAM}}
           mkdir -p ${{env.TEST_BUILD_DIR}}/
@@ -385,9 +491,9 @@ jobs:
           #
           docker run \
                   --rm \
-                  --platform ${{matrix.platform}} \
+                  --platform ${{env.DEBIAN_ARCHITECTURE}} \
                   --volume `pwd`:/utf8lex:rw \
-                  ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('builder.Dockerfile') }} \
+                  ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile') }} \
                   make unit_tests \
                       BUILD_DIR=../../${{env.BUILD_DIR}} \
                       UTF8LEX_VERSION=${{env.UTF8LEX_VERSION}} \
@@ -398,22 +504,26 @@ jobs:
   # ====================================================================
   integration_tests:
     needs:
-      - builder_container_image
+      - debian_container_image
       - build
       - unit_tests
     runs-on: ubuntu-latest
     strategy:
       matrix:
         platform:
+          - linux/386
           - linux/amd64
+          - linux/arm/v7
           - linux/arm64
           - linux/mips64le
-          # !!! 2025-01-26: "build" workflow FAILS on utf8lex_definition_cat for some reason: - linux/ppc64le
-          # !!! 2025-01-26: "build" workflow FAILS on utf8lex_string for some reason: - linux/s390x
+          - linux/ppc64le
+          - linux/riscv64
+          - linux/s390x
+
     env:
       BUILD_DIR: ./build
       TEST_BUILD_DIR: ./tests/build
-      BUILDER_IMAGE_BASE: "utf8lex-builder"
+      DEBIAN_IMAGE_BASE: "utf8lex-debian"
       UTF8LEX_VERSION: "${{github.ref_name}}"
       SHARED_LIBRARY_BASE: "libutf8lex.so"
       PROGRAM_BASE: "utf8lex"
@@ -423,26 +533,35 @@ jobs:
         uses: actions/checkout@v4
 
       - id: matrix-platform-env
-        name: Set a non-slashy MATRIX_PLATFORM environment variable
+        name: Set platform/architecture environment variables.
         run: |
-          echo "MATRIX_PLATFORM=${{matrix.platform}}" \
-              | sed 's|/|\.|g' \
-              >> $GITHUB_ENV
+          echo "DEBIAN_ARCHITECTURE=${{matrix.platform}}" \
+              | awk '
+                     $0 == "linux/386" { print "i386"; }
+                     $0 == "linux/amd64" { print "amd64"; }
+                     $0 == "linux/arm/v7" { print "arm32v7"; }
+                     $0 == "linux/arm64" { print "arm64v8"; }
+                     $0 == "linux/mips64le" { print "mips64le"; }
+                     $0 == "linux/ppc64le" { print "ppc64le"; }
+                     $0 == "linux/riscv64" { print "riscv64"; }
+                     $0 == "linux/s390x" { print "s390x"; }
+                    ' \
+              > $GITHUB_ENV
 
       - id: download-container-image
         name: Download container image
         uses: actions/download-artifact@v4
         with:
-          name: ${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar.gz
+          name: ${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar.gz
           path: /tmp/builder/
 
       - id: copy-container-image
         name: Copy container image to build directory
         run: |
           mkdir -p ${{env.BUILD_DIR}}/
-          cp /tmp/builder/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar.gz \
-              ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar.gz
-          gunzip ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar.gz
+          cp /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar.gz \
+              ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar.gz
+          gunzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar.gz
 
       - id: utf8lex-version-env
         name: Set the full utf8lex library and program names, with version
@@ -456,23 +575,23 @@ jobs:
         name: Download utf8lex library
         uses: actions/download-artifact@v4
         with:
-          name: ${{env.SHARED_LIBRARY}}.${{env.MATRIX_PLATFORM}}
+          name: ${{env.SHARED_LIBRARY}}.${{env.DEBIAN_ARCHITECTURE}}
           path: /tmp/utf8lex/
 
       - id: download-utf8lex-program
         name: Download utf8lex program
         uses: actions/download-artifact@v4
         with:
-          name: ${{env.PROGRAM}}.${{env.MATRIX_PLATFORM}}
+          name: ${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}}
           path: /tmp/utf8lex/
 
       - id: copy-utf8lex
         name: Copy utf8lex binaries to build directory
         run: |
           mkdir -p ${{env.BUILD_DIR}}/
-          cp /tmp/utf8lex/${{env.SHARED_LIBRARY}}.${{env.MATRIX_PLATFORM}} \
+          cp /tmp/utf8lex/${{env.SHARED_LIBRARY}}.${{env.DEBIAN_ARCHITECTURE}} \
               ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY}}
-          cp /tmp/utf8lex/${{env.PROGRAM}}.${{env.MATRIX_PLATFORM}} \
+          cp /tmp/utf8lex/${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}} \
               ${{env.BUILD_DIR}}/${{env.PROGRAM}}
 
       - id: sym-link-utf8lex
@@ -508,8 +627,8 @@ jobs:
         run: |
           sudo systemctl start docker
           docker image load \
-              --input ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar
-          rm ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar
+              --input ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar
+          rm ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar
           chmod -R a+w ${{env.BUILD_DIR}}
           chmod a+x ${{env.BUILD_DIR}}/${{env.PROGRAM}}
           mkdir -p ${{env.TEST_BUILD_DIR}}/
@@ -520,9 +639,9 @@ jobs:
           #
           docker run \
                   --rm \
-                  --platform ${{matrix.platform}} \
+                  --platform ${{env.DEBIAN_ARCHITECTURE}} \
                   --volume `pwd`:/utf8lex:rw \
-                  ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('builder.Dockerfile') }} \
+                  ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile') }} \
                   make integration_tests \
                       BUILD_DIR=../../${{env.BUILD_DIR}} \
                       UTF8LEX_VERSION=${{env.UTF8LEX_VERSION}} \
@@ -533,7 +652,7 @@ jobs:
   # ====================================================================
   examples:
     needs:
-      - builder_container_image
+      - debian_container_image
       - build
       - unit_tests
       - integration_tests
@@ -541,16 +660,20 @@ jobs:
     strategy:
       matrix:
         platform:
+          - linux/386
           - linux/amd64
+          - linux/arm/v7
           - linux/arm64
           - linux/mips64le
-          # !!! 2025-01-26: "build" workflow FAILS on utf8lex_definition_cat for some reason: - linux/ppc64le
-          # !!! 2025-01-26: "build" workflow FAILS on utf8lex_string for some reason: - linux/s390x
+          - linux/ppc64le
+          - linux/riscv64
+          - linux/s390x
+
     env:
       BUILD_DIR: ./build
       EXAMPLES_DIR: ./examples
       EXAMPLES_BUILD_DIR: ./examples/build
-      BUILDER_IMAGE_BASE: "utf8lex-builder"
+      DEBIAN_IMAGE_BASE: "utf8lex-debian"
       UTF8LEX_VERSION: "${{github.ref_name}}"
       SHARED_LIBRARY_BASE: "libutf8lex.so"
       PROGRAM_BASE: "utf8lex"
@@ -560,26 +683,35 @@ jobs:
         uses: actions/checkout@v4
 
       - id: matrix-platform-env
-        name: Set a non-slashy MATRIX_PLATFORM environment variable
+        name: Set platform/architecture environment variables.
         run: |
-          echo "MATRIX_PLATFORM=${{matrix.platform}}" \
-              | sed 's|/|\.|g' \
-              >> $GITHUB_ENV
+          echo "DEBIAN_ARCHITECTURE=${{matrix.platform}}" \
+              | awk '
+                     $0 == "linux/386" { print "i386"; }
+                     $0 == "linux/amd64" { print "amd64"; }
+                     $0 == "linux/arm/v7" { print "arm32v7"; }
+                     $0 == "linux/arm64" { print "arm64v8"; }
+                     $0 == "linux/mips64le" { print "mips64le"; }
+                     $0 == "linux/ppc64le" { print "ppc64le"; }
+                     $0 == "linux/riscv64" { print "riscv64"; }
+                     $0 == "linux/s390x" { print "s390x"; }
+                    ' \
+              > $GITHUB_ENV
 
       - id: download-container-image
         name: Download container image
         uses: actions/download-artifact@v4
         with:
-          name: ${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar.gz
+          name: ${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar.gz
           path: /tmp/builder/
 
       - id: copy-container-image
         name: Copy container image to build directory
         run: |
           mkdir -p ${{env.BUILD_DIR}}/
-          cp /tmp/builder/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar.gz \
-              ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar.gz
-          gunzip ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar.gz
+          cp /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar.gz \
+              ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar.gz
+          gunzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar.gz
 
       - id: utf8lex-version-env
         name: Set the full utf8lex library and program names, with version
@@ -593,23 +725,23 @@ jobs:
         name: Download utf8lex library
         uses: actions/download-artifact@v4
         with:
-          name: ${{env.SHARED_LIBRARY}}.${{env.MATRIX_PLATFORM}}
+          name: ${{env.SHARED_LIBRARY}}.${{env.DEBIAN_ARCHITECTURE}}
           path: /tmp/utf8lex/
 
       - id: download-utf8lex-program
         name: Download utf8lex program
         uses: actions/download-artifact@v4
         with:
-          name: ${{env.PROGRAM}}.${{env.MATRIX_PLATFORM}}
+          name: ${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}}
           path: /tmp/utf8lex/
 
       - id: copy-utf8lex
         name: Copy utf8lex binaries to build directory
         run: |
           mkdir -p ${{env.BUILD_DIR}}/
-          cp /tmp/utf8lex/${{env.SHARED_LIBRARY}}.${{env.MATRIX_PLATFORM}} \
+          cp /tmp/utf8lex/${{env.SHARED_LIBRARY}}.${{env.DEBIAN_ARCHITECTURE}} \
               ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY}}
-          cp /tmp/utf8lex/${{env.PROGRAM}}.${{env.MATRIX_PLATFORM}} \
+          cp /tmp/utf8lex/${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}} \
               ${{env.BUILD_DIR}}/${{env.PROGRAM}}
 
       - id: sym-link-utf8lex
@@ -645,8 +777,8 @@ jobs:
         run: |
           sudo systemctl start docker
           docker image load \
-              --input ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar
-          rm ${{env.BUILD_DIR}}/${{env.BUILDER_IMAGE_BASE}}.${{env.MATRIX_PLATFORM}}.${{ hashFiles('builder.Dockerfile') }}.tar
+              --input ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar
+          rm ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile') }}.tar
           chmod -R a+w ${{env.BUILD_DIR}}
           chmod a+x ${{env.BUILD_DIR}}/${{env.PROGRAM}}
           mkdir -p ${{env.EXAMPLES_BUILD_DIR}}/
@@ -658,9 +790,9 @@ jobs:
           #
           docker run \
                   --rm \
-                  --platform ${{matrix.platform}} \
+                  --platform ${{env.DEBIAN_ARCHITECTURE}} \
                   --volume `pwd`:/utf8lex:rw \
-                  ${{env.BUILDER_IMAGE_BASE}}:${{ hashFiles('builder.Dockerfile') }} \
+                  ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile') }} \
                   make examples \
                       BUILD_DIR=../${{env.BUILD_DIR}} \
                       UTF8LEX_VERSION=${{env.UTF8LEX_VERSION}} \

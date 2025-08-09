@@ -41,6 +41,11 @@ CFLAGS = -Werror -fPIC -I$(SRC_DIR) --debug
 LD = gcc
 LDFLAGS = -Wl,--no-as-needed -lpcre2-8 -lutf8proc -L$(UTF8LEX_LIBRARY_DIR) -Wl,-rpath,$(UTF8LEX_LIBRARY_DIR) -lutf8lex
 
+#
+# By default, assume valgrind is supported and installed.
+# To override and skip valgrind checks, set VALGRIND_PLATFORM="UNSUPPORTED".
+#
+VALGRIND_PLATFORM ?= "supported"
 RUNTIME_LEAK_OPTIONS = --leak-check=yes --error-exitcode=66 --suppressions=valgrind_suppressions.txt
 
 EXAMPLES_BUILD_DIR ?= ./build
@@ -69,7 +74,13 @@ LC_CTYPE = en_US.UTF-8
 
 # Rule for $(GENERATED_SOURCE_FILES):
 %.c: %.l
-	valgrind $(RUNTIME_LEAK_OPTIONS) $(BUILD_DIR)/utf8lex $<
+	@echo "VALGRIND_PLATFORM=$(VALGRIND_PLATFORM)"
+	if test "$(VALGRIND_PLATFORM)" = "UNSUPPORTED"; \
+	then \
+	    $(BUILD_DIR)/utf8lex $< ; \
+	else \
+	    valgrind $(RUNTIME_LEAK_OPTIONS) $(BUILD_DIR)/utf8lex $< ; \
+	fi
 
 # Rule for $(OBJECT_FILES):
 $(EXAMPLES_BUILD_DIR)/%.o: %.c
