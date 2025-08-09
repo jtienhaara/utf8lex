@@ -82,6 +82,7 @@ clean:
 
 .PHONY: run
 run:
+	@echo "ulimit main stack size: hard=`ulimit -H -s` soft=`ulimit -S -s`"
 	@echo "VALGRIND_PLATFORM=$(VALGRIND_PLATFORM)"
 	for UNIT_TEST in $(PROGRAMS); \
 	do \

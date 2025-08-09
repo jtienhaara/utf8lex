@@ -1,3 +1,13 @@
+#
+# valgrind suppressions documentation:
+#
+#     https://valgrind.org/docs/manual/mc-manual.html#mc-manual.suppfiles
+#
+# To generate suppressions automatically:
+#
+#     valgrind ... --gen-suppressions=all --log-file=valgrind_suppressions.log
+#     (Then copy the logged suppressions here, valgrind_suppression.txt.)
+#
 {
    libpcre2_suppressions_Memcheck_Addr1_1
    Memcheck:Addr1
@@ -29,6 +39,16 @@
    fun:utf8lex_lex_multi
    fun:utf8lex_lex
    fun:test_utf8lex_declaration
+   fun:main
+}
+{
+   libpcre2_suppressions_Memcheck_Addr4_2
+   Memcheck:Addr4
+   fun:pcre2_substring_copy_bynumber_8
+   fun:utf8lex_lex_regex
+   fun:utf8lex_lex_multi
+   fun:utf8lex_lex
+   fun:test_utf8lex_expression
    fun:main
 }
 {
@@ -68,6 +88,17 @@
    libpcre2_suppressions_Memcheck_Addr8_4
    Memcheck:Addr8
    fun:pcre2_substring_copy_bynumber_8
+   fun:utf8lex_lex_regex
+   fun:utf8lex_lex_multi
+   fun:utf8lex_lex_multi
+   fun:utf8lex_lex
+   fun:test_utf8lex_expression
+   fun:main
+}
+{
+   libepcre2_suppressions_Free_1
+   Free
+   fun:pcre2_match_data_free_8
    fun:utf8lex_lex_regex
    fun:utf8lex_lex_multi
    fun:utf8lex_lex_multi
