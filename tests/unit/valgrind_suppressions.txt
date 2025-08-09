@@ -97,7 +97,7 @@
 }
 {
    libepcre2_suppressions_Free_1
-   Free
+   Memcheck:Free
    fun:pcre2_match_data_free_8
    fun:utf8lex_lex_regex
    fun:utf8lex_lex_multi
