@@ -74,6 +74,8 @@ ARG VALGRIND_PLATFORM
 
 USER root
 
+ENV DEBIAN_ARCHITECTURE=$TARGETARCH
+ENV VALGRIND_PLATFORM=$VALGRIND_PLATFORM
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC/UTC
 
@@ -156,8 +158,6 @@ RUN if test "$TARGETARCH" = "arm"; \
 
 USER utf8lex
 WORKDIR /utf8lex
-
-RUN echo "export VALGRIND_PLATFORM=\"$VALGRIND_PLATFORM\"" >> $HOME/.bash_profile
 
 #
 # No default entrypoint.
