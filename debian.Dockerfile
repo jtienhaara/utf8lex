@@ -122,6 +122,7 @@ RUN apt-get update --yes \
     && apt-get clean
 
 ENV LC_CTYPE=C.utf8
+ENV VALGRIND_PLATFORM="$VALGRIND_PLATFORM"
 
 #
 # User utf8lex
@@ -144,6 +145,15 @@ RUN mkdir /home/utf8lex \
 RUN mkdir -p /utf8lex \
     && chown -R utf8lex:utf8lex /utf8lex \
     && chmod ug+rwx,o-rwx /utf8lex
+
+#
+# Platform-dependent settings
+#
+RUN if test "$TARGETARCH" = "arm/v7"; \
+    then \
+        echo "utf8lex build: setting soft stack-size limit on $TARGETARCH to 65536"; \
+        ulimit -S -s 65536; \
+    fi
 
 USER utf8lex
 WORKDIR /utf8lex
