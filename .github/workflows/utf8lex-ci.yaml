@@ -197,7 +197,7 @@ jobs:
               --file debian.Dockerfile \
               --load \
               --platform "${{matrix.platform}}" \
-              --build-arg ${{env.VALGRIND_PLATFORM}} \
+              --build-arg "VALGRIND_PLATFORM=${{env.VALGRIND_PLATFORM}}" \
               --tag ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile') }} \
               .
           docker image save \

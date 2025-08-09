@@ -91,6 +91,15 @@ run:
 	    then \
 	        "$$UNIT_TEST" || exit 1; \
 	    else \
-	        valgrind $(RUNTIME_LEAK_OPTIONS) "$$UNIT_TEST" || exit 1; \
+	        ARCHITECTURE=`uname -m`; \
+	        echo "Setting extra options for architecture $$ARCHITECTURE..."; \
+	        EXTRA_OPTIONS=""; \
+	        if test "$ARCHITECTURE" = "arm"; \
+	        then \
+	            echo "  Setting soft stack-size limit on $ARCHITECTURE to 65536 bytes"; \
+	            EXTRA_OPTIONS="--main-stacksize=65536"; \
+	        fi; \
+	        echo "  Extra options for architecture $$ARCHITECTURE: '$$EXTRA_OPTIONS'"; \
+	        valgrind $(RUNTIME_LEAK_OPTIONS) $$EXTRA_OPTIONS "$$UNIT_TEST" || exit 1; \
 	    fi; \
 	done
