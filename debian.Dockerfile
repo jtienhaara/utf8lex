@@ -23,7 +23,7 @@
 #
 #     https://hub.docker.com/_/debian
 #
-FROM debian:12.9-slim
+FROM debian:12.11-slim
 
 #
 # Docker's builtin TARGETARCH build arg:
@@ -122,7 +122,6 @@ RUN apt-get update --yes \
     && apt-get clean
 
 ENV LC_CTYPE=C.utf8
-ENV VALGRIND_PLATFORM="$VALGRIND_PLATFORM"
 
 #
 # User utf8lex
@@ -149,7 +148,7 @@ RUN mkdir -p /utf8lex \
 #
 # Platform-dependent settings
 #
-RUN if test "$TARGETARCH" = "arm/v7"; \
+RUN if test "$TARGETARCH" = "arm"; \
     then \
         echo "utf8lex build: setting soft stack-size limit on $TARGETARCH to 65536"; \
         ulimit -S -s 65536; \
@@ -157,6 +156,8 @@ RUN if test "$TARGETARCH" = "arm/v7"; \
 
 USER utf8lex
 WORKDIR /utf8lex
+
+RUN echo "export VALGRIND_PLATFORM=\"$VALGRIND_PLATFORM\"" >> $HOME/.bash_profile
 
 #
 # No default entrypoint.
