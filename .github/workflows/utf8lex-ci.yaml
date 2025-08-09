@@ -94,7 +94,7 @@ on:
 
 jobs:
   # ====================================================================
-  debian_container_image:
+  debian_image:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -245,7 +245,7 @@ jobs:
   # ====================================================================
   build:
     needs:
-      - debian_container_image
+      - debian_image
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -375,7 +375,7 @@ jobs:
   # ====================================================================
   unit_tests:
     needs:
-      - debian_container_image
+      - debian_image
       - build
     runs-on: ubuntu-latest
     strategy:
@@ -530,7 +530,7 @@ jobs:
   # ====================================================================
   integration_tests:
     needs:
-      - debian_container_image
+      - debian_image
       - build
       - unit_tests
     runs-on: ubuntu-latest
@@ -686,7 +686,7 @@ jobs:
   # ====================================================================
   examples:
     needs:
-      - debian_container_image
+      - debian_image
       - build
       - unit_tests
       - integration_tests

@@ -152,8 +152,10 @@ RUN mkdir -p /utf8lex \
 #
 RUN if test "$TARGETARCH" = "arm"; \
     then \
-        echo "utf8lex build: setting soft stack-size limit on $TARGETARCH to 65536"; \
-        ulimit -S -s 65536; \
+        echo "utf8lex build: setting soft stack-size limit on $TARGETARCH to 64 kbytes (65536 bytes)"; \
+        sed -i /etc/security/limits.conf 's|^# End of file||'; \
+        echo '* soft stack 64' >> /etc/security/limits.conf; \
+        echo '# End of file' >> /etc/security/limits.conf; \
     fi
 
 USER utf8lex
