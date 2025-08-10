@@ -134,7 +134,7 @@ jobs:
         name: Set platform/architecture environment variables.
         run: |
           echo "matrix.platform=${{matrix.platform}}"
-          DEBIAN_ARCHITECTURE=`./get_debian_architecture.sh`
+          DEBIAN_ARCHITECTURE=`echo "${{matrix.platform}}" | sed 's|^[^/]*/||'`
           echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE" \
               > $GITHUB_ENV
           VALGRIND_PLATFORM=`./get_valgrind_platform.sh`
@@ -155,8 +155,8 @@ jobs:
         #
         uses: actions/cache@v4
         with:
-          path: /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar.gz
-          key: utf8lex-debian-container-image-cache-${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}
+          path: /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
+          key: utf8lex-debian-container-image-cache-${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}
 
       # Add support for more platforms with QEMU
       # https://github.com/docker/setup-qemu-action
@@ -194,11 +194,11 @@ jobs:
               --load \
               --platform "${{matrix.platform}}" \
               --build-arg "VALGRIND_PLATFORM=${{env.VALGRIND_PLATFORM}}" \
-              --tag ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }} \
+              --tag ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }} \
               .
           docker image save \
-              --output ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar \
-              ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}
+              --output ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar \
+              ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}
 
       - id: gzip-debian-container-image
         name: Gzip utf8lex Debian container image
@@ -206,7 +206,7 @@ jobs:
         run: |
           echo "matrix.platform=${{matrix.platform}}"
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
-          gzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar
+          gzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar
 
       #
       # Do not use actions/cache/save, it doesn't work.
@@ -221,9 +221,9 @@ jobs:
           echo "matrix.platform=${{matrix.platform}}"
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
           mkdir -p /tmp/builder/
-          rm -rf /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar.gz
-          cp ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar.gz \
-              /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar.gz
+          rm -rf /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
+          cp ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz \
+              /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
 
       #
       # https://github.com/actions/upload-artifact
@@ -232,7 +232,7 @@ jobs:
         name: Upload the container image
         uses: actions/upload-artifact@v4
         with:
-          name: ${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar.gz
+          name: ${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
           path: /tmp/builder/
           if-no-files-found: error
           retention-days: 1
@@ -269,7 +269,7 @@ jobs:
         name: Set platform/architecture environment variables.
         run: |
           echo "matrix.platform=${{matrix.platform}}"
-          DEBIAN_ARCHITECTURE=`./get_debian_architecture.sh`
+          DEBIAN_ARCHITECTURE=`echo "${{matrix.platform}}" | sed 's|^[^/]*/||'`
           echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE" \
               > $GITHUB_ENV
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
@@ -286,7 +286,7 @@ jobs:
         name: Download container image
         uses: actions/download-artifact@v4
         with:
-          name: ${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar.gz
+          name: ${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
           path: /tmp/builder/
 
       - id: copy-container-image
@@ -295,9 +295,9 @@ jobs:
           echo "matrix.platform=${{matrix.platform}}"
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
           mkdir -p ${{env.BUILD_DIR}}/
-          cp /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar.gz \
-              ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar.gz
-          gunzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar.gz
+          cp /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz \
+              ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
+          gunzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
 
       # Add support for more platforms with QEMU
       # https://github.com/docker/setup-qemu-action
@@ -312,8 +312,8 @@ jobs:
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
           sudo systemctl start docker
           docker image load \
-              --input ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar
-          rm ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar
+              --input ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar
+          rm ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar
           chmod -R a+w ${{env.BUILD_DIR}}
           #
           # docker run documentation:
@@ -323,7 +323,7 @@ jobs:
                   --rm \
                   --platform "${{matrix.platform}}" \
                   --volume `pwd`:/utf8lex:rw \
-                  ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }} \
+                  ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }} \
                   make build \
                       BUILD_DIR=../${{env.BUILD_DIR}} \
                       UTF8LEX_VERSION=${{env.UTF8LEX_VERSION}}
@@ -393,7 +393,7 @@ jobs:
         name: Set platform/architecture environment variables.
         run: |
           echo "matrix.platform=${{matrix.platform}}"
-          DEBIAN_ARCHITECTURE=`./get_debian_architecture.sh`
+          DEBIAN_ARCHITECTURE=`echo "${{matrix.platform}}" | sed 's|^[^/]*/||'`
           echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE" \
               > $GITHUB_ENV
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
@@ -402,7 +402,7 @@ jobs:
         name: Download container image
         uses: actions/download-artifact@v4
         with:
-          name: ${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar.gz
+          name: ${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
           path: /tmp/builder/
 
       - id: copy-container-image
@@ -411,9 +411,9 @@ jobs:
           echo "matrix.platform=${{matrix.platform}}"
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
           mkdir -p ${{env.BUILD_DIR}}/
-          cp /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar.gz \
-              ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar.gz
-          gunzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar.gz
+          cp /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz \
+              ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
+          gunzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
 
       - id: utf8lex-version-env
         name: Set the full utf8lex library and program names, with version
@@ -483,8 +483,8 @@ jobs:
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
           sudo systemctl start docker
           docker image load \
-              --input ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar
-          rm ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar
+              --input ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar
+          rm ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar
           chmod -R a+w ${{env.BUILD_DIR}}
           chmod a+x ${{env.BUILD_DIR}}/${{env.PROGRAM}}
           mkdir -p ${{env.TEST_BUILD_DIR}}/
@@ -497,7 +497,7 @@ jobs:
                   --rm \
                   --platform "${{matrix.platform}}" \
                   --volume `pwd`:/utf8lex:rw \
-                  ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }} \
+                  ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }} \
                   make unit_tests \
                       BUILD_DIR=../../${{env.BUILD_DIR}} \
                       UTF8LEX_VERSION=${{env.UTF8LEX_VERSION}} \
@@ -540,7 +540,7 @@ jobs:
         name: Set platform/architecture environment variables.
         run: |
           echo "matrix.platform=${{matrix.platform}}"
-          DEBIAN_ARCHITECTURE=`./get_debian_architecture.sh`
+          DEBIAN_ARCHITECTURE=`echo "${{matrix.platform}}" | sed 's|^[^/]*/||'`
           echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE" \
               > $GITHUB_ENV
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
@@ -549,7 +549,7 @@ jobs:
         name: Download container image
         uses: actions/download-artifact@v4
         with:
-          name: ${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar.gz
+          name: ${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
           path: /tmp/builder/
 
       - id: copy-container-image
@@ -558,9 +558,9 @@ jobs:
           echo "matrix.platform=${{matrix.platform}}"
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
           mkdir -p ${{env.BUILD_DIR}}/
-          cp /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar.gz \
-              ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar.gz
-          gunzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar.gz
+          cp /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz \
+              ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
+          gunzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
 
       - id: utf8lex-version-env
         name: Set the full utf8lex library and program names, with version
@@ -630,8 +630,8 @@ jobs:
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
           sudo systemctl start docker
           docker image load \
-              --input ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar
-          rm ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar
+              --input ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar
+          rm ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar
           chmod -R a+w ${{env.BUILD_DIR}}
           chmod a+x ${{env.BUILD_DIR}}/${{env.PROGRAM}}
           mkdir -p ${{env.TEST_BUILD_DIR}}/
@@ -644,7 +644,7 @@ jobs:
                   --rm \
                   --platform "${{matrix.platform}}" \
                   --volume `pwd`:/utf8lex:rw \
-                  ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }} \
+                  ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }} \
                   make integration_tests \
                       BUILD_DIR=../../${{env.BUILD_DIR}} \
                       UTF8LEX_VERSION=${{env.UTF8LEX_VERSION}} \
@@ -689,7 +689,7 @@ jobs:
         name: Set platform/architecture environment variables.
         run: |
           echo "matrix.platform=${{matrix.platform}}"
-          DEBIAN_ARCHITECTURE=`./get_debian_architecture.sh`
+          DEBIAN_ARCHITECTURE=`echo "${{matrix.platform}}" | sed 's|^[^/]*/||'`
           echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE" \
               > $GITHUB_ENV
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
@@ -698,7 +698,7 @@ jobs:
         name: Download container image
         uses: actions/download-artifact@v4
         with:
-          name: ${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar.gz
+          name: ${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
           path: /tmp/builder/
 
       - id: copy-container-image
@@ -707,9 +707,9 @@ jobs:
           echo "matrix.platform=${{matrix.platform}}"
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
           mkdir -p ${{env.BUILD_DIR}}/
-          cp /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar.gz \
-              ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar.gz
-          gunzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar.gz
+          cp /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz \
+              ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
+          gunzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
 
       - id: utf8lex-version-env
         name: Set the full utf8lex library and program names, with version
@@ -779,8 +779,8 @@ jobs:
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
           sudo systemctl start docker
           docker image load \
-              --input ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar
-          rm ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }}.tar
+              --input ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar
+          rm ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar
           chmod -R a+w ${{env.BUILD_DIR}}
           chmod a+x ${{env.BUILD_DIR}}/${{env.PROGRAM}}
           mkdir -p ${{env.EXAMPLES_BUILD_DIR}}/
@@ -794,7 +794,7 @@ jobs:
                   --rm \
                   --platform "${{matrix.platform}}" \
                   --volume `pwd`:/utf8lex:rw \
-                  ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile','get_debian_architecture.sh','get_valgrind_platform.sh') }} \
+                  ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }} \
                   make examples \
                       BUILD_DIR=../${{env.BUILD_DIR}} \
                       UTF8LEX_VERSION=${{env.UTF8LEX_VERSION}} \
