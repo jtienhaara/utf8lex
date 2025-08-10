@@ -1,0 +1,361 @@
+#
+# utf8lex
+# Copyright © 2023-2025 Johann Tienhaara
+# All rights reserved
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+name: Utf8lex Build
+
+permissions:
+  contents: read
+  packages: write
+
+#
+# Build:
+# - Create a Debian Linux container in which to run various platform builds.
+# - Upload container image into GitHub Packages for reuse in unit tests etc.
+# - Compile utf8lex
+# - Link into .so library
+# - Link into executable program
+# - Upload .so, executable program to GitHub Packages
+#
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+
+#
+# Platforms supported by qemu GitHub Actions plugin:
+#   https://github.com/docker/setup-qemu-action?tab=readme-ov-file#about
+# Platforms supported by Docker Debian official image:
+#   https://hub.docker.com/_/debian
+# Platforms supported by valgrind:
+#   https://valgrind.org/info/platforms.html
+#
+# ? QEMU/GitHub         Docker/Debian       Valgrind
+# - ------------------- ------------------- -------------------
+# X linux/386           i386                X86/Linux (maintenance)
+#   ---                 ---                 X86/Android
+#   ---                 ---                 X86/Darwin
+#   ---                 ---                 X86/FreeBSD
+#   ---                 ---                 X86/illumos
+#   ---                 ---                 X86/Solaris
+# X linux/amd64         amd64               AMD64/Linux
+#   ---                 ---                 AMD64/FreeBSD
+#   ---                 ---                 AMD64/illumos
+#   ---                 ---                 AMD64/FreeBSD
+#   ---                 ---                 AMD64/Solaris
+#   ---                 arm32v5             UNSUPPORTED (**)
+#   linux/arm           ---                 UNSUPPORTED (**)
+# X linux/arm/v7        arm32v7             UNSUPPORTED (**)
+#   ---                 ---                 ARM/Android
+# X linux/arm64         arm64v8             ARM64/Linux
+#   ---                 ---                 ARM64/Android
+#   ---                 ---                 ARM64/FreeBSD
+#   ---                 ---                 MIPS32/Linux
+#   ---                 ---                 MIPS32/Android
+# - linux/mips64        ---                 MIPS64/Linux
+# * linux/mips64le      mips64le            UNSUPPORTED
+# - ---                 ---                 PPC32/Linux
+# - ---                 ---                 PPC64/Linux
+# X linux/ppc64le       ppc64le             PPC64LE/Linux
+# * linux/riscv64       riscv64             UNSUPPORTED
+# X linux/s390x         s390x               S390X/Linux
+#
+# X = QEMU, Docker, Valgrind all supported platform.
+# * = Disable Valgrind.
+# ** Even though valgrind is available on ARM/Linux, I can't
+#    get it to run on armv7l:
+#
+#      valgrind: I failed to allocate space for the application's stack.
+#      valgrind: This may be the result of a very large --main-stacksize=
+#      valgrind: setting.  Cannot continue.  Sorry.
+
+#
+# Platform name matrix:
+#
+# QEMU/GitHub         Docker/Debian       Valgrind
+# ------------------- ------------------- -------------------
+# linux/386           i386                X86/Linux (maintenance)
+# linux/amd64         amd64               AMD64/Linux
+# linux/arm/v7        arm32v7             UNSUPPORTED (*)
+# linux/arm64         arm64v8             ARM64/Linux
+# linux/mips64le      mips64le            UNSUPPORTED
+# linux/ppc64le       ppc64le             PPC64LE/Linux
+# linux/riscv64       riscv64             UNSUPPORTED
+# linux/s390x         s390x               S390X/Linux
+#
+# (*) Even though valgrind is available on ARM/Linux, I can't
+# get it to run on armv7l:
+#
+#     valgrind: I failed to allocate space for the application's stack.
+#     valgrind: This may be the result of a very large --main-stacksize=
+#     valgrind: setting.  Cannot continue.  Sorry.
+#
+
+jobs:
+  # ====================================================================
+  debian_image:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform:
+          - linux/386
+          - linux/amd64
+          - linux/arm/v7
+          - linux/arm64
+          - linux/mips64le
+          - linux/ppc64le
+          # Official Debian image hub.docker but not supported: - linux/riscv64
+          - linux/s390x
+
+    env:
+      BUILD_DIR: ./build
+      DEBIAN_IMAGE_BASE: "utf8lex-debian"
+    steps:
+      - id: checkout
+        name: Checkout
+        uses: actions/checkout@v4
+
+      - id: matrix-platform-env
+        name: Set platform/architecture environment variables.
+        run: |
+          echo "matrix.platform=${{matrix.platform}}"
+          DEBIAN_ARCHITECTURE=`./get_debian_architecture.sh "${{matrix.platform}}"`
+          echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE" \
+              > $GITHUB_ENV
+          VALGRIND_PLATFORM=`./get_valgrind_platform.sh "${{matrix.platform}}"`
+          echo "VALGRIND_PLATFORM=$VALGRIND_PLATFORM" \
+              >> $GITHUB_ENV
+          cat $GITHUB_ENV
+
+      #
+      # https://docs.docker.com/build/ci/github-actions/cache/
+      #
+      - id: container-image-cache-restore
+        name: Restore container image
+        #
+        # Never use actions/cache/restore:
+        #
+        #     https://github.com/orgs/community/discussions/27059#discussioncomment-10084333
+        #
+        uses: actions/cache@v4
+        with:
+          path: /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
+          key: utf8lex-debian-container-image-cache-${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}
+
+      # Add support for more platforms with QEMU
+      # https://github.com/docker/setup-qemu-action
+      - id: qemu-setup
+        name: qemu for multi-platform docker support
+        if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
+        uses: docker/setup-qemu-action@v3
+
+      - id: docker-buildx-setup
+        name: Set up Docker Buildx
+        if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
+        uses: docker/setup-buildx-action@v3
+
+      #
+      # Documentation:
+      #     https://docs.docker.com/reference/cli/docker/buildx/build/
+      #
+      # Docker does not support loading multi-platform images from files (!):
+      #     https://stackoverflow.com/questions/72945407/how-do-i-import-and-run-a-multi-platform-oci-image-in-docker-for-macos/73058421#73058421
+      #
+      # So we have to use the matrix to build multiple platforms,
+      # and even then, we can't seem to docker image load any format
+      # created by docker buildx build, so we have to do docker image save.
+      #
+      - id: build-container-image
+        name: Build utf8lex container for building and testing
+        if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
+        run: |
+          echo "matrix.platform=${{matrix.platform}}"
+          echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
+          echo "VALGRIND_PLATFORM=${{env.VALGRIND_PLATFORM}}"
+          mkdir -p ${{env.BUILD_DIR}}/
+          docker buildx build \
+              --file debian.Dockerfile \
+              --load \
+              --platform "${{matrix.platform}}" \
+              --build-arg "VALGRIND_PLATFORM=${{env.VALGRIND_PLATFORM}}" \
+              --tag ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }} \
+              .
+          docker image save \
+              --output ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar \
+              ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}
+
+      - id: gzip-debian-container-image
+        name: Gzip utf8lex Debian container image
+        if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
+        run: |
+          echo "matrix.platform=${{matrix.platform}}"
+          echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
+          gzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar
+
+      #
+      # Do not use actions/cache/save, it doesn't work.
+      # Using actions/cache up above adds automagic.
+      # We just copy the Debian container image to where the
+      # cache automagic expects to find it, in /tmp.
+      #
+      - id: container-image-cache-save
+        name: Cache the built container image
+        if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
+        run: |
+          echo "matrix.platform=${{matrix.platform}}"
+          echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
+          mkdir -p /tmp/builder/
+          rm -rf /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
+          cp ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz \
+              /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
+
+      #
+      # https://github.com/actions/upload-artifact
+      #
+      - id: upload-container-image
+        name: Upload the container image
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
+          path: /tmp/builder/
+          if-no-files-found: error
+          retention-days: 1
+  # --------------------------------------------------------------------
+
+  # ====================================================================
+  build_libraries:
+    needs:
+      - debian_image
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform:
+          - linux/386
+          - linux/amd64
+          - linux/arm/v7
+          - linux/arm64
+          - linux/mips64le
+          - linux/ppc64le
+          # Official Debian image hub.docker but not supported: - linux/riscv64
+          - linux/s390x
+    env:
+      BUILD_DIR: ./build
+      DEBIAN_IMAGE_BASE: "utf8lex-debian"
+      UTF8LEX_VERSION: "${{github.sha}}"
+      SHARED_LIBRARY_BASE: "libutf8lex.so"
+      PROGRAM_BASE: "utf8lex"
+    steps:
+      - id: checkout
+        name: Checkout
+        uses: actions/checkout@v4
+
+      - id: matrix-platform-env
+        name: Set platform/architecture environment variables.
+        run: |
+          echo "matrix.platform=${{matrix.platform}}"
+          DEBIAN_ARCHITECTURE=`./get_debian_architecture.sh "${{matrix.platform}}"`
+          echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE" \
+              > $GITHUB_ENV
+          echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
+
+      - id: utf8lex-version-env
+        name: Set the full utf8lex library and program names, with version
+        run: |
+            echo "SHARED_LIBRARY=${{env.SHARED_LIBRARY_BASE}}.${{env.UTF8LEX_VERSION}}" \
+                >> $GITHUB_ENV
+            echo "PROGRAM=${{env.PROGRAM_BASE}}.${{env.UTF8LEX_VERSION}}" \
+                >> $GITHUB_ENV
+
+      - id: download-container-image
+        name: Download container image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
+          path: /tmp/builder/
+
+      - id: copy-container-image
+        name: Copy container image to build directory
+        run: |
+          echo "matrix.platform=${{matrix.platform}}"
+          echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
+          mkdir -p ${{env.BUILD_DIR}}/
+          cp /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz \
+              ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
+          gunzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
+
+      # Add support for more platforms with QEMU
+      # https://github.com/docker/setup-qemu-action
+      - id: qemu-setup
+        name: qemu for multi-platform docker run support
+        uses: docker/setup-qemu-action@v3
+
+      - id: build-utf8lex
+        name: Build utf8lex (libraries, executables, ...)
+        run: |
+          echo "matrix.platform=${{matrix.platform}}"
+          echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
+          sudo systemctl start docker
+          docker image load \
+              --input ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar
+          rm ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar
+          chmod -R a+w ${{env.BUILD_DIR}}
+          #
+          # docker run documentation:
+          #     https://docs.docker.com/reference/cli/docker/container/run/
+          #
+          docker run \
+                  --rm \
+                  --platform "${{matrix.platform}}" \
+                  --volume `pwd`:/utf8lex:rw \
+                  ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }} \
+                  make build \
+                      BUILD_DIR=../${{env.BUILD_DIR}} \
+                      UTF8LEX_VERSION=${{env.UTF8LEX_VERSION}}
+
+      - id: prepare-utf8lex-for-upload
+        name: Prepare utf8lex (libraries, executables, ...) for artifact upload
+        run: |
+          echo "matrix.platform=${{matrix.platform}}"
+          echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
+          mkdir -p /tmp/utf8lex/
+          cp ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY}} \
+              /tmp/utf8lex/${{env.SHARED_LIBRARY}}.${{env.DEBIAN_ARCHITECTURE}}
+          cp ${{env.BUILD_DIR}}/${{env.PROGRAM}} \
+              /tmp/utf8lex/${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}}
+
+      - id: upload-utf8lex-library
+        name: Upload utf8lex library
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{env.SHARED_LIBRARY}}.${{env.DEBIAN_ARCHITECTURE}}
+          path: /tmp/utf8lex/
+          if-no-files-found: error
+          retention-days: 1
+
+      - id: upload-utf8lex-program
+        name: Upload utf8lex program
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}}
+          path: /tmp/utf8lex/
+          if-no-files-found: error
+          retention-days: 1
+  # --------------------------------------------------------------------

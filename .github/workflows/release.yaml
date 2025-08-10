@@ -1,0 +1,166 @@
+#
+# utf8lex
+# Copyright © 2023-2025 Johann Tienhaara
+# All rights reserved
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+name: Utf8lex Release
+
+permissions:
+  contents: write
+  packages: read
+
+#
+# Release (on tag semantic versioning style v1.2.3):
+# - Download .so libraries from GitHub Packages.
+# - Rename each .sha.so library .<version>.so
+# - Commit to the dist/ directory under the appropriate architecture (i386 etc).
+#
+on:
+  tags:
+    - v*
+
+
+#
+# See build.yaml for platforms matrix documentation.
+#
+
+jobs:
+  # ====================================================================
+  release:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform:
+          - linux/386
+          - linux/amd64
+          - linux/arm/v7
+          - linux/arm64
+          - linux/mips64le
+          - linux/ppc64le
+          # Official Debian image hub.docker but not supported: - linux/riscv64
+          - linux/s390x
+
+    env:
+      DIST_DIR: ./dist
+      UTF8LEX_DOWNLOAD_VERSION: "${{github.sha}}"
+      UTF8LEX_RELEASE_VERSION: "${{github.ref_name}}"  # git tag v1.2.3
+      SHARED_LIBRARY_BASE: "libutf8lex.so"
+      PROGRAM_BASE: "utf8lex"
+    steps:
+      - id: checkout
+        name: Checkout
+        uses: actions/checkout@v4
+
+      - id: matrix-platform-env
+        name: Set platform/architecture environment variables.
+        run: |
+          echo "matrix.platform=${{matrix.platform}}"
+          DEBIAN_ARCHITECTURE=`./get_debian_architecture.sh "${{matrix.platform}}"`
+          echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE" \
+              > $GITHUB_ENV
+          cat $GITHUB_ENV
+
+      - id: utf8lex-version-env
+        name: Set the full utf8lex library and program names, with version
+        run: |
+            SHARED_LIBRARY_DOWNLOAD="${{env.SHARED_LIBRARY_BASE}}.${{env.UTF8LEX_DOWNLOAD_VERSION}}"
+            echo "SHARED_LIBRARY_DOWNLOAD=$SHARED_LIBRARY_DOWNLOAD" \
+                >> $GITHUB_ENV
+            SHARED_LIBRARY_RELEASE="${{env.SHARED_LIBRARY_BASE}}.${{env.UTF8LEX_RELEASE_VERSION}}"
+            echo "SHARED_LIBRARY_RELEASE=$SHARED_LIBRARY_RELEASE" \
+                >> $GITHUB_ENV
+            PROGRAM_DOWNLOAD="${{env.PROGRAM_BASE}}.${{env.UTF8LEX_DOWNLOAD_VERSION}}"
+            echo "PROGRAM_DOWNLOAD=$PROGRAM_DOWNLOAD" \
+                >> $GITHUB_ENV
+            PROGRAM_RELEASE="${{env.PROGRAM_BASE}}.${{env.UTF8LEX_RELEASE_VERSION}}"
+            echo "PROGRAM_RELEASE=$PROGRAM_RELEASE" \
+                >> $GITHUB_ENV
+            echo "SHARED_LIBRARY_DOWNLOAD=$SHARED_LIBRARY_DOWNLOAD"
+            echo "SHARED_LIBRARY_RELEASE=$SHARED_LIBRARY_RELEASE"
+            echo "PROGRAM_DOWNLOAD=$PROGRAM_DOWNLOAD"
+            echo "PROGRAM_RELEASE=$PROGRAM_RELEASE"
+
+      - id: download-utf8lex-library
+        name: Download utf8lex library
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{env.SHARED_LIBRARY_DOWNLOAD}}.${{env.DEBIAN_ARCHITECTURE}}
+          path: /tmp/utf8lex/
+
+      - id: download-utf8lex-program
+        name: Download utf8lex program
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{env.PROGRAM_DOWNLOAD}}.${{env.DEBIAN_ARCHITECTURE}}
+          path: /tmp/utf8lex/
+
+      - id: copy-utf8lex
+        name: Copy utf8lex binaries to dist directory
+        run: |
+          echo "matrix.platform=${{matrix.platform}}"
+          echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
+          rm -rf ${{env.DIST_DIR}}/${{env.DEBIAN_ARCHITECTURE}}
+          mkdir -p ${{env.DIST_DIR}}/${{env.DEBIAN_ARCHITECTURE}}
+          cp /tmp/utf8lex/${{env.SHARED_LIBRARY_DOWNLOAD}}.${{env.DEBIAN_ARCHITECTURE}} \
+              ${{env.DIST_DIR}}/${{env.DEBIAN_ARCHITECTURE}}/${{env.SHARED_LIBRARY_RELEASE}}
+          cp /tmp/utf8lex/${{env.PROGRAM_DOWNLOAD}}.${{env.DEBIAN_ARCHITECTURE}} \
+              ${{env.DIST_DIR}}/${{env.DEBIAN_ARCHITECTURE}}${{env.PROGRAM_RELEASE}}
+
+      #
+      # https://github.com/marketplace/actions/add-commit
+      #
+      - id: commit-release-to-git
+        name: Commit release files to git
+        uses: EndBug/add-and-commit@v9
+          with:
+            # Use --no-ignore-removal to remove deleted dist files.
+            add: ${{env.DIST_DIR}}/${{env.DEBIAN_ARCHITECTURE}} --no-ignore-removal
+
+            # author_name: default (author of the git tag).
+            # author_email: default (author of the git tag).
+            # commit: ''
+            # committer_name: (author_name)
+            # committer_email: (author_email)
+            # cwd: default (.)
+
+            # Determines the way the action fills missing author name and email.
+            # Three options are available:
+            # - github_actor -> UserName <UserName@users.noreply.github.com>
+            # - user_info -> Your Display Name <your-actual@email.com>
+            # - github_actions -> github-actions <email associated with the github logo>
+            # Default: github_actor
+            default_author: github_actor
+
+            # fetch: default (--tags --force)
+            # message: default ('Commit from GitHub Actions Utf8lex Release')
+            # new_branch: (no new branch)
+
+            # The way the action should handle pathspec errors
+            # from the add and remove commands. Three options are available:
+            # - ignore -> errors will be logged but the step won't fail
+            # - exitImmediately -> the action will stop right away,
+            #                      and the step will fail
+            # - exitAtEnd -> the action will go on, every pathspec error
+            #                will be logged at the end, the step will fail.
+            # Default: ignore
+            pathspec_error_handling: exitImmediately
+
+            pull: '--rebase --autostash'
+            # push: true
+            # remove: default (do not remove anything)
+            tag: ${{env.UTF8LEX_RELEASE_VERSION}}
+            tag_push: '--force'
+  # --------------------------------------------------------------------
