@@ -18,19 +18,6 @@
 
 name: Utf8lex Build
 
-permissions:
-  contents: read
-  packages: write
-
-#
-# Build:
-# - Create a Debian Linux container in which to run various platform builds.
-# - Upload container image into GitHub Packages for reuse in unit tests etc.
-# - Compile utf8lex
-# - Link into .so library
-# - Link into executable program
-# - Upload .so, executable program to GitHub Packages
-#
 on:
   push:
     branches:
@@ -112,6 +99,13 @@ on:
 jobs:
   # ====================================================================
   debian_image:
+    #
+    # - Create a Debian Linux container in which to run various platform builds.
+    # - Upload container image into GitHub Packages for reuse in unit tests etc.
+    #
+    permissions:
+      contents: read
+      packages: write
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -241,7 +235,16 @@ jobs:
   # --------------------------------------------------------------------
 
   # ====================================================================
-  build_libraries:
+  build:
+    #
+    # - Compile utf8lex
+    # - Link into .so library
+    # - Link into executable program
+    # - Upload .so, executable program to GitHub Packages
+    #
+    permissions:
+      contents: read
+      packages: write
     needs:
       - debian_image
     runs-on: ubuntu-latest
@@ -358,4 +361,472 @@ jobs:
           path: /tmp/utf8lex/
           if-no-files-found: error
           retention-days: 1
+  # --------------------------------------------------------------------
+
+  # ====================================================================
+  unit_tests:
+    #
+    # - Download Debian Linux container image from GitHub Packages
+    #   to run the tests.
+    # - Download .so libraries from GitHub Packages to test them.
+    # - Run unit tests.
+    #
+    permissions:
+      contents: read
+      packages: read
+    needs:
+      - debian_image  # from build.yaml
+      - build  # from build.yaml
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform:
+          - linux/386
+          - linux/amd64
+          - linux/arm/v7
+          - linux/arm64
+          - linux/mips64le
+          - linux/ppc64le
+          # Official Debian image hub.docker but not supported: - linux/riscv64
+          - linux/s390x
+
+    env:
+      BUILD_DIR: ./build
+      TEST_BUILD_DIR: ./tests/build
+      DEBIAN_IMAGE_BASE: "utf8lex-debian"
+      UTF8LEX_VERSION: "${{github.sha}}"
+      SHARED_LIBRARY_BASE: "libutf8lex.so"
+      PROGRAM_BASE: "utf8lex"
+    steps:
+      - id: checkout
+        name: Checkout
+        uses: actions/checkout@v4
+
+      - id: matrix-platform-env
+        name: Set platform/architecture environment variables.
+        run: |
+          echo "matrix.platform=${{matrix.platform}}"
+          DEBIAN_ARCHITECTURE=`./get_debian_architecture.sh "${{matrix.platform}}"`
+          echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE" \
+              > $GITHUB_ENV
+          cat $GITHUB_ENV
+
+      - id: download-container-image
+        name: Download container image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
+          path: /tmp/builder/
+
+      - id: copy-container-image
+        name: Copy container image to build directory
+        run: |
+          echo "matrix.platform=${{matrix.platform}}"
+          echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
+          mkdir -p ${{env.BUILD_DIR}}/
+          cp /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz \
+              ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
+          gunzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
+
+      - id: utf8lex-version-env
+        name: Set the full utf8lex library and program names, with version
+        run: |
+            echo "SHARED_LIBRARY=${{env.SHARED_LIBRARY_BASE}}.${{env.UTF8LEX_VERSION}}" \
+                >> $GITHUB_ENV
+            echo "PROGRAM=${{env.PROGRAM_BASE}}.${{env.UTF8LEX_VERSION}}" \
+                >> $GITHUB_ENV
+
+      - id: download-utf8lex-library
+        name: Download utf8lex library
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{env.SHARED_LIBRARY}}.${{env.DEBIAN_ARCHITECTURE}}
+          path: /tmp/utf8lex/
+
+      - id: download-utf8lex-program
+        name: Download utf8lex program
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}}
+          path: /tmp/utf8lex/
+
+      - id: copy-utf8lex
+        name: Copy utf8lex binaries to build directory
+        run: |
+          echo "matrix.platform=${{matrix.platform}}"
+          echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
+          mkdir -p ${{env.BUILD_DIR}}/
+          cp /tmp/utf8lex/${{env.SHARED_LIBRARY}}.${{env.DEBIAN_ARCHITECTURE}} \
+              ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY}}
+          cp /tmp/utf8lex/${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}} \
+              ${{env.BUILD_DIR}}/${{env.PROGRAM}}
+
+      - id: sym-link-utf8lex
+        name: Symbolically link libutf8lex.so, .so.1, utf8lex, etc
+        run: |
+          #
+          # We have e.g. library libutf8lex.so.1.2.3 and program utf8lex1.2.3.
+          # Now we sym link libraries libutf8lex.so and libutf8lex.so.1
+          # and programs utf8lex and utf8lex.1.
+          #
+          cd ${{env.BUILD_DIR}}
+          ln -s ${{env.SHARED_LIBRARY}} \
+              ${{env.SHARED_LIBRARY_BASE}}
+          ln -s ${{env.PROGRAM}} \
+              ${{env.PROGRAM_BASE}}
+          MAJOR=`echo "${{env.UTF8LEX_VERSION}}" | sed 's|^\([^\.]*\)\..*$|\1|'`
+          if test "$MAJOR" != "${{env.UTF8LEX_VERSION}}"; \
+          then \
+              ln -s ${{env.SHARED_LIBRARY}} \
+                  ${{env.SHARED_LIBRARY_BASE}}.$MAJOR ; \
+              ln -s ${{env.PROGRAM}} \
+                  ${{env.PROGRAM_BASE}}.$MAJOR ; \
+          fi
+
+      # Add support for more platforms with QEMU
+      # https://github.com/docker/setup-qemu-action
+      - id: qemu-setup
+        name: qemu for multi-platform docker run support
+        uses: docker/setup-qemu-action@v3
+
+      - id: run-tests
+        name: Run tests
+        run: |
+          echo "matrix.platform=${{matrix.platform}}"
+          echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
+          sudo systemctl start docker
+          docker image load \
+              --input ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar
+          rm ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar
+          chmod -R a+w ${{env.BUILD_DIR}}
+          chmod a+x ${{env.BUILD_DIR}}/${{env.PROGRAM}}
+          mkdir -p ${{env.TEST_BUILD_DIR}}/
+          chmod -R a+w ${{env.TEST_BUILD_DIR}}
+          #
+          # docker run documentation:
+          #     https://docs.docker.com/reference/cli/docker/container/run/
+          #
+          docker run \
+                  --rm \
+                  --platform "${{matrix.platform}}" \
+                  --volume `pwd`:/utf8lex:rw \
+                  ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }} \
+                  make unit_tests \
+                      BUILD_DIR=../../${{env.BUILD_DIR}} \
+                      UTF8LEX_VERSION=${{env.UTF8LEX_VERSION}} \
+                      TEST_BUILD_DIR=../../${{env.TEST_BUILD_DIR}}
+  # --------------------------------------------------------------------
+
+  # ====================================================================
+  integration_tests:
+    #
+    # - Download Debian Linux container image from GitHub Packages
+    #   to run the tests.
+    # - Download .so libraries from GitHub Packages to test them.
+    # - Run integration tests.
+    #
+    permissions:
+      contents: read
+      packages: read
+    needs:
+      - debian_image  # from build.yaml
+      - build  # from build.yaml
+      - unit_tests  # from unit_tests.yaml - just to make sure we unit test 1st.
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform:
+          - linux/386
+          - linux/amd64
+          - linux/arm/v7
+          - linux/arm64
+          - linux/mips64le
+          - linux/ppc64le
+          # Official Debian image hub.docker but not supported: - linux/riscv64
+          - linux/s390x
+
+    env:
+      BUILD_DIR: ./build
+      TEST_BUILD_DIR: ./tests/build
+      DEBIAN_IMAGE_BASE: "utf8lex-debian"
+      UTF8LEX_VERSION: "${{github.sha}}"
+      SHARED_LIBRARY_BASE: "libutf8lex.so"
+      PROGRAM_BASE: "utf8lex"
+    steps:
+      - id: checkout
+        name: Checkout
+        uses: actions/checkout@v4
+
+      - id: matrix-platform-env
+        name: Set platform/architecture environment variables.
+        run: |
+          echo "matrix.platform=${{matrix.platform}}"
+          DEBIAN_ARCHITECTURE=`./get_debian_architecture.sh "${{matrix.platform}}"`
+          echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE" \
+              > $GITHUB_ENV
+          cat $GITHUB_ENV
+
+      - id: download-container-image
+        name: Download container image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
+          path: /tmp/builder/
+
+      - id: copy-container-image
+        name: Copy container image to build directory
+        run: |
+          echo "matrix.platform=${{matrix.platform}}"
+          echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
+          mkdir -p ${{env.BUILD_DIR}}/
+          cp /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz \
+              ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
+          gunzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
+
+      - id: utf8lex-version-env
+        name: Set the full utf8lex library and program names, with version
+        run: |
+            echo "SHARED_LIBRARY=${{env.SHARED_LIBRARY_BASE}}.${{env.UTF8LEX_VERSION}}" \
+                >> $GITHUB_ENV
+            echo "PROGRAM=${{env.PROGRAM_BASE}}.${{env.UTF8LEX_VERSION}}" \
+                >> $GITHUB_ENV
+
+      - id: download-utf8lex-library
+        name: Download utf8lex library
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{env.SHARED_LIBRARY}}.${{env.DEBIAN_ARCHITECTURE}}
+          path: /tmp/utf8lex/
+
+      - id: download-utf8lex-program
+        name: Download utf8lex program
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}}
+          path: /tmp/utf8lex/
+
+      - id: copy-utf8lex
+        name: Copy utf8lex binaries to build directory
+        run: |
+          echo "matrix.platform=${{matrix.platform}}"
+          echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
+          mkdir -p ${{env.BUILD_DIR}}/
+          cp /tmp/utf8lex/${{env.SHARED_LIBRARY}}.${{env.DEBIAN_ARCHITECTURE}} \
+              ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY}}
+          cp /tmp/utf8lex/${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}} \
+              ${{env.BUILD_DIR}}/${{env.PROGRAM}}
+
+      - id: sym-link-utf8lex
+        name: Symbolically link libutf8lex.so, .so.1, utf8lex, etc
+        run: |
+          #
+          # We have e.g. library libutf8lex.so.1.2.3 and program utf8lex1.2.3.
+          # Now we sym link libraries libutf8lex.so and libutf8lex.so.1
+          # and programs utf8lex and utf8lex.1.
+          #
+          cd ${{env.BUILD_DIR}}
+          ln -s ${{env.SHARED_LIBRARY}} \
+              ${{env.SHARED_LIBRARY_BASE}}
+          ln -s ${{env.PROGRAM}} \
+              ${{env.PROGRAM_BASE}}
+          MAJOR=`echo "${{env.UTF8LEX_VERSION}}" | sed 's|^\([^\.]*\)\..*$|\1|'`
+          if test "$MAJOR" != "${{env.UTF8LEX_VERSION}}"; \
+          then \
+              ln -s ${{env.SHARED_LIBRARY}} \
+                  ${{env.SHARED_LIBRARY_BASE}}.$MAJOR ; \
+              ln -s ${{env.PROGRAM}} \
+                  ${{env.PROGRAM_BASE}}.$MAJOR ; \
+          fi
+
+      # Add support for more platforms with QEMU
+      # https://github.com/docker/setup-qemu-action
+      - id: qemu-setup
+        name: qemu for multi-platform docker run support
+        uses: docker/setup-qemu-action@v3
+
+      - id: run-tests
+        name: Run tests
+        run: |
+          echo "matrix.platform=${{matrix.platform}}"
+          echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
+          sudo systemctl start docker
+          docker image load \
+              --input ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar
+          rm ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar
+          chmod -R a+w ${{env.BUILD_DIR}}
+          chmod a+x ${{env.BUILD_DIR}}/${{env.PROGRAM}}
+          mkdir -p ${{env.TEST_BUILD_DIR}}/
+          chmod -R a+w ${{env.TEST_BUILD_DIR}}
+          #
+          # docker run documentation:
+          #     https://docs.docker.com/reference/cli/docker/container/run/
+          #
+          docker run \
+                  --rm \
+                  --platform "${{matrix.platform}}" \
+                  --volume `pwd`:/utf8lex:rw \
+                  ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }} \
+                  make integration_tests \
+                      BUILD_DIR=../../${{env.BUILD_DIR}} \
+                      UTF8LEX_VERSION=${{env.UTF8LEX_VERSION}} \
+                      TEST_BUILD_DIR=../../${{env.TEST_BUILD_DIR}}
+  # --------------------------------------------------------------------
+
+  # ====================================================================
+  examples:
+    #
+    # - Download Debian Linux container image from GitHub Packages
+    #   to build & run.
+    # - Download .so libraries from GitHub Packages to build with them.
+    # - Build examples.
+    # - Run examples.
+    #
+    permissions:
+      contents: read
+      packages: read
+    needs:
+      - debian_image  # from build.yaml
+      - build  # from build.yaml
+      - unit_tests  # from unit_tests.yaml
+      - integration_tests  # from integration_tests.yaml
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform:
+          - linux/386
+          - linux/amd64
+          - linux/arm/v7
+          - linux/arm64
+          - linux/mips64le
+          - linux/ppc64le
+          # Official Debian image hub.docker but not supported: - linux/riscv64
+          - linux/s390x
+
+    env:
+      BUILD_DIR: ./build
+      EXAMPLES_DIR: ./examples
+      EXAMPLES_BUILD_DIR: ./examples/build
+      DEBIAN_IMAGE_BASE: "utf8lex-debian"
+      UTF8LEX_VERSION: "${{github.sha}}"
+      SHARED_LIBRARY_BASE: "libutf8lex.so"
+      PROGRAM_BASE: "utf8lex"
+    steps:
+      - id: checkout
+        name: Checkout
+        uses: actions/checkout@v4
+
+      - id: matrix-platform-env
+        name: Set platform/architecture environment variables.
+        run: |
+          echo "matrix.platform=${{matrix.platform}}"
+          DEBIAN_ARCHITECTURE=`./get_debian_architecture.sh "${{matrix.platform}}"`
+          echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE" \
+              > $GITHUB_ENV
+          cat $GITHUB_ENV
+
+      - id: download-container-image
+        name: Download container image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
+          path: /tmp/builder/
+
+      - id: copy-container-image
+        name: Copy container image to build directory
+        run: |
+          echo "matrix.platform=${{matrix.platform}}"
+          echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
+          mkdir -p ${{env.BUILD_DIR}}/
+          cp /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz \
+              ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
+          gunzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
+
+      - id: utf8lex-version-env
+        name: Set the full utf8lex library and program names, with version
+        run: |
+            echo "SHARED_LIBRARY=${{env.SHARED_LIBRARY_BASE}}.${{env.UTF8LEX_VERSION}}" \
+                >> $GITHUB_ENV
+            echo "PROGRAM=${{env.PROGRAM_BASE}}.${{env.UTF8LEX_VERSION}}" \
+                >> $GITHUB_ENV
+
+      - id: download-utf8lex-library
+        name: Download utf8lex library
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{env.SHARED_LIBRARY}}.${{env.DEBIAN_ARCHITECTURE}}
+          path: /tmp/utf8lex/
+
+      - id: download-utf8lex-program
+        name: Download utf8lex program
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}}
+          path: /tmp/utf8lex/
+
+      - id: copy-utf8lex
+        name: Copy utf8lex binaries to build directory
+        run: |
+          echo "matrix.platform=${{matrix.platform}}"
+          echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
+          mkdir -p ${{env.BUILD_DIR}}/
+          cp /tmp/utf8lex/${{env.SHARED_LIBRARY}}.${{env.DEBIAN_ARCHITECTURE}} \
+              ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY}}
+          cp /tmp/utf8lex/${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}} \
+              ${{env.BUILD_DIR}}/${{env.PROGRAM}}
+
+      - id: sym-link-utf8lex
+        name: Symbolically link libutf8lex.so, .so.1, utf8lex, etc
+        run: |
+          #
+          # We have e.g. library libutf8lex.so.1.2.3 and program utf8lex1.2.3.
+          # Now we sym link libraries libutf8lex.so and libutf8lex.so.1
+          # and programs utf8lex and utf8lex.1.
+          #
+          cd ${{env.BUILD_DIR}}
+          ln -s ${{env.SHARED_LIBRARY}} \
+              ${{env.SHARED_LIBRARY_BASE}}
+          ln -s ${{env.PROGRAM}} \
+              ${{env.PROGRAM_BASE}}
+          MAJOR=`echo "${{env.UTF8LEX_VERSION}}" | sed 's|^\([^\.]*\)\..*$|\1|'`
+          if test "$MAJOR" != "${{env.UTF8LEX_VERSION}}"; \
+          then \
+              ln -s ${{env.SHARED_LIBRARY}} \
+                  ${{env.SHARED_LIBRARY_BASE}}.$MAJOR ; \
+              ln -s ${{env.PROGRAM}} \
+                  ${{env.PROGRAM_BASE}}.$MAJOR ; \
+          fi
+
+      # Add support for more platforms with QEMU
+      # https://github.com/docker/setup-qemu-action
+      - id: qemu-setup
+        name: qemu for multi-platform docker run support
+        uses: docker/setup-qemu-action@v3
+
+      - id: run-examples
+        name: Run examples
+        run: |
+          echo "matrix.platform=${{matrix.platform}}"
+          echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
+          sudo systemctl start docker
+          docker image load \
+              --input ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar
+          rm ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar
+          chmod -R a+w ${{env.BUILD_DIR}}
+          chmod a+x ${{env.BUILD_DIR}}/${{env.PROGRAM}}
+          mkdir -p ${{env.EXAMPLES_BUILD_DIR}}/
+          chmod -R a+w ${{env.EXAMPLES_DIR}}
+          chmod -R a+w ${{env.EXAMPLES_BUILD_DIR}}
+          #
+          # docker run documentation:
+          #     https://docs.docker.com/reference/cli/docker/container/run/
+          #
+          docker run \
+                  --rm \
+                  --platform "${{matrix.platform}}" \
+                  --volume `pwd`:/utf8lex:rw \
+                  ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }} \
+                  make examples \
+                      BUILD_DIR=../${{env.BUILD_DIR}} \
+                      UTF8LEX_VERSION=${{env.UTF8LEX_VERSION}} \
+                      EXAMPLES_BUILD_DIR=../${{env.EXAMPLES_BUILD_DIR}}
   # --------------------------------------------------------------------
