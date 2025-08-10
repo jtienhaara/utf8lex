@@ -59,6 +59,7 @@
    fun:yylex_from_template.constprop.0
    fun:main
 }
+{
    # ppc64le
    libpcre2_suppressions_Memcheck_Addr2_3
    Memcheck:Addr2
