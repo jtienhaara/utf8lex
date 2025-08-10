@@ -22,6 +22,16 @@
    fun:main
 }
 {
+   # ppc64le
+   libpcre2_suppressions_Memcheck_Addr1_3
+   Memcheck:Addr1
+   fun:pcre2_substring_length_bynumber_8
+   fun:pcre2_substring_copy_bynumber_8
+   fun:utf8lex_lex
+   fun:test_utf8lex
+   fun:main
+}
+{
    libpcre2_suppressions_Memcheck_Addr2_1
    Memcheck:Addr2
    fun:pcre2_substring_length_bynumber_8
@@ -231,6 +241,16 @@
 {
    # ppc64le
    libpcre2_suppressions_Free_4
+   Memcheck:Free
+   fun:pcre2_match_data_free_8
+   fun:utf8lex_lex_regex
+   fun:utf8lex_lex
+   fun:test_utf8lex
+   fun:main
+}
+{
+   # ppc64le
+   libpcre2_suppressions_Free_5
    Memcheck:Free
    fun:pcre2_match_data_free_8
    fun:utf8lex_lex_regex
