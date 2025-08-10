@@ -135,7 +135,7 @@ jobs:
         run: |
           echo "matrix.platform=${{matrix.platform}}"
           DEBIAN_ARCHITECTURE=`echo "${{matrix.platform}}" \
-                                   | sed 's|^[^/]*/\([^/]*\)|\1|'` \
+                                   | sed 's|^[^/]*/\([^/]*\)\(/.*\)*$|\1|'` \
           echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE" \
               > $GITHUB_ENV
           VALGRIND_PLATFORM=`./get_valgrind_platform.sh`
@@ -271,7 +271,7 @@ jobs:
         run: |
           echo "matrix.platform=${{matrix.platform}}"
           DEBIAN_ARCHITECTURE=`echo "${{matrix.platform}}" \
-                                   | sed 's|^[^/]*/\([^/]*\)|\1|'` \
+                                   | sed 's|^[^/]*/\([^/]*\)\(/.*\)*$|\1|'` \
           echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE" \
               > $GITHUB_ENV
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
@@ -396,7 +396,7 @@ jobs:
         run: |
           echo "matrix.platform=${{matrix.platform}}"
           DEBIAN_ARCHITECTURE=`echo "${{matrix.platform}}" \
-                                   | sed 's|^[^/]*/\([^/]*\)|\1|'` \
+                                   | sed 's|^[^/]*/\([^/]*\)\(/.*\)*$|\1|'` \
           echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE" \
               > $GITHUB_ENV
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
@@ -544,7 +544,7 @@ jobs:
         run: |
           echo "matrix.platform=${{matrix.platform}}"
           DEBIAN_ARCHITECTURE=`echo "${{matrix.platform}}" \
-                                   | sed 's|^[^/]*/\([^/]*\)|\1|'` \
+                                   | sed 's|^[^/]*/\([^/]*\)\(/.*\)*$|\1|'` \
           echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE" \
               > $GITHUB_ENV
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
@@ -694,7 +694,7 @@ jobs:
         run: |
           echo "matrix.platform=${{matrix.platform}}"
           DEBIAN_ARCHITECTURE=`echo "${{matrix.platform}}" \
-                                   | sed 's|^[^/]*/\([^/]*\)|\1|'` \
+                                   | sed 's|^[^/]*/\([^/]*\)\(/.*\)*$|\1|'` \
           echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE" \
               > $GITHUB_ENV
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
