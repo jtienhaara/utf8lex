@@ -138,13 +138,13 @@ jobs:
           workflow: build.yaml
           workflow_search: false
           workflow_conclusion: success
-          # pr: (default)
-          # commit: (default)
-          branch: main
-          ref: ${{env.UTF8LEX_DOWNLOAD_VERSION}}
-          # event: (defaults to all event types, e.g. push, etc)
-          # run_id: (no specific workflow run id)
+          # pr: (use commit)
+          commit: ${{env.UTF8LEX_DOWNLOAD_VERSION}}
+          # branch: (use commit)
+          # ref: (use commit)
+          # run_id: (use commit)
           # run_number: (no specific workflow run number)
+          # event: (defaults to all event types, e.g. push, etc)
           name: ${{env.PROGRAM_DOWNLOAD}}.${{env.DEBIAN_ARCHITECTURE}}
           name_is_regexp: false
           path: /tmp/utf8lex/
