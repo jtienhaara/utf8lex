@@ -134,10 +134,7 @@ jobs:
         name: Set platform/architecture environment variables.
         run: |
           echo "matrix.platform=${{matrix.platform}}"
-          echo "${{matrix.platform}}" | sed 's|^[^/]*/||' | sed 's|/.*$||'
-          DEBIAN_ARCHITECTURE=`echo "${{matrix.platform}}" \
-                                   | sed 's|^[^/]*/||' \
-                                   | sed 's|/.*$||'`
+          DEBIAN_ARCHITECTURE=`echo "${{matrix.platform}}" | sed 's|^[^/]*/||' | sed 's|/.*$||'`
           echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE" \
               > $GITHUB_ENV
           VALGRIND_PLATFORM=`./get_valgrind_platform.sh`
@@ -272,9 +269,7 @@ jobs:
         name: Set platform/architecture environment variables.
         run: |
           echo "matrix.platform=${{matrix.platform}}"
-          DEBIAN_ARCHITECTURE=`echo "${{matrix.platform}}" \
-                                   | sed 's|^[^/]*/||' \
-                                   | sed 's|/.*$||'`
+          DEBIAN_ARCHITECTURE=`echo "${{matrix.platform}}" | sed 's|^[^/]*/||' | sed 's|/.*$||'`
           echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE" \
               > $GITHUB_ENV
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
@@ -398,9 +393,7 @@ jobs:
         name: Set platform/architecture environment variables.
         run: |
           echo "matrix.platform=${{matrix.platform}}"
-          DEBIAN_ARCHITECTURE=`echo "${{matrix.platform}}" \
-                                   | sed 's|^[^/]*/||' \
-                                   | sed 's|/.*$||'`
+          DEBIAN_ARCHITECTURE=`echo "${{matrix.platform}}" | sed 's|^[^/]*/||' | sed 's|/.*$||'`
           echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE" \
               > $GITHUB_ENV
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
@@ -547,9 +540,7 @@ jobs:
         name: Set platform/architecture environment variables.
         run: |
           echo "matrix.platform=${{matrix.platform}}"
-          DEBIAN_ARCHITECTURE=`echo "${{matrix.platform}}" \
-                                   | sed 's|^[^/]*/||' \
-                                   | sed 's|/.*$||'`
+          DEBIAN_ARCHITECTURE=`echo "${{matrix.platform}}" | sed 's|^[^/]*/||' | sed 's|/.*$||'`
           echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE" \
               > $GITHUB_ENV
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
@@ -698,9 +689,7 @@ jobs:
         name: Set platform/architecture environment variables.
         run: |
           echo "matrix.platform=${{matrix.platform}}"
-          DEBIAN_ARCHITECTURE=`echo "${{matrix.platform}}" \
-                                   | sed 's|^[^/]*/||' \
-                                   | sed 's|/.*$||'`
+          DEBIAN_ARCHITECTURE=`echo "${{matrix.platform}}" | sed 's|^[^/]*/||' | sed 's|/.*$||'`
           echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE" \
               > $GITHUB_ENV
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
