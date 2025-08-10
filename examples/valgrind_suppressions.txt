@@ -110,6 +110,31 @@
    fun:main
 }
 {
+   # i386
+   libpcre2_suppressions_Memcheck_Addr4_4
+   Memcheck:Addr4
+   fun:pcre2_substring_copy_bynumber_8
+   fun:utf8lex_lex_regex
+   fun:utf8lex_lex
+   fun:utf8lex_generate_parse
+   fun:utf8lex_generate
+   fun:yylex_from_template.constprop.0
+   fun:main
+}
+{
+   # i386
+   libpcre2_suppressions_Memcheck_Addr4_5
+   Memcheck:Addr4
+   fun:pcre2_substring_copy_bynumber_8
+   fun:utf8lex_lex_regex
+   fun:utf8lex_lex
+   fun:utf8lex_generate_definition
+   fun:utf8lex_generate_parse
+   fun:utf8lex_generate
+   fun:yylex_from_template.constprop.0
+   fun:main
+}
+{
    libpcre2_suppressions_Memcheck_Addr8_1
    Memcheck:Addr8
    fun:pcre2_substring_length_bynumber_8
@@ -184,6 +209,31 @@
 {
    # ppc64le
    libpcre2_suppressions_Free_2
+   Memcheck:Free
+   fun:pcre2_match_data_free_8
+   fun:utf8lex_lex_regex
+   fun:utf8lex_lex
+   fun:utf8lex_generate_definition
+   fun:utf8lex_generate_parse
+   fun:utf8lex_generate
+   fun:yylex_from_template.constprop.0
+   fun:main
+}
+{
+   # i386
+   libpcre2_suppressions_Free_3
+   Memcheck:Free
+   fun:pcre2_match_data_free_8
+   fun:utf8lex_lex_regex
+   fun:utf8lex_lex
+   fun:utf8lex_generate_parse
+   fun:utf8lex_generate
+   fun:yylex_from_template.constprop.0
+   fun:main
+}
+{
+   # i386
+   libpcre2_suppressions_Free_4
    Memcheck:Free
    fun:pcre2_match_data_free_8
    fun:utf8lex_lex_regex
