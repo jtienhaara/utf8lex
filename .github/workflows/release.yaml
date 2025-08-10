@@ -208,7 +208,7 @@ jobs:
           # Default: ignore
           pathspec_error_handling: exitImmediately
 
-          pull: '--rebase --autostash'
+          pull: '--rebase --autostash main'
           # push: true
           # remove: default (do not remove anything)
           tag: ${{env.UTF8LEX_RELEASE_VERSION}}
