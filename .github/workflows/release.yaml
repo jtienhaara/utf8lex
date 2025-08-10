@@ -209,7 +209,7 @@ jobs:
           pathspec_error_handling: exitImmediately
 
           # pull: '--rebase --autostash main'  <-- Error: Could not read from remote repository.
-          # push: true
+          push: origin HEAD:main
           # remove: default (do not remove anything)
           tag: ${{env.UTF8LEX_RELEASE_VERSION}}
           tag_push: '--force'
