@@ -57,7 +57,7 @@ jobs:
     env:
       DIST_DIR: ./dist
       UTF8LEX_DOWNLOAD_VERSION: "${{github.sha}}"
-      UTF8LEX_RELEASE_VERSION: "${{github.ref_name}}"  # git tag v1.2.3
+      UTF8LEX_RELEASE_TAG: "${{github.ref_name}}"  # git tag v1.2.3
       SHARED_LIBRARY_BASE: "libutf8lex.so"
       PROGRAM_BASE: "utf8lex"
     steps:
@@ -77,18 +77,23 @@ jobs:
       - id: utf8lex-version-env
         name: Set the full utf8lex library and program names, with version
         run: |
+            UTF8LEX_RELEASE_VERSION=`echo "${{env.UTF8LEX_RELEASE_TAG}}" \
+                                         | sed 's|^v||'`
+            echo "UTF8LEX_RELEASE_VERSION=$UTF8LEX_RELEASE_VERSION" \
+                >> $GITHUB_ENV
             SHARED_LIBRARY_DOWNLOAD="${{env.SHARED_LIBRARY_BASE}}.${{env.UTF8LEX_DOWNLOAD_VERSION}}"
             echo "SHARED_LIBRARY_DOWNLOAD=$SHARED_LIBRARY_DOWNLOAD" \
                 >> $GITHUB_ENV
-            SHARED_LIBRARY_RELEASE="${{env.SHARED_LIBRARY_BASE}}.${{env.UTF8LEX_RELEASE_VERSION}}"
+            SHARED_LIBRARY_RELEASE="${{env.SHARED_LIBRARY_BASE}}.$UTF8LEX_RELEASE_VERSION"
             echo "SHARED_LIBRARY_RELEASE=$SHARED_LIBRARY_RELEASE" \
                 >> $GITHUB_ENV
             PROGRAM_DOWNLOAD="${{env.PROGRAM_BASE}}.${{env.UTF8LEX_DOWNLOAD_VERSION}}"
             echo "PROGRAM_DOWNLOAD=$PROGRAM_DOWNLOAD" \
                 >> $GITHUB_ENV
-            PROGRAM_RELEASE="${{env.PROGRAM_BASE}}.${{env.UTF8LEX_RELEASE_VERSION}}"
+            PROGRAM_RELEASE="${{env.PROGRAM_BASE}}.$UTF8LEX_RELEASE_VERSION"
             echo "PROGRAM_RELEASE=$PROGRAM_RELEASE" \
                 >> $GITHUB_ENV
+            echo "UTF8LEX_RELEASE_VERSION=$UTF8LEX_RELEASE_VERSION"
             echo "SHARED_LIBRARY_DOWNLOAD=$SHARED_LIBRARY_DOWNLOAD"
             echo "SHARED_LIBRARY_RELEASE=$SHARED_LIBRARY_RELEASE"
             echo "PROGRAM_DOWNLOAD=$PROGRAM_DOWNLOAD"
