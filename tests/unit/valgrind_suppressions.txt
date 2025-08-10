@@ -133,6 +133,18 @@
    fun:main
 }
 {
+   # ppc64le
+   libpcre2_suppressions_Memcheck_Addr4_6
+   Memcheck:Addr4
+   fun:pcre2_substring_length_bynumber_8
+   fun:pcre2_substring_copy_bynumber_8
+   fun:utf8lex_lex_multi
+   fun:utf8lex_lex_multi
+   fun:utf8lex_lex
+   fun:test_utf8lex_expression
+   fun:main
+}
+{
    libpcre2_suppressions_Memcheck_Addr8_1
    Memcheck:Addr8
    fun:pcre2_substring_length_bynumber_8

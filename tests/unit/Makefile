@@ -91,18 +91,6 @@ run:
 	    then \
 	        "$$UNIT_TEST" || exit 1; \
 	    else \
-	        ARCHITECTURE=`uname -m`; \
-	        MAYBE_ARM=`echo "$$ARCHITECTURE" | awk '$$0 ~ /^arm.*$$/ { print $$0; }'`; \
-	        MAYBE_AMD=`echo "$$ARCHITECTURE" | awk '$$0 ~ /^x86.*$$/ { print $$0; }'`; \
-	        echo "Setting extra options for architecture $$ARCHITECTURE..."; \
-	        echo "MAYBE ARM=$$MAYBE_ARM"; \
-	        EXTRA_OPTIONS=""; \
-	        if test ! -z "$$MAYBE_ARM"; \
-	        then \
-	            echo "  Setting soft stack-size limit on $$ARCHITECTURE to 8192 bytes"; \
-	            EXTRA_OPTIONS="--main-stacksize=8192"; \
-	        fi; \
-	        echo "  Extra options for architecture $$ARCHITECTURE: '$$EXTRA_OPTIONS'"; \
-	        valgrind $(RUNTIME_LEAK_OPTIONS) $$EXTRA_OPTIONS "$$UNIT_TEST" || exit 1; \
+	        valgrind $(RUNTIME_LEAK_OPTIONS) "$$UNIT_TEST" || exit 1; \
 	    fi; \
 	done
