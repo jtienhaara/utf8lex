@@ -134,6 +134,7 @@ jobs:
         name: Set platform/architecture environment variables.
         run: |
           echo "matrix.platform=${{matrix.platform}}"
+          echo "${{matrix.platform}}" | sed 's|^[^/]*/||' | sed 's|/.*$||'
           DEBIAN_ARCHITECTURE=`echo "${{matrix.platform}}" \
                                    | sed 's|^[^/]*/||' \
                                    | sed 's|/.*$||'`
