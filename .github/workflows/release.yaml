@@ -96,17 +96,61 @@ jobs:
 
       - id: download-utf8lex-library
         name: Download utf8lex library
-        uses: actions/download-artifact@v4
+        # Need a special Action to download artifacts from another workflow:
+        # https://github.com/marketplace/actions/download-workflow-artifact
+        uses: dawidd6/action-download-artifact@v11
         with:
+          github_token: ${{secrets.GITHUB_TOKEN}}
+          workflow: build.yaml
+          workflow_search: false
+          workflow_conclusion: success
+          # pr: (default)
+          # commit: (default)
+          branch: main
+          ref: ${{env.UTF8LEX_DOWNLOAD_VERSION}}
+          # event: (defaults to all event types, e.g. push, etc)
+          # run_id: (no specific workflow run id)
+          # run_number: (no specific workflow run number)
           name: ${{env.SHARED_LIBRARY_DOWNLOAD}}.${{env.DEBIAN_ARCHITECTURE}}
+          name_is_regexp: false
           path: /tmp/utf8lex/
+          # repo: (current repo)
+          check_artifacts: false
+          search_artifacts: false
+          skip_unpack: false
+          if_no_artifact_found: fail
+          allow_forks: false
+          use_unzip: false
+          merge_multiple: false
 
       - id: download-utf8lex-program
         name: Download utf8lex program
-        uses: actions/download-artifact@v4
+        # Need a special Action to download artifacts from another workflow:
+        # https://github.com/marketplace/actions/download-workflow-artifact
+        uses: dawidd6/action-download-artifact@v11
         with:
+          github_token: ${{secrets.GITHUB_TOKEN}}
+          workflow: build.yaml
+          workflow_search: false
+          workflow_conclusion: success
+          # pr: (default)
+          # commit: (default)
+          branch: main
+          ref: ${{env.UTF8LEX_DOWNLOAD_VERSION}}
+          # event: (defaults to all event types, e.g. push, etc)
+          # run_id: (no specific workflow run id)
+          # run_number: (no specific workflow run number)
           name: ${{env.PROGRAM_DOWNLOAD}}.${{env.DEBIAN_ARCHITECTURE}}
+          name_is_regexp: false
           path: /tmp/utf8lex/
+          # repo: (current repo)
+          check_artifacts: false
+          search_artifacts: false
+          skip_unpack: false
+          if_no_artifact_found: fail
+          allow_forks: false
+          use_unzip: false
+          merge_multiple: false
 
       - id: copy-utf8lex
         name: Copy utf8lex binaries to dist directory
