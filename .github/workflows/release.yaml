@@ -29,8 +29,9 @@ permissions:
 # - Commit to the dist/ directory under the appropriate architecture (i386 etc).
 #
 on:
-  tags:
-    - v*
+  push:
+    tags:
+      - v*
 
 
 #
