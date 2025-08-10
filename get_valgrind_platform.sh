@@ -33,7 +33,7 @@
 # i586                i386                X86/Linux (maintenance)
 # i686                i386                X86/Linux (maintenance)
 # x86_64              amd64               AMD64/Linux
-# arm*                arm32v7             ARM/Linux
+# arm*                arm32v7             UNSUPPORTED (*)
 # aarch64             arm64v8             ARM64/Linux
 # mips64              mips64le            UNSUPPORTED
 # ppcle               ppc64le             PPC64LE/Linux
@@ -41,13 +41,20 @@
 # riscv64             riscv64             UNSUPPORTED
 # s390x               s390x               S390X/Linux
 #
+# (*) Even though valgrind is available on ARM/Linux, I can't
+# get it to run on armv7l:
+#
+#     valgrind: I failed to allocate space for the application's stack.
+#     valgrind: This may be the result of a very large --main-stacksize=
+#     valgrind: setting.  Cannot continue.  Sorry.
+#
 
 MACHINE_TYPE=`uname -m`
 VALGRIND_PLATFORM=`echo "$MACHINE_TYPE" \
     | awk '
            $0 == "i386" || $0 == "i486" || $0 == "i586" || $0 == "i686" { print "X86/Linux"; }
            $0 == "x86_64" { print "AMD64/Linux"; }
-           $0 ~ "^arm.*$" { print "ARM/Linux"; }
+           $0 ~ "^arm.*$" { print "UNSUPPORTED"; }
            $0 == "aarch64" { print "ARM64/Linux"; }
            $0 == "mips64" { print "UNSUPPORTED"; }
            $0 == "ppcle" || $0 == "ppc64le" { print "PPC64LE/Linux"; }

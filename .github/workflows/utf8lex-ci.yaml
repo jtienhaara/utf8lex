@@ -58,9 +58,9 @@ on:
 #   ---                 ---                 AMD64/illumos
 #   ---                 ---                 AMD64/FreeBSD
 #   ---                 ---                 AMD64/Solaris
-#   ---                 arm32v5
-#   linux/arm           ---
-# X linux/arm/v7        arm32v7             ARM/Linux
+#   ---                 arm32v5             UNSUPPORTED (**)
+#   linux/arm           ---                 UNSUPPORTED (**)
+# X linux/arm/v7        arm32v7             UNSUPPORTED (**)
 #   ---                 ---                 ARM/Android
 # X linux/arm64         arm64v8             ARM64/Linux
 #   ---                 ---                 ARM64/Android
@@ -68,15 +68,22 @@ on:
 #   ---                 ---                 MIPS32/Linux
 #   ---                 ---                 MIPS32/Android
 # - linux/mips64        ---                 MIPS64/Linux
-# * linux/mips64le      mips64le
+# * linux/mips64le      mips64le            UNSUPPORTED
 # - ---                 ---                 PPC32/Linux
 # - ---                 ---                 PPC64/Linux
 # X linux/ppc64le       ppc64le             PPC64LE/Linux
-# * linux/riscv64       riscv64
+# * linux/riscv64       riscv64             UNSUPPORTED
 # X linux/s390x         s390x               S390X/Linux
 #
 # X = QEMU, Docker, Valgrind all supported platform.
 # * = Disable Valgrind.
+# ** Even though valgrind is available on ARM/Linux, I can't
+#    get it to run on armv7l:
+#
+#      valgrind: I failed to allocate space for the application's stack.
+#      valgrind: This may be the result of a very large --main-stacksize=
+#      valgrind: setting.  Cannot continue.  Sorry.
+
 #
 # Platform name matrix:
 #
@@ -84,12 +91,19 @@ on:
 # ------------------- ------------------- -------------------
 # linux/386           i386                X86/Linux (maintenance)
 # linux/amd64         amd64               AMD64/Linux
-# linux/arm/v7        arm32v7             ARM/Linux
+# linux/arm/v7        arm32v7             UNSUPPORTED (*)
 # linux/arm64         arm64v8             ARM64/Linux
 # linux/mips64le      mips64le            UNSUPPORTED
 # linux/ppc64le       ppc64le             PPC64LE/Linux
 # linux/riscv64       riscv64             UNSUPPORTED
 # linux/s390x         s390x               S390X/Linux
+#
+# (*) Even though valgrind is available on ARM/Linux, I can't
+# get it to run on armv7l:
+#
+#     valgrind: I failed to allocate space for the application's stack.
+#     valgrind: This may be the result of a very large --main-stacksize=
+#     valgrind: setting.  Cannot continue.  Sorry.
 #
 
 jobs:
@@ -136,7 +150,7 @@ jobs:
               | awk '
                      $0 == "linux/386" { print "VALGRIND_PLATFORM=X86/Linux"; }
                      $0 == "linux/amd64" { print "VALGRIND_PLATFORM=AMD64/Linux"; }
-                     $0 == "linux/arm/v7" { print "VALGRIND_PLATFORM=ARM/Linux"; }
+                     $0 == "linux/arm/v7" { print "VALGRIND_PLATFORM=UNSUPPORTED"; }
                      $0 == "linux/arm64" { print "VALGRIND_PLATFORM=ARM64/Linux"; }
                      $0 == "linux/mips64le" { print "VALGRIND_PLATFORM=UNSUPPORTED"; }
                      $0 == "linux/ppc64le" { print "VALGRIND_PLATFORM=PPC64LE/Linux"; }
