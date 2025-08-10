@@ -99,8 +99,8 @@ run:
 	        EXTRA_OPTIONS=""; \
 	        if test ! -z "$$MAYBE_ARM"; \
 	        then \
-	            echo "  Setting soft stack-size limit on $$ARCHITECTURE to 65536 bytes"; \
-	            EXTRA_OPTIONS="--main-stacksize=65536"; \
+	            echo "  Setting soft stack-size limit on $$ARCHITECTURE to 8192 bytes"; \
+	            EXTRA_OPTIONS="--main-stacksize=8192"; \
 	        fi; \
 	        echo "  Extra options for architecture $$ARCHITECTURE: '$$EXTRA_OPTIONS'"; \
 	        valgrind $(RUNTIME_LEAK_OPTIONS) $$EXTRA_OPTIONS "$$UNIT_TEST" || exit 1; \
