@@ -49,7 +49,7 @@
 #     valgrind: setting.  Cannot continue.  Sorry.
 #
 
-if $# -gt 1
+if test $# -gt 1
 then
     echo "Usage: $0 (machine-type)?" >&2
     echo "" >&2
