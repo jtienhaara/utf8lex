@@ -49,14 +49,40 @@
 #     valgrind: setting.  Cannot continue.  Sorry.
 #
 
-MACHINE_TYPE=`uname -m`
+if $# -gt 1
+then
+    echo "Usage: $0 (machine-type)?" >&2
+    echo "" >&2
+    echo "Returns the Valgrind platform." >&2
+    echo "" >&2
+    echo "(machine-type):" >&2
+    echo "    Optionally pass in the machine type (such as from" >&2
+    echo "    GitHub Actions).  Otherwise, uname -m will be used." >&2
+    echo "" >&2
+    echo "Outputs:" >&2
+    echo "    UNSUPPORTED: Bypass valgrind on this platform." >&2
+    echo "    AMD64/Linux" >&2
+    echo "    ARM64/Linux" >&2
+    echo "    PPC64LE/Linux" >&2
+    echo "    S390X/Linux" >&2
+    echo "    X86/Linux" >&2
+    exit 1
+fi
+
+if test $# -eq 0
+then
+    MACHINE_TYPE=`uname -m`
+else
+    MACHINE_TYPE=`echo $1 | sed 's|^linux/||'`
+fi
+
 VALGRIND_PLATFORM=`echo "$MACHINE_TYPE" \
     | awk '
-           $0 == "i386" || $0 == "i486" || $0 == "i586" || $0 == "i686" { print "X86/Linux"; }
-           $0 == "x86_64" { print "AMD64/Linux"; }
-           $0 ~ "^arm.*$" { print "UNSUPPORTED"; }
-           $0 == "aarch64" { print "ARM64/Linux"; }
-           $0 == "mips64" { print "UNSUPPORTED"; }
+           $0 == "386" || $0 == "i386" || $0 == "i486" || $0 == "i586" || $0 == "i686" { print "X86/Linux"; }
+           $0 == "amd64" || $0 == "x86_64" { print "AMD64/Linux"; }
+           $0 ~ "^arm.*$" && $0 != "arm64" { print "UNSUPPORTED"; }
+           $0 == "arm64" || $0 == "aarch64" { print "ARM64/Linux"; }
+           $0 == "mips64" || $0 == "mips64le" { print "UNSUPPORTED"; }
            $0 == "ppcle" || $0 == "ppc64le" { print "PPC64LE/Linux"; }
            $0 == "riscv64" { print "UNSUPPORTED"; }
            $0 == "s390x" { print "S390X/Linux"; }
