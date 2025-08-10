@@ -68,6 +68,16 @@
    fun:main
 }
 {
+   # i386
+   libpcre2_suppressions_Memcheck_Addr4_3
+   Memcheck:Addr4
+   fun:pcre2_substring_copy_bynumber_8
+   fun:utf8lex_lex_regex
+   fun:utf8lex_lex
+   fun:test_utf8lex
+   fun:main
+}
+{
    libpcre2_suppressions_Memcheck_Addr8_1
    Memcheck:Addr8
    fun:pcre2_substring_length_bynumber_8
@@ -122,5 +132,15 @@
    fun:utf8lex_generate
    fun:test_utf8lex_generate_c_mmap
    fun:test_utf8lex_generate
+   fun:main
+}
+{
+   # i386
+   libepcre2_suppressions_Free_1
+   Memcheck:Free
+   fun:pcre2_match_data_free_8
+   fun:utf8lex_lex_regex
+   fun:utf8lex_lex
+   fun:test_utf8lex
    fun:main
 }
