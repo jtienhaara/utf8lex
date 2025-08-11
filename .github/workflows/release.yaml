@@ -141,7 +141,9 @@ jobs:
       - id: copy-utf8lex
         name: Copy utf8lex binaries to dist directory
         run: |
+          echo "utf8lex binaries downloaded from GitHub Packages:"
           find /tmp/utf8lex/ -type f
+          echo "Copying utf8lex libraries, programs into dist/..."
           for MATRIX_PLATFORM in \
               linux/386 \
               linux/amd64 \
@@ -160,6 +162,7 @@ jobs:
                   ${{env.DIST_DIR}}/$DEBIAN_ARCHITECTURE/${{env.SHARED_LIBRARY_RELEASE}}
               cp /tmp/utf8lex/${{env.PROGRAM_DOWNLOAD}}.$DEBIAN_ARCHITECTURE/${{env.PROGRAM_DOWNLOAD}}.$DEBIAN_ARCHITECTURE \
                   ${{env.DIST_DIR}}/$DEBIAN_ARCHITECTURE/${{env.PROGRAM_RELEASE}}
+              chmod a+x ${{env.DIST_DIR}}/$DEBIAN_ARCHITECTURE/${{env.PROGRAM_RELEASE}}
           done
 
       #
