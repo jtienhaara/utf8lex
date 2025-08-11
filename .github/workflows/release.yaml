@@ -60,10 +60,40 @@ jobs:
       UTF8LEX_RELEASE_TAG: "${{github.ref_name}}"  # git tag v1.2.3
       SHARED_LIBRARY_BASE: "libutf8lex.so"
       PROGRAM_BASE: "utf8lex"
+
     steps:
       - id: checkout
         name: Checkout
         uses: actions/checkout@v4
+        #
+        # Checkout the main branch, not the tag, since other
+        # stages of the matrix.platform might have committed since the tag.
+        #
+        # https://github.com/actions/checkout
+        #
+        with:
+          # repository: ${{ github.repository }}
+
+          ref: 'main'
+
+          # token: ${{ github.token }}
+          # ssh-key: (default)
+          # ssh-known-hosts: `ssh-keyscan github.com`
+          # ssh-strict: true
+          # ssh-user: git
+          # persist-credentials: true
+          # path: $GITHUB_WORKSPACE
+          # clean: true
+          # filter: null
+          # sparse-checkout: null
+          # sparse-checkout-cone-mode: true
+          # fetch-depth: 1
+          # fetch-tags: false
+          # show-progress: true
+          # lfs: false
+          # submodules: false (true/recursive)
+          # set-safe-directory: true
+          # github-server-url: 'https://github.com'
 
       - id: matrix-platform-env
         name: Set platform/architecture environment variables.
@@ -193,9 +223,10 @@ jobs:
           # - github_actions -> github-actions <email associated with the github logo>
           # Default: github_actor
           default_author: github_actor
+          # fetch: default (--tags --force)
 
-          fetch: --tags --force main
           message: "Release ${{env.UTF8LEX_RELEASE_TAG}} ${{matrix.platform}}"
+
           # new_branch: (no new branch)
 
           # The way the action should handle pathspec errors
@@ -208,7 +239,7 @@ jobs:
           # Default: ignore
           pathspec_error_handling: exitImmediately
 
-          # pull: '--rebase --autostash main'  <-- Error: Could not read from remote repository.
+          pull: '--rebase --autostash'
           push: origin HEAD:main
           # remove: default (do not remove anything)
           tag: ${{env.UTF8LEX_RELEASE_VERSION}}
