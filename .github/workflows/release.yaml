@@ -42,17 +42,6 @@ jobs:
   # ====================================================================
   release:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        platform:
-          - linux/386
-          - linux/amd64
-          - linux/arm/v7
-          - linux/arm64
-          - linux/mips64le
-          - linux/ppc64le
-          # Official Debian image hub.docker but not supported: - linux/riscv64
-          - linux/s390x
 
     env:
       DIST_DIR: ./dist
@@ -66,8 +55,8 @@ jobs:
         name: Checkout
         uses: actions/checkout@v4
         #
-        # Checkout the main branch, not the tag, since other
-        # stages of the matrix.platform might have committed since the tag.
+        # Checkout the main branch, not the tag, in case other
+        # GitHub Actions have committed since git tag.
         #
         # https://github.com/actions/checkout
         #
@@ -95,15 +84,6 @@ jobs:
           # set-safe-directory: true
           # github-server-url: 'https://github.com'
 
-      - id: matrix-platform-env
-        name: Set platform/architecture environment variables.
-        run: |
-          echo "matrix.platform=${{matrix.platform}}"
-          DEBIAN_ARCHITECTURE=`./get_debian_architecture.sh "${{matrix.platform}}"`
-          echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE" \
-              > $GITHUB_ENV
-          cat $GITHUB_ENV
-
       - id: utf8lex-version-env
         name: Set the full utf8lex library and program names, with version
         run: |
@@ -129,8 +109,8 @@ jobs:
             echo "PROGRAM_DOWNLOAD=$PROGRAM_DOWNLOAD"
             echo "PROGRAM_RELEASE=$PROGRAM_RELEASE"
 
-      - id: download-utf8lex-library
-        name: Download utf8lex library
+      - id: download-all_artifacts
+        name: Download utf8lex libraries and programs for all architectures
         # Need a special Action to download artifacts from another workflow:
         # https://github.com/marketplace/actions/download-workflow-artifact
         uses: dawidd6/action-download-artifact@v11
@@ -146,37 +126,8 @@ jobs:
           # run_id: (use commit)
           # run_number: (no specific workflow run number)
           # event: (defaults to all event types, e.g. push, etc)
-          name: ${{env.SHARED_LIBRARY_DOWNLOAD}}.${{env.DEBIAN_ARCHITECTURE}}
-          name_is_regexp: false
-          path: /tmp/utf8lex/
-          # repo: (current repo)
-          check_artifacts: false
-          search_artifacts: false
-          skip_unpack: false
-          if_no_artifact_found: fail
-          allow_forks: false
-          use_unzip: false
-          merge_multiple: false
-
-      - id: download-utf8lex-program
-        name: Download utf8lex program
-        # Need a special Action to download artifacts from another workflow:
-        # https://github.com/marketplace/actions/download-workflow-artifact
-        uses: dawidd6/action-download-artifact@v11
-        with:
-          github_token: ${{secrets.GITHUB_TOKEN}}
-          workflow: build.yaml
-          workflow_search: false
-          workflow_conclusion: success
-          # pr: (use commit)
-          commit: ${{env.UTF8LEX_DOWNLOAD_VERSION}}
-          # branch: (use commit)
-          # ref: (use commit)
-          # run_id: (use commit)
-          # run_number: (no specific workflow run number)
-          # event: (defaults to all event types, e.g. push, etc)
-          name: ${{env.PROGRAM_DOWNLOAD}}.${{env.DEBIAN_ARCHITECTURE}}
-          name_is_regexp: false
+          # name: (all artifacts)
+          # name_is_regexp: false
           path: /tmp/utf8lex/
           # repo: (current repo)
           check_artifacts: false
@@ -190,14 +141,25 @@ jobs:
       - id: copy-utf8lex
         name: Copy utf8lex binaries to dist directory
         run: |
-          echo "matrix.platform=${{matrix.platform}}"
-          echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
-          rm -rf ${{env.DIST_DIR}}/${{env.DEBIAN_ARCHITECTURE}}
-          mkdir -p ${{env.DIST_DIR}}/${{env.DEBIAN_ARCHITECTURE}}
-          cp /tmp/utf8lex/${{env.SHARED_LIBRARY_DOWNLOAD}}.${{env.DEBIAN_ARCHITECTURE}} \
-              ${{env.DIST_DIR}}/${{env.DEBIAN_ARCHITECTURE}}/${{env.SHARED_LIBRARY_RELEASE}}
-          cp /tmp/utf8lex/${{env.PROGRAM_DOWNLOAD}}.${{env.DEBIAN_ARCHITECTURE}} \
-              ${{env.DIST_DIR}}/${{env.DEBIAN_ARCHITECTURE}}${{env.PROGRAM_RELEASE}}
+          for MATRIX_PLATFORM in \
+              linux/386 \
+              linux/amd64 \
+              linux/arm/v7 \
+              linux/arm64 \
+              linux/mips64le \
+              linux/ppc64le \
+              linux/s390x
+          do
+              echo "MATRIX_PLATFORM=$MATRIX_PLATFORM"
+              DEBIAN_ARCHITECTURE=`./get_debian_architecture.sh "$MATRIX_PLATFORM"`
+              echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE"
+              rm -rf ${{env.DIST_DIR}}/$DEBIAN_ARCHITECTURE
+              mkdir -p ${{env.DIST_DIR}}/$DEBIAN_ARCHITECTURE
+              cp /tmp/utf8lex/${{env.SHARED_LIBRARY_DOWNLOAD}}.$DEBIAN_ARCHITECTURE \
+                  ${{env.DIST_DIR}}/$DEBIAN_ARCHITECTURE/${{env.SHARED_LIBRARY_RELEASE}}
+              cp /tmp/utf8lex/${{env.PROGRAM_DOWNLOAD}}.$DEBIAN_ARCHITECTURE \
+                  ${{env.DIST_DIR}}/$DEBIAN_ARCHITECTURE/${{env.PROGRAM_RELEASE}}
+          done
 
       #
       # https://github.com/marketplace/actions/add-commit
@@ -207,7 +169,7 @@ jobs:
         uses: EndBug/add-and-commit@v9
         with:
           # Use --no-ignore-removal to remove deleted dist files.
-          add: ${{env.DIST_DIR}}/${{env.DEBIAN_ARCHITECTURE}} --no-ignore-removal
+          add: ${{env.DIST_DIR}} --no-ignore-removal
 
           # author_name: default (author of the git tag).
           # author_email: default (author of the git tag).
@@ -224,7 +186,7 @@ jobs:
           # Default: github_actor
           default_author: github_actor
           fetch: --no-tags --force origin main
-          message: "Release ${{env.UTF8LEX_RELEASE_TAG}} ${{matrix.platform}}"
+          message: "Release ${{env.UTF8LEX_RELEASE_TAG}}"
 
           # new_branch: (no new branch)
 
