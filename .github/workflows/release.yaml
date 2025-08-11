@@ -141,6 +141,7 @@ jobs:
       - id: copy-utf8lex
         name: Copy utf8lex binaries to dist directory
         run: |
+          find /tmp/utf8lex/ -type f
           for MATRIX_PLATFORM in \
               linux/386 \
               linux/amd64 \
@@ -155,9 +156,9 @@ jobs:
               echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE"
               rm -rf ${{env.DIST_DIR}}/$DEBIAN_ARCHITECTURE
               mkdir -p ${{env.DIST_DIR}}/$DEBIAN_ARCHITECTURE
-              cp /tmp/utf8lex/${{env.SHARED_LIBRARY_DOWNLOAD}}.$DEBIAN_ARCHITECTURE \
+              cp /tmp/utf8lex/${{env.SHARED_LIBRARY_DOWNLOAD}}.$DEBIAN_ARCHITECTURE/${{env.SHARED_LIBRARY_DOWNLOAD}}.$DEBIAN_ARCHITECTURE \
                   ${{env.DIST_DIR}}/$DEBIAN_ARCHITECTURE/${{env.SHARED_LIBRARY_RELEASE}}
-              cp /tmp/utf8lex/${{env.PROGRAM_DOWNLOAD}}.$DEBIAN_ARCHITECTURE \
+              cp /tmp/utf8lex/${{env.PROGRAM_DOWNLOAD}}.$DEBIAN_ARCHITECTURE/${{env.PROGRAM_DOWNLOAD}}.$DEBIAN_ARCHITECTURE \
                   ${{env.DIST_DIR}}/$DEBIAN_ARCHITECTURE/${{env.PROGRAM_RELEASE}}
           done
 
