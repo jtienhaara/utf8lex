@@ -223,7 +223,7 @@ jobs:
           # - github_actions -> github-actions <email associated with the github logo>
           # Default: github_actor
           default_author: github_actor
-          fetch: --tags --force origin main
+          fetch: --no-tags --force origin main
           message: "Release ${{env.UTF8LEX_RELEASE_TAG}} ${{matrix.platform}}"
 
           # new_branch: (no new branch)
