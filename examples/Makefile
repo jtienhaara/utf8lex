@@ -46,7 +46,9 @@ LDFLAGS = -Wl,--no-as-needed -lpcre2-8 -lutf8proc -L$(UTF8LEX_LIBRARY_DIR) -Wl,-
 # To override and skip valgrind checks, set VALGRIND_PLATFORM="UNSUPPORTED".
 #
 VALGRIND_PLATFORM ?= "supported"
-RUNTIME_LEAK_OPTIONS = --leak-check=yes --error-exitcode=66 --suppressions=valgrind_suppressions.txt
+GENERATE_SUPPRESSIONS_OPTIONS = -s
+RUNTIME_LEAK_OPTIONS = --leak-check=yes --error-exitcode=66 \
+	--track-origins=yes --suppressions=valgrind_suppressions.txt
 
 EXAMPLES_BUILD_DIR ?= ./build
 
