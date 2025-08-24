@@ -3,6 +3,8 @@
 # Copyright © 2023-2025 Johann Tienhaara
 # All rights reserved
 #
+# SPDX-License-Identifier: Apache-2.0
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -70,6 +72,15 @@ LDSTATIC_LIBRARY = ar
 LDSTATIC_LIBRARY_FLAGS = -c -r -s
 
 #
+# The template C files get processed into constants for use in runtime
+# environments where the templates themselves do not exist.
+# See ../templates/Makefile.
+#
+GENERATED_SOURCE_FILES ?= \
+	$(BUILD_DIR)/templates/utf8lex_template_head.c \
+	$(BUILD_DIR)/templates/utf8lex_template_tail.c
+
+#
 # Do NOT include utf8lex.c (with main()) in SOURCE_FILES:
 #
 SOURCE_FILES ?= \
@@ -94,6 +105,9 @@ SOURCE_FILES ?= \
 	utf8lex_target_language_c.c \
 	utf8lex_token.c
 
+GENERATED_OBJECT_FILES = \
+	$(patsubst %.c,%.o,$(GENERATED_SOURCE_FILES))
+
 OBJECT_FILES = \
 	$(patsubst %.c,$(BUILD_DIR)/libutf8lex/%.o,$(SOURCE_FILES))
 
@@ -111,10 +125,27 @@ LC_CTYPE = en_US.UTF-8
 .PHONY: all
 all: build
 
+# Rule for $(GENERATED_OBJECT_FILES):
+$(BUILD_DIR)/libutf8lex/%.o: $(BUILD_DIR)/templates/%.c
+	mkdir -p $(BUILD_DIR)/libutf8lex
+	$(CC) $(CFLAGS) -c $< -o $@
+
 # Rule for $(OBJECT_FILES):
 $(BUILD_DIR)/libutf8lex/%.o: %.c
 	mkdir -p $(BUILD_DIR)/libutf8lex
 	$(CC) $(CFLAGS) -c $< -o $@
+
+.PHONY: check_generated_source_files
+check_generated_source_files:
+	@for GENERATED_SOURCE_FILE in $(GENERATED_SOURCE_FILES); \
+	do \
+	    if test ! -f "$$GENERATED_SOURCE_FILE"; \
+	    then \
+	        echo "ERROR Missing generated source file: $$GENERATED_SOURCE_FILE" >&2; \
+	        echo "ERROR You probably need to 'make' from top-level templates directory." >&2; \
+	        exit 1; \
+	    fi; \
+	done
 
 .PHONY: check_source_files_list
 check_source_files_list:
@@ -133,10 +164,11 @@ check_source_files_list:
 	done
 
 # Rule for .so library files:
-$(LIBRARY_DYNAMIC): $(OBJECT_FILES) check_source_files_list
+$(LIBRARY_DYNAMIC): $(GENERATED_OBJECT_FILES) $(OBJECT_FILES) check_source_files_list
 	@echo "Building $(LIBRARY_DYNAMIC)..."
 	$(LD_LIBRARY) $(LD_LIBRARY_FLAGS)  \
 	    -Wl,-soname,libutf8lex.so.$(UTF8LEX_MAJOR) \
+	    $(GENERATED_OBJECT_FILES) \
 	    $(OBJECT_FILES) \
 	    -o $(LIBRARY_DYNAMIC)
 	chmod a+x $(LIBRARY_DYNAMIC)
@@ -151,7 +183,7 @@ $(LIBRARY_DYNAMIC): $(OBJECT_FILES) check_source_files_list
 	@echo "SUCCESS Building $(LIBRARY_DYNAMIC)."
 
 # Rule for .a library files:
-$(LIBRARY_STATIC): $(OBJECT_FILES) check_source_files_list
+$(LIBRARY_STATIC): $(GENERATED_OBJECT_FILES) $(OBJECT_FILES) check_source_files_list
 	@echo "Building $(LIBRARY_STATIC)..."
 	for LIBUTF8PROC in `find /usr/lib -type f -name 'libutf8proc.a'` ; \
 	    do \
@@ -177,6 +209,7 @@ $(LIBRARY_STATIC): $(OBJECT_FILES) check_source_files_list
 	cd "$(ORIGINAL_DIR)"
 	$(LDSTATIC_LIBRARY) $(LDSTATIC_LIBRARY_FLAGS)  \
 	    $(LIBRARY_STATIC) \
+	    $(GENERATED_OBJECT_FILES) \
 	    $(OBJECT_FILES) \
 	    $(BUILD_DIR)/libutf8proc/* \
 	    $(BUILD_DIR)/libpcre2-8/*
@@ -202,7 +235,7 @@ $(BUILD_DIR)/libutf8lex/utf8lex.o: utf8lex.c
 # and libutf8proc.so), so that most operating system distributions
 # will run utf8lex out of the box, no dynamic library install required.
 #
-$(PROGRAM): $(OBJECT_FILES) $(BUILD_DIR)/libutf8lex/utf8lex.o
+$(PROGRAM): $(GENERATED_OBJECT_FILES) $(OBJECT_FILES) $(BUILD_DIR)/libutf8lex/utf8lex.o
 	@echo "Building $(PROGRAM)..."
 	$(LD_PROGRAM) $(LD_PROGRAM_FLAGS) $^ -o $@
 	cd $(BUILD_DIR) \
@@ -216,7 +249,8 @@ $(PROGRAM): $(OBJECT_FILES) $(BUILD_DIR)/libutf8lex/utf8lex.o
 	@echo "SUCCESS Building $(PROGRAM)."
 
 .PHONY: build
-build: $(LIBRARY_DYNAMIC) $(LIBRARY_STATIC) $(PROGRAM)
+build: check_generated_source_files \
+	$(LIBRARY_DYNAMIC) $(LIBRARY_STATIC) $(PROGRAM)
 
 #
 # E.g.: make re-version UTF8LEX_VERSION=1.2.3
@@ -257,6 +291,7 @@ re-version: re-version-explode-archive $(LIBRARY_DYNAMIC) $(PROGRAM)
 .PHONY: clean
 clean:
 	rm -f core
+	rm -f $(GENERATED_OBJECT_FILES)
 	rm -f $(OBJECT_FILES)
 	rm -rf \
 	    $(BUILD_DIR)/libpcre2-8/ \

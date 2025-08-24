@@ -3,6 +3,8 @@
 # Copyright © 2023-2025 Johann Tienhaara
 # All rights reserved
 #
+# SPDX-License-Identifier: Apache-2.0
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -57,14 +59,13 @@ LEX_FILES = \
 	programming_kludgy_grammar.l
 
 GENERATED_SOURCE_FILES = \
-	$(patsubst %.l,%.c,$(LEX_FILES))
-
-NON_GENERATED_SOURCE_FILES = \
-	example_lexer.c
+	$(patsubst %.l,$(EXAMPLES_BUILD_DIR)/%.c,$(LEX_FILES))
 
 SOURCE_FILES = \
-	$(GENERATED_SOURCE_FILES) \
-	$(NON_GENERATED_SOURCE_FILES)
+	example_lexer.c
+
+GENERATED_OBJECT_FILES = \
+	$(patsubst %.c,%.o,$(GENERATED_SOURCE_FILES))
 
 OBJECT_FILES = \
 	$(patsubst %.c,$(EXAMPLES_BUILD_DIR)/%.o,$(SOURCE_FILES))
@@ -75,14 +76,20 @@ PROGRAM = \
 LC_CTYPE = en_US.UTF-8
 
 # Rule for $(GENERATED_SOURCE_FILES):
-%.c: %.l
+$(EXAMPLES_BUILD_DIR)/%.c: %.l
 	@echo "VALGRIND_PLATFORM=$(VALGRIND_PLATFORM)"
+	cp $< $(EXAMPLES_BUILD_DIR)
 	if test "$(VALGRIND_PLATFORM)" = "UNSUPPORTED"; \
 	then \
-	    $(BUILD_DIR)/utf8lex $< ; \
+	    $(BUILD_DIR)/utf8lex $(EXAMPLES_BUILD_DIR)/$< ; \
 	else \
-	    valgrind $(RUNTIME_LEAK_OPTIONS) $(BUILD_DIR)/utf8lex $< ; \
+	    valgrind $(RUNTIME_LEAK_OPTIONS) $(BUILD_DIR)/utf8lex \
+	        $(EXAMPLES_BUILD_DIR)/$< ; \
 	fi
+
+# Rule for $(GENERATED_OBJECT_FILES):
+$(EXAMPLES_BUILD_DIR)/%.o: $(EXAMPLES_BUILD_DIR)/%.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 # Rule for $(OBJECT_FILES):
 $(EXAMPLES_BUILD_DIR)/%.o: %.c
@@ -90,21 +97,26 @@ $(EXAMPLES_BUILD_DIR)/%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Rules for $(PROGRAM)_*:
-$(PROGRAM)_tokens: $(patsubst %.c,$(EXAMPLES_BUILD_DIR)/%.o,$(NON_GENERATED_SOURCE_FILES)) $(EXAMPLES_BUILD_DIR)/programming_tokens.o
+$(PROGRAM)_tokens: $(OBJECT_FILES) $(EXAMPLES_BUILD_DIR)/programming_tokens.o
 	$(LD) $(LDFLAGS) $^ -o $@
-	mv programming_tokens.c $(EXAMPLES_BUILD_DIR)/
 
-$(PROGRAM)_kludgy_grammar: $(patsubst %.c,$(EXAMPLES_BUILD_DIR)/%.o,$(NON_GENERATED_SOURCE_FILES)) $(EXAMPLES_BUILD_DIR)/programming_kludgy_grammar.o
+$(PROGRAM)_kludgy_grammar: $(OBJECT_FILES) $(EXAMPLES_BUILD_DIR)/programming_kludgy_grammar.o
 	$(LD) $(LDFLAGS) $^ -o $@
-	mv programming_kludgy_grammar.c  $(EXAMPLES_BUILD_DIR)/
 
 .PHONY: build
-build: $(GENERATED_SOURCE_FILES) $(OBJECT_FILES) $(PROGRAM)_tokens $(PROGRAM)_kludgy_grammar
+build: $(GENERATED_SOURCE_FILES) $(OBJECT_FILES) $(GENERATED_OBJECT_FILES) \
+	$(PROGRAM)_tokens \
+	$(PROGRAM)_kludgy_grammar
 
 .PHONY: clean
 clean:
 	rm -f core
-	rm -f $(GENERATED_SOURCE_FILES) $(OBJECT_FILES) $(PROGRAM)_tokens $(PROGRAM)_kludgy_grammar
+	rm -f \
+	    $(GENERATED_SOURCE_FILES) \
+	    $(OBJECT_FILES) \
+	    $(GENERATED_OBJECT_FILES) \
+	    $(PROGRAM)_tokens \
+	    $(PROGRAM)_kludgy_grammar
 
 .PHONY: run
 run: run-example_lexer_tokens run-example_lexer_kludgy_grammar

@@ -3,6 +3,8 @@
 # Copyright © 2023-2025 Johann Tienhaara
 # All rights reserved
 #
+# SPDX-License-Identifier: Apache-2.0
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -17,7 +19,7 @@
 #
 
 .PHONY: all
-all: build test examples
+all: templates build test examples
 
 .PHONY: build-debian-container
 build-debian-container:
@@ -46,7 +48,12 @@ debian-container-debug: build-debian-container
 	    -i --tty \
 	    --volume `pwd`:/utf8lex:rw \
 	    utf8lex-debian:latest \
-	    bash -c 'make clean && make build && make all && echo "***** No core dump, no debug *****" || make debug'
+	    bash -c 'make clean && make templates && make build && make all && echo "***** No core dump, no debug *****" || make debug'
+
+.PHONY: templates
+templates:
+	cd templates \
+	    && make templates
 
 .PHONY: build
 build:
@@ -54,11 +61,15 @@ build:
 	    && make build
 
 clean:
+	cd templates \
+	    && make clean
 	cd src \
 	    && make clean
 	cd tests/unit \
 	    && make clean
 	cd tests/integration \
+	    && make clean
+	cd examples \
 	    && make clean
 
 .PHONY: examples

@@ -19,6 +19,9 @@
 //     ...
 //     EOF
 //
+// This example programming language file is released to the public domain.
+// (It's useless.  It's just a contrived example.)
+//
 x = 6 * 9
 x=6*9
 x    =       6      *   9

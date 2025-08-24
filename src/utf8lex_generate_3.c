@@ -3,6 +3,8 @@
  * Copyright © 2023-2025 Johann Tienhaara
  * All rights reserved
  *
+ * SPDX-License-Identifier: Apache-2.0
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -26,6 +28,11 @@
 #include "utf8lex.h"
 
 #include "utf8lex_generate.h"
+
+// From the generated template source files
+// (See ../templates/c/mmap/ and ../templates/Makefile):
+extern unsigned char *C_MMAP_HEAD;
+extern unsigned char *C_MMAP_TAIL;
 
 static utf8lex_error_t utf8lex_generate_write_rules(
         int fd_out,
@@ -2890,7 +2897,7 @@ utf8lex_error_t utf8lex_generate(
                               lex_file_path);  // path
   if (error != UTF8LEX_OK)
   {
-    UTF8LEX_DEBUG("EXIT utf8lex_generate()");
+    UTF8LEX_DEBUG("EXIT utf8lex_generate() (lex file)");
     return error;
   }
 
@@ -2907,6 +2914,7 @@ utf8lex_error_t utf8lex_generate(
     // Your name goes here (e.g. "head", "tail").
     + extension_length;
 
+  bool is_mmapped_head = true;
   char head_path[template_length + strlen("head") + 1];
   strcpy(head_path, template_dir_path);
   strcat(head_path, path_sep);
@@ -2924,11 +2932,30 @@ utf8lex_error_t utf8lex_generate(
                               head_path);  // path
   if (error != UTF8LEX_OK)
   {
-    utf8lex_buffer_munmap(&lex_file_buffer);
-    UTF8LEX_DEBUG("EXIT utf8lex_generate()");
-    return error;
+    // Fall back on in-memory constant, if the template files don't exist.
+    is_mmapped_head = false;
+    utf8lex_error_t const_error = utf8lex_string(
+        &head_str,                      // self
+        (int) strlen(C_MMAP_HEAD),      // max_length_bytes
+        C_MMAP_HEAD);                   // content
+    if (const_error == UTF8LEX_OK)
+    {
+      const_error = utf8lex_buffer_init(
+          &head_buffer,  // self
+          NULL,  // prev
+          &head_str,  // str
+          true);  // is_eof
+    }
+    if (const_error != UTF8LEX_OK
+        || head_str.length_bytes == 0)
+    {
+      utf8lex_buffer_munmap(&lex_file_buffer);
+      UTF8LEX_DEBUG("EXIT utf8lex_generate() (head file)");
+      return error;
+    }
   }
 
+  bool is_mmapped_tail = true;
   char tail_path[template_length + strlen("tail") + 1];
   strcpy(tail_path, template_dir_path);
   strcat(tail_path, path_sep);
@@ -2946,10 +2973,31 @@ utf8lex_error_t utf8lex_generate(
                               tail_path);  // path
   if (error != UTF8LEX_OK)
   {
-    utf8lex_buffer_munmap(&lex_file_buffer);
-    utf8lex_buffer_munmap(&head_buffer);
-    UTF8LEX_DEBUG("EXIT utf8lex_generate()");
-    return error;
+    // Fall back on in-memory constant, if the template files don't exist.
+    is_mmapped_tail = false;
+    utf8lex_error_t const_error = utf8lex_string(
+        &tail_str,                 // self
+        (int) strlen(C_MMAP_TAIL), // max_length_bytes
+        C_MMAP_TAIL);              // content
+    if (const_error == UTF8LEX_OK)
+    {
+      const_error = utf8lex_buffer_init(
+          &tail_buffer,  // self
+          NULL,  // prev
+          &tail_str,  // str
+          true);  // is_eof
+    }
+    if (const_error != UTF8LEX_OK
+        || head_str.length_bytes == 0)
+    {
+      utf8lex_buffer_munmap(&lex_file_buffer);
+      if (is_mmapped_head)
+      {
+        utf8lex_buffer_munmap(&head_buffer);
+      }
+      UTF8LEX_DEBUG("EXIT utf8lex_generate() (tail file)");
+      return error;
+    }
   }
 
   // Generate and write out the target language source code file:
@@ -2959,11 +3007,17 @@ utf8lex_error_t utf8lex_generate(
   if (fd_out < 0)
   {
     utf8lex_buffer_munmap(&lex_file_buffer);
-    utf8lex_buffer_munmap(&head_buffer);
-    utf8lex_buffer_munmap(&tail_buffer);
-    fprintf(stderr, "ERROR 261 in utf8lex_generate() [%d.%d]: UTF8LEX_ERROR_FILE_OPEN\n", /* line */ 0, /* char */ 0);
+    if (is_mmapped_head)
+    {
+      utf8lex_buffer_munmap(&head_buffer);
+    }
+    if (is_mmapped_tail)
+    {
+      utf8lex_buffer_munmap(&tail_buffer);
+    }
+    fprintf(stderr, "ERROR 261 in utf8lex_generate() [%d.%d]: UTF8LEX_ERROR_FILE_OPEN_WRITE\n", /* line */ 0, /* char */ 0);
     UTF8LEX_DEBUG("EXIT utf8lex_generate()");
-    return UTF8LEX_ERROR_FILE_OPEN;
+    return UTF8LEX_ERROR_FILE_OPEN_WRITE;
   }
 
   size_t bytes_written = (size_t) 0;
@@ -2971,13 +3025,20 @@ utf8lex_error_t utf8lex_generate(
   bytes_written = write(fd_out,
                         head_buffer.str->bytes,
                         head_buffer.str->length_bytes);
-  if (bytes_written != head_buffer.str->length_bytes)
+  if (bytes_written == 0
+      || bytes_written != head_buffer.str->length_bytes)
   {
     close(fd_out);
     unlink(generated_file_path);  // Delete the failed output file.
     utf8lex_buffer_munmap(&lex_file_buffer);
-    utf8lex_buffer_munmap(&head_buffer);
-    utf8lex_buffer_munmap(&tail_buffer);
+    if (is_mmapped_head)
+    {
+      utf8lex_buffer_munmap(&head_buffer);
+    }
+    if (is_mmapped_tail)
+    {
+      utf8lex_buffer_munmap(&tail_buffer);
+    }
     fprintf(stderr, "ERROR 262 in utf8lex_generate() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n", /* line */ 0, /* char */ 0);
     UTF8LEX_DEBUG("EXIT utf8lex_generate()");
     return UTF8LEX_ERROR_FILE_WRITE;
@@ -2993,8 +3054,14 @@ utf8lex_error_t utf8lex_generate(
     unlink(generated_file_path);  // Delete the failed output file.
     state_pointer->buffer = NULL;
     utf8lex_buffer_munmap(&lex_file_buffer);
-    utf8lex_buffer_munmap(&head_buffer);
-    utf8lex_buffer_munmap(&tail_buffer);
+    if (is_mmapped_head)
+    {
+      utf8lex_buffer_munmap(&head_buffer);
+    }
+    if (is_mmapped_tail)
+    {
+      utf8lex_buffer_munmap(&tail_buffer);
+    }
     UTF8LEX_DEBUG("EXIT utf8lex_generate()");
     return error;
   }
@@ -3002,14 +3069,21 @@ utf8lex_error_t utf8lex_generate(
   bytes_written = write(fd_out,
                         tail_buffer.str->bytes,
                         tail_buffer.str->length_bytes);
-  if (bytes_written != tail_buffer.str->length_bytes)
+  if (bytes_written == 0
+      || bytes_written != tail_buffer.str->length_bytes)
   {
     close(fd_out);
     unlink(generated_file_path);  // Delete the failed output file.
     state_pointer->buffer = NULL;
     utf8lex_buffer_munmap(&lex_file_buffer);
-    utf8lex_buffer_munmap(&head_buffer);
-    utf8lex_buffer_munmap(&tail_buffer);
+    if (is_mmapped_head)
+    {
+      utf8lex_buffer_munmap(&head_buffer);
+    }
+    if (is_mmapped_tail)
+    {
+      utf8lex_buffer_munmap(&tail_buffer);
+    }
     fprintf(stderr, "ERROR 263 in utf8lex_generate() [%d.%d]: UTF8LEX_ERROR_FILE_WRITE\n",
             state_pointer->loc[UTF8LEX_UNIT_LINE].start + 1,
             state_pointer->loc[UTF8LEX_UNIT_CHAR].start);
@@ -3020,8 +3094,14 @@ utf8lex_error_t utf8lex_generate(
   close(fd_out);
   state_pointer->buffer = NULL;
   utf8lex_buffer_munmap(&lex_file_buffer);
-  utf8lex_buffer_munmap(&head_buffer);
-  utf8lex_buffer_munmap(&tail_buffer);
+  if (is_mmapped_head)
+  {
+    utf8lex_buffer_munmap(&head_buffer);
+  }
+  if (is_mmapped_tail)
+  {
+    utf8lex_buffer_munmap(&tail_buffer);
+  }
 
   UTF8LEX_DEBUG("EXIT utf8lex_generate()");
   return UTF8LEX_OK;

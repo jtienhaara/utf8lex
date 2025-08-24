@@ -3,6 +3,8 @@
  * Copyright © 2023-2025 Johann Tienhaara
  * All rights reserved
  *
+ * SPDX-License-Identifier: Apache-2.0
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -225,7 +227,7 @@ static utf8lex_error_t yylex(
   {
     fprintf(stderr, "ERROR Expected '.l' extension, not '.%s'\n", extension);
     UTF8LEX_DEBUG("EXIT yylex()");
-    return UTF8LEX_ERROR_FILE_OPEN;
+    return UTF8LEX_ERROR_FILE_OPEN_READ;
   }
 
   if (name == NULL)

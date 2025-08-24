@@ -3,6 +3,8 @@
  * Copyright © 2023-2025 Johann Tienhaara
  * All rights reserved
  *
+ * SPDX-License-Identifier: Apache-2.0
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -82,7 +84,8 @@ enum _ENUM_utf8lex_error
 
   UTF8LEX_ERROR_NULL_POINTER,
 
-  UTF8LEX_ERROR_FILE_OPEN,  // File doesn't exist, or permissions, etc.
+  UTF8LEX_ERROR_FILE_OPEN_READ,  // File doesn't exist, or no read permission
+  UTF8LEX_ERROR_FILE_OPEN_WRITE,  // File doesn't exist, or no write permission
   UTF8LEX_ERROR_FILE_DESCRIPTOR,  // Invalid file descriptor (int fd) or FILE *.
   UTF8LEX_ERROR_FILE_EMPTY,  // 0-byte file.
   UTF8LEX_ERROR_FILE_MMAP,  // Could not mmap() a file.
@@ -953,8 +956,10 @@ struct STRUCT_utf8lex_lloc
 };
 
 // Debug trace logs for obnoxious C bugs:
+#ifndef UTF8LEX_DEBUG
 // #define UTF8LEX_DEBUG(...) fprintf(stdout, "%s %d %s\n", __FILE__, __LINE__, __VA_ARGS__); fflush(stdout)
 #define UTF8LEX_DEBUG(...)
+#endif  // UTF8LEX_DEBUG
 
 // Common token ids used by .c file generated from .l file:
 #define YYEOF -1

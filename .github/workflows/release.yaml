@@ -3,6 +3,8 @@
 # Copyright © 2023-2025 Johann Tienhaara
 # All rights reserved
 #
+# SPDX-License-Identifier: Apache-2.0
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -259,6 +261,9 @@ jobs:
                           UTF8LEX_VERSION=${{env.UTF8LEX_RELEASE_VERSION}}
           done
 
+          echo "Removing container images /tmp/utf8lex/${{env.DEBIAN_IMAGE_BASE}}.$DEBIAN_ARCHITECTURE.*.tar"
+          rm /tmp/utf8lex/${{env.DEBIAN_IMAGE_BASE}}.$DEBIAN_ARCHITECTURE.*.tar
+
       - id: prepare-utf8lex-for-upload
         name: Prepare utf8lex (libraries, executables, ...) for release upload
         run: |
@@ -286,10 +291,21 @@ jobs:
                   /tmp/utf8lex/${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}}
           done
           echo "Removing all gitignore directories"
-          for DIR in `cat .gitignore`
+          for DIR in `cat .gitignore | sed 's| [ ]*#.*$||' | grep -v '^$'`
           do
               rm -rf "$DIR"
           done
+          echo "Copying utf8lex.h for release"
+          cp src/utf8lex.h /tmp/utf8lex/
+          echo "Bundling up templates for release"
+          cd ..
+          tar czf /tmp/utf8lex/utf8lex-templates-${{env.UTF8LEX_RELEASE_VERSION}}.tar.gz \
+              --exclude Makefile \
+              utf8lex/templates/
+          zip /tmp/utf8lex/utf8lex-templates-${{env.UTF8LEX_RELEASE_VERSION}}.zip \
+              --exclude Makefile \
+              utf8lex
+          cd utf8lex
           echo "Bundling up source for release"
           cd ..
           tar czf /tmp/utf8lex/utf8lex-${{env.UTF8LEX_RELEASE_VERSION}}.tar.gz \

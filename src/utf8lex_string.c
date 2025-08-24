@@ -3,6 +3,8 @@
  * Copyright © 2023-2025 Johann Tienhaara
  * All rights reserved
  *
+ * SPDX-License-Identifier: Apache-2.0
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -17,6 +19,7 @@
  */
 
 #include <stdio.h>
+#include <string.h>  // For strlen()
 
 #include "utf8lex.h"
 
@@ -98,7 +101,7 @@ utf8lex_error_t utf8lex_string(
   utf8lex_error_t error = utf8lex_string_init(
       self,  // self
       (size_t) max_length_bytes,  // max_length_bytes
-      (size_t) 0,  // length_bytes
+      strlen(content),  // length_bytes
       content);  // bytes
   UTF8LEX_DEBUG("EXIT utf8lex_string()");
   return error;

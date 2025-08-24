@@ -3,6 +3,8 @@
  * Copyright © 2023-2025 Johann Tienhaara
  * All rights reserved
  *
+ * SPDX-License-Identifier: Apache-2.0
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -40,12 +42,12 @@ utf8lex_error_t utf8lex_buffer_mmap(
       || self->str == NULL
       || path == NULL)
   {
-    UTF8LEX_DEBUG("EXIT utf8lex_buffer_mmap()");
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_mmap(): UTF8LEX_ERROR_NULL_POINTER");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (self->str->bytes != NULL)
   {
-    UTF8LEX_DEBUG("EXIT utf8lex_buffer_mmap()");
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_mmap(): UTF8LEX_ERROR_BUFFER_INITIALIZED");
     return UTF8LEX_ERROR_BUFFER_INITIALIZED;
   }
 
@@ -53,8 +55,8 @@ utf8lex_error_t utf8lex_buffer_mmap(
   int fd = open(path, O_RDONLY);
   if (fd < 0)
   {
-    UTF8LEX_DEBUG("EXIT utf8lex_buffer_mmap()");
-    return UTF8LEX_ERROR_FILE_OPEN;
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_mmap(): UTF8LEX_ERROR_FILE_OPEN_READ");
+    return UTF8LEX_ERROR_FILE_OPEN_READ;
   }
 
   struct stat file_statistics;
@@ -62,7 +64,7 @@ utf8lex_error_t utf8lex_buffer_mmap(
   if (error_code != 0)
   {
     close(fd);
-    UTF8LEX_DEBUG("EXIT utf8lex_buffer_mmap()");
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_mmap(): UTF8LEX_ERROR_FILE_SIZE");
     return UTF8LEX_ERROR_FILE_SIZE;
   }
 
@@ -70,7 +72,7 @@ utf8lex_error_t utf8lex_buffer_mmap(
   if (file_size <= (size_t) 0)  // mmap() requires a length > 0.
   {
     close(fd);
-    UTF8LEX_DEBUG("EXIT utf8lex_buffer_mmap()");
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_mmap(): UTF8LEX_ERROR_FILE_EMPTY");
     return UTF8LEX_ERROR_FILE_EMPTY;
   }
 
@@ -84,7 +86,7 @@ utf8lex_error_t utf8lex_buffer_mmap(
       || mapped_file == NULL)
   {
     close(fd);
-    UTF8LEX_DEBUG("EXIT utf8lex_buffer_mmap()");
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_mmap(): UTF8LEX_ERROR_FILE_MMAP");
     return UTF8LEX_ERROR_FILE_MMAP;
   }
 
@@ -111,7 +113,7 @@ utf8lex_error_t utf8lex_buffer_mmap(
     self->loc[unit].length = 0;
   }
 
-  UTF8LEX_DEBUG("EXIT utf8lex_buffer_mmap()");
+  UTF8LEX_DEBUG("EXIT utf8lex_buffer_mmap(): UTF8LEX_OK");
   return UTF8LEX_OK;
 }
 
@@ -127,20 +129,20 @@ utf8lex_error_t utf8lex_buffer_munmap(
       || self->str == NULL
       || self->str->bytes == NULL)
   {
-    UTF8LEX_DEBUG("EXIT utf8lex_buffer_munmap()");
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_munmap(): UTF8LEX_ERROR_NULL_POINTER");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (self->str->max_length_bytes <= (size_t) 0
            || self->str->length_bytes <= (size_t) 0)
   {
-    UTF8LEX_DEBUG("EXIT utf8lex_buffer_munmap()");
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_munmap(): UTF8LEX_ERROR_BAD_LENGTH");
     return UTF8LEX_ERROR_BAD_LENGTH;
   }
 
   int munmap_error = munmap(self->str->bytes, self->str->length_bytes);
   if (munmap_error != 0)
   {
-    UTF8LEX_DEBUG("EXIT utf8lex_buffer_munmap()");
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_munmap(): UTF8LEX_ERROR_FILE_MMAP");
     return UTF8LEX_ERROR_FILE_MMAP;
   }
 
@@ -159,7 +161,7 @@ utf8lex_error_t utf8lex_buffer_munmap(
     self->loc[unit].length = -1;
   }
 
-  UTF8LEX_DEBUG("EXIT utf8lex_buffer_munmap()");
+  UTF8LEX_DEBUG("EXIT utf8lex_buffer_munmap(): UTF8LEX_OK");
   return UTF8LEX_OK;
 }
 
@@ -177,17 +179,17 @@ utf8lex_error_t utf8lex_buffer_read(
       || self->str == NULL
       || self->str->bytes == NULL)
   {
-    UTF8LEX_DEBUG("EXIT utf8lex_buffer_read()");
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_read(): UTF8LEX_ERROR_NULL_POINTER");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (self->str->max_length_bytes <= (size_t) 0)
   {
-    UTF8LEX_DEBUG("EXIT utf8lex_buffer_read()");
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_read(): UTF8LEX_ERROR_BAD_LENGTH");
     return UTF8LEX_ERROR_BAD_LENGTH;
   }
   else if (fd < 0)
   {
-    UTF8LEX_DEBUG("EXIT utf8lex_buffer_read()");
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_read(): UTF8LEX_ERROR_FILE_DESCRIPTOR");
     return UTF8LEX_ERROR_FILE_DESCRIPTOR;
   }
 
@@ -198,7 +200,7 @@ utf8lex_error_t utf8lex_buffer_read(
                              read_length_bytes);
   if (length_bytes < (size_t) 0)
   {
-    UTF8LEX_DEBUG("EXIT utf8lex_buffer_read()");
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_read(): UTF8LEX_ERROR_FILE_READ");
     return UTF8LEX_ERROR_FILE_READ;
   }
 
@@ -229,7 +231,7 @@ utf8lex_error_t utf8lex_buffer_read(
     self->loc[unit].length = 0;
   }
 
-  UTF8LEX_DEBUG("EXIT utf8lex_buffer_read()");
+  UTF8LEX_DEBUG("EXIT utf8lex_buffer_read(): UTF8LEX_OK");
   return UTF8LEX_OK;
 }
 
@@ -248,12 +250,12 @@ utf8lex_error_t utf8lex_buffer_readf(
       || self->str->bytes == NULL
       || fp == NULL)
   {
-    UTF8LEX_DEBUG("EXIT utf8lex_buffer_readf()");
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_readf(): UTF8LEX_ERROR_NULL_POINTER");
     return UTF8LEX_ERROR_NULL_POINTER;
   }
   else if (self->str->max_length_bytes <= (size_t) 0)
   {
-    UTF8LEX_DEBUG("EXIT utf8lex_buffer_readf()");
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_readf(): UTF8LEX_ERROR_BAD_LENGTH");
     return UTF8LEX_ERROR_BAD_LENGTH;
   }
 
@@ -265,7 +267,7 @@ utf8lex_error_t utf8lex_buffer_readf(
                               fp);
   if (length_bytes < (size_t) 0)
   {
-    UTF8LEX_DEBUG("EXIT utf8lex_buffer_readf()");
+    UTF8LEX_DEBUG("EXIT utf8lex_buffer_readf(): UTF8LEX_ERROR_FILE_READ");
     return UTF8LEX_ERROR_FILE_READ;
   }
 
@@ -296,6 +298,6 @@ utf8lex_error_t utf8lex_buffer_readf(
     self->loc[unit].length = 0;
   }
 
-  UTF8LEX_DEBUG("EXIT utf8lex_buffer_readf()");
+  UTF8LEX_DEBUG("EXIT utf8lex_buffer_readf(): UTF8LEX_OK");
   return UTF8LEX_OK;
 }

@@ -3,6 +3,8 @@
  * Copyright © 2023-2025 Johann Tienhaara
  * All rights reserved
  *
+ * SPDX-License-Identifier: Apache-2.0
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -68,9 +70,13 @@ utf8lex_error_t utf8lex_error_string(
                                  "UTF8LEX_ERROR_NULL_POINTER");
     break;
 
-  case UTF8LEX_ERROR_FILE_OPEN:
+  case UTF8LEX_ERROR_FILE_OPEN_READ:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
-                                 "UTF8LEX_ERROR_FILE_OPEN");
+                                 "UTF8LEX_ERROR_FILE_OPEN_READ");
+    break;
+  case UTF8LEX_ERROR_FILE_OPEN_WRITE:
+    num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
+                                 "UTF8LEX_ERROR_FILE_OPEN_WRITE");
     break;
   case UTF8LEX_ERROR_FILE_DESCRIPTOR:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,

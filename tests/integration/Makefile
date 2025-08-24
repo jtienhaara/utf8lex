@@ -3,6 +3,8 @@
 # Copyright © 2023-2025 Johann Tienhaara
 # All rights reserved
 #
+# SPDX-License-Identifier: Apache-2.0
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -47,7 +49,8 @@ LDFLAGS = -Wl,--no-as-needed -lpcre2-8 -lutf8proc -L$(UTF8LEX_LIBRARY_DIR) -Wl,-
 #
 VALGRIND_PLATFORM ?= "supported"
 GENERATE_SUPPRESSIONS_OPTIONS = -s
-RUNTIME_LEAK_OPTIONS = --leak-check=yes --error-exitcode=66 --suppressions=valgrind_suppressions.txt
+RUNTIME_LEAK_OPTIONS = --leak-check=yes --error-exitcode=66 \
+	--track-origins=yes --suppressions=valgrind_suppressions.txt
 
 TEST_BUILD_DIR ?= ../build
 
