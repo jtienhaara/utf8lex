@@ -264,8 +264,8 @@ jobs:
       BUILD_DIR: ./build
       DEBIAN_IMAGE_BASE: "utf8lex-debian"
       UTF8LEX_VERSION: "${{github.sha}}"
-      SHARED_LIBRARY_DYNAMIC_BASE: "libutf8lex.so"
-      SHARED_LIBRARY_STATIC_BASE: "libutf8lex.a"
+      LIBRARY_DYNAMIC_BASE: "libutf8lex.so"
+      LIBRARY_STATIC_BASE: "libutf8lex.a"
       PROGRAM_BASE: "utf8lex"
     steps:
       - id: checkout
@@ -284,9 +284,9 @@ jobs:
       - id: utf8lex-version-env
         name: Set the full utf8lex library and program names, with version
         run: |
-            echo "SHARED_LIBRARY_DYNAMIC=${{env.SHARED_LIBRARY_DYNAMIC_BASE}}.${{env.UTF8LEX_VERSION}}" \
+            echo "LIBRARY_DYNAMIC=${{env.LIBRARY_DYNAMIC_BASE}}.${{env.UTF8LEX_VERSION}}" \
                 >> $GITHUB_ENV
-            echo "SHARED_LIBRARY_STATIC=${{env.SHARED_LIBRARY_STATIC_BASE}}.${{env.UTF8LEX_VERSION}}" \
+            echo "LIBRARY_STATIC=${{env.LIBRARY_STATIC_BASE}}.${{env.UTF8LEX_VERSION}}" \
                 >> $GITHUB_ENV
             echo "PROGRAM=${{env.PROGRAM_BASE}}.${{env.UTF8LEX_VERSION}}" \
                 >> $GITHUB_ENV
@@ -343,10 +343,10 @@ jobs:
           echo "matrix.platform=${{matrix.platform}}"
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
           mkdir -p /tmp/utf8lex/
-          cp ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY_DYNAMIC}} \
-              /tmp/utf8lex/${{env.SHARED_LIBRARY_DYNAMIC}}.${{env.DEBIAN_ARCHITECTURE}}
-          cp ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY_STATIC}} \
-              /tmp/utf8lex/${{env.SHARED_LIBRARY_STATIC}}.${{env.DEBIAN_ARCHITECTURE}}
+          cp ${{env.BUILD_DIR}}/${{env.LIBRARY_DYNAMIC}} \
+              /tmp/utf8lex/${{env.LIBRARY_DYNAMIC}}.${{env.DEBIAN_ARCHITECTURE}}
+          cp ${{env.BUILD_DIR}}/${{env.LIBRARY_STATIC}} \
+              /tmp/utf8lex/${{env.LIBRARY_STATIC}}.${{env.DEBIAN_ARCHITECTURE}}
           cp ${{env.BUILD_DIR}}/${{env.PROGRAM}} \
               /tmp/utf8lex/${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}}
 
@@ -354,7 +354,7 @@ jobs:
         name: Upload utf8lex dynamic library
         uses: actions/upload-artifact@v4
         with:
-          name: ${{env.SHARED_LIBRARY_DYNAMIC}}.${{env.DEBIAN_ARCHITECTURE}}
+          name: ${{env.LIBRARY_DYNAMIC}}.${{env.DEBIAN_ARCHITECTURE}}
           path: /tmp/utf8lex/
           if-no-files-found: error
           retention-days: 1
@@ -363,7 +363,7 @@ jobs:
         name: Upload utf8lex static library
         uses: actions/upload-artifact@v4
         with:
-          name: ${{env.SHARED_LIBRARY_STATIC}}.${{env.DEBIAN_ARCHITECTURE}}
+          name: ${{env.LIBRARY_STATIC}}.${{env.DEBIAN_ARCHITECTURE}}
           path: /tmp/utf8lex/
           if-no-files-found: error
           retention-days: 1
@@ -411,8 +411,8 @@ jobs:
       TEST_BUILD_DIR: ./tests/build
       DEBIAN_IMAGE_BASE: "utf8lex-debian"
       UTF8LEX_VERSION: "${{github.sha}}"
-      SHARED_LIBRARY_DYNAMIC_BASE: "libutf8lex.so"
-      SHARED_LIBRARY_STATIC_BASE: "libutf8lex.a"
+      LIBRARY_DYNAMIC_BASE: "libutf8lex.so"
+      LIBRARY_STATIC_BASE: "libutf8lex.a"
       PROGRAM_BASE: "utf8lex"
     steps:
       - id: checkout
@@ -448,9 +448,9 @@ jobs:
       - id: utf8lex-version-env
         name: Set the full utf8lex library and program names, with version
         run: |
-            echo "SHARED_LIBRARY_DYNAMIC=${{env.SHARED_LIBRARY_DYNAMIC_BASE}}.${{env.UTF8LEX_VERSION}}" \
+            echo "LIBRARY_DYNAMIC=${{env.LIBRARY_DYNAMIC_BASE}}.${{env.UTF8LEX_VERSION}}" \
                 >> $GITHUB_ENV
-            echo "SHARED_LIBRARY_STATIC=${{env.SHARED_LIBRARY_STATIC_BASE}}.${{env.UTF8LEX_VERSION}}" \
+            echo "LIBRARY_STATIC=${{env.LIBRARY_STATIC_BASE}}.${{env.UTF8LEX_VERSION}}" \
                 >> $GITHUB_ENV
             echo "PROGRAM=${{env.PROGRAM_BASE}}.${{env.UTF8LEX_VERSION}}" \
                 >> $GITHUB_ENV
@@ -459,14 +459,14 @@ jobs:
         name: Download utf8lex dynamic library
         uses: actions/download-artifact@v4
         with:
-          name: ${{env.SHARED_LIBRARY_DYNAMIC}}.${{env.DEBIAN_ARCHITECTURE}}
+          name: ${{env.LIBRARY_DYNAMIC}}.${{env.DEBIAN_ARCHITECTURE}}
           path: /tmp/utf8lex/
 
       - id: download-utf8lex-library-static
         name: Download utf8lex static library
         uses: actions/download-artifact@v4
         with:
-          name: ${{env.SHARED_LIBRARY_STATIC}}.${{env.DEBIAN_ARCHITECTURE}}
+          name: ${{env.LIBRARY_STATIC}}.${{env.DEBIAN_ARCHITECTURE}}
           path: /tmp/utf8lex/
 
       - id: download-utf8lex-program
@@ -482,10 +482,10 @@ jobs:
           echo "matrix.platform=${{matrix.platform}}"
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
           mkdir -p ${{env.BUILD_DIR}}/
-          cp /tmp/utf8lex/${{env.SHARED_LIBRARY_DYNAMIC}}.${{env.DEBIAN_ARCHITECTURE}} \
-              ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY_DYNAMIC}}
-          cp /tmp/utf8lex/${{env.SHARED_LIBRARY_STATIC}}.${{env.DEBIAN_ARCHITECTURE}} \
-              ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY_STATIC}}
+          cp /tmp/utf8lex/${{env.LIBRARY_DYNAMIC}}.${{env.DEBIAN_ARCHITECTURE}} \
+              ${{env.BUILD_DIR}}/${{env.LIBRARY_DYNAMIC}}
+          cp /tmp/utf8lex/${{env.LIBRARY_STATIC}}.${{env.DEBIAN_ARCHITECTURE}} \
+              ${{env.BUILD_DIR}}/${{env.LIBRARY_STATIC}}
           cp /tmp/utf8lex/${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}} \
               ${{env.BUILD_DIR}}/${{env.PROGRAM}}
 
@@ -498,19 +498,19 @@ jobs:
           # and programs utf8lex and utf8lex.1.
           #
           cd ${{env.BUILD_DIR}}
-          ln -s ${{env.SHARED_LIBRARY_DYNAMIC}} \
-              ${{env.SHARED_LIBRARY_DYNAMIC_BASE}}
-          ln -s ${{env.SHARED_LIBRARY_STATIC}} \
-              ${{env.SHARED_LIBRARY_STATIC_BASE}}
+          ln -s ${{env.LIBRARY_DYNAMIC}} \
+              ${{env.LIBRARY_DYNAMIC_BASE}}
+          ln -s ${{env.LIBRARY_STATIC}} \
+              ${{env.LIBRARY_STATIC_BASE}}
           ln -s ${{env.PROGRAM}} \
               ${{env.PROGRAM_BASE}}
           MAJOR=`echo "${{env.UTF8LEX_VERSION}}" | sed 's|^\([^\.]*\)\..*$|\1|'`
           if test "$MAJOR" != "${{env.UTF8LEX_VERSION}}"; \
           then \
-              ln -s ${{env.SHARED_LIBRARY_DYNAMIC}} \
-                  ${{env.SHARED_LIBRARY_DYNAMIC_BASE}}.$MAJOR ; \
-              ln -s ${{env.SHARED_LIBRARY_STATIC}} \
-                  ${{env.SHARED_LIBRARY_STATIC_BASE}}.$MAJOR ; \
+              ln -s ${{env.LIBRARY_DYNAMIC}} \
+                  ${{env.LIBRARY_DYNAMIC_BASE}}.$MAJOR ; \
+              ln -s ${{env.LIBRARY_STATIC}} \
+                  ${{env.LIBRARY_STATIC_BASE}}.$MAJOR ; \
               ln -s ${{env.PROGRAM}} \
                   ${{env.PROGRAM_BASE}}.$MAJOR ; \
           fi
@@ -583,8 +583,8 @@ jobs:
       TEST_BUILD_DIR: ./tests/build
       DEBIAN_IMAGE_BASE: "utf8lex-debian"
       UTF8LEX_VERSION: "${{github.sha}}"
-      SHARED_LIBRARY_DYNAMIC_BASE: "libutf8lex.so"
-      SHARED_LIBRARY_STATIC_BASE: "libutf8lex.a"
+      LIBRARY_DYNAMIC_BASE: "libutf8lex.so"
+      LIBRARY_STATIC_BASE: "libutf8lex.a"
       PROGRAM_BASE: "utf8lex"
     steps:
       - id: checkout
@@ -620,9 +620,9 @@ jobs:
       - id: utf8lex-version-env
         name: Set the full utf8lex library and program names, with version
         run: |
-            echo "SHARED_LIBRARY_DYNAMIC=${{env.SHARED_LIBRARY_DYNAMIC_BASE}}.${{env.UTF8LEX_VERSION}}" \
+            echo "LIBRARY_DYNAMIC=${{env.LIBRARY_DYNAMIC_BASE}}.${{env.UTF8LEX_VERSION}}" \
                 >> $GITHUB_ENV
-            echo "SHARED_LIBRARY_STATIC=${{env.SHARED_LIBRARY_STATIC_BASE}}.${{env.UTF8LEX_VERSION}}" \
+            echo "LIBRARY_STATIC=${{env.LIBRARY_STATIC_BASE}}.${{env.UTF8LEX_VERSION}}" \
                 >> $GITHUB_ENV
             echo "PROGRAM=${{env.PROGRAM_BASE}}.${{env.UTF8LEX_VERSION}}" \
                 >> $GITHUB_ENV
@@ -631,14 +631,14 @@ jobs:
         name: Download utf8lex dynamic library
         uses: actions/download-artifact@v4
         with:
-          name: ${{env.SHARED_LIBRARY_DYNAMIC}}.${{env.DEBIAN_ARCHITECTURE}}
+          name: ${{env.LIBRARY_DYNAMIC}}.${{env.DEBIAN_ARCHITECTURE}}
           path: /tmp/utf8lex/
 
       - id: download-utf8lex-library-static
         name: Download utf8lex static library
         uses: actions/download-artifact@v4
         with:
-          name: ${{env.SHARED_LIBRARY_STATIC}}.${{env.DEBIAN_ARCHITECTURE}}
+          name: ${{env.LIBRARY_STATIC}}.${{env.DEBIAN_ARCHITECTURE}}
           path: /tmp/utf8lex/
 
       - id: download-utf8lex-program
@@ -654,10 +654,10 @@ jobs:
           echo "matrix.platform=${{matrix.platform}}"
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
           mkdir -p ${{env.BUILD_DIR}}/
-          cp /tmp/utf8lex/${{env.SHARED_LIBRARY_DYNAMIC}}.${{env.DEBIAN_ARCHITECTURE}} \
-              ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY_DYNAMIC}}
-          cp /tmp/utf8lex/${{env.SHARED_LIBRARY_STATIC}}.${{env.DEBIAN_ARCHITECTURE}} \
-              ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY_STATIC}}
+          cp /tmp/utf8lex/${{env.LIBRARY_DYNAMIC}}.${{env.DEBIAN_ARCHITECTURE}} \
+              ${{env.BUILD_DIR}}/${{env.LIBRARY_DYNAMIC}}
+          cp /tmp/utf8lex/${{env.LIBRARY_STATIC}}.${{env.DEBIAN_ARCHITECTURE}} \
+              ${{env.BUILD_DIR}}/${{env.LIBRARY_STATIC}}
           cp /tmp/utf8lex/${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}} \
               ${{env.BUILD_DIR}}/${{env.PROGRAM}}
 
@@ -670,19 +670,19 @@ jobs:
           # and programs utf8lex and utf8lex.1.
           #
           cd ${{env.BUILD_DIR}}
-          ln -s ${{env.SHARED_LIBRARY_DYNAMIC}} \
-              ${{env.SHARED_LIBRARY_DYNAMIC_BASE}}
-          ln -s ${{env.SHARED_LIBRARY_STATIC}} \
-              ${{env.SHARED_LIBRARY_STATIC_BASE}}
+          ln -s ${{env.LIBRARY_DYNAMIC}} \
+              ${{env.LIBRARY_DYNAMIC_BASE}}
+          ln -s ${{env.LIBRARY_STATIC}} \
+              ${{env.LIBRARY_STATIC_BASE}}
           ln -s ${{env.PROGRAM}} \
               ${{env.PROGRAM_BASE}}
           MAJOR=`echo "${{env.UTF8LEX_VERSION}}" | sed 's|^\([^\.]*\)\..*$|\1|'`
           if test "$MAJOR" != "${{env.UTF8LEX_VERSION}}"; \
           then \
-              ln -s ${{env.SHARED_LIBRARY_DYNAMIC}} \
-                  ${{env.SHARED_LIBRARY_DYNAMIC_BASE}}.$MAJOR ; \
-              ln -s ${{env.SHARED_LIBRARY_STATIC}} \
-                  ${{env.SHARED_LIBRARY_STATIC_BASE}}.$MAJOR ; \
+              ln -s ${{env.LIBRARY_DYNAMIC}} \
+                  ${{env.LIBRARY_DYNAMIC_BASE}}.$MAJOR ; \
+              ln -s ${{env.LIBRARY_STATIC}} \
+                  ${{env.LIBRARY_STATIC_BASE}}.$MAJOR ; \
               ln -s ${{env.PROGRAM}} \
                   ${{env.PROGRAM_BASE}}.$MAJOR ; \
           fi
@@ -758,8 +758,8 @@ jobs:
       EXAMPLES_BUILD_DIR: ./examples/build
       DEBIAN_IMAGE_BASE: "utf8lex-debian"
       UTF8LEX_VERSION: "${{github.sha}}"
-      SHARED_LIBRARY_DYNAMIC_BASE: "libutf8lex.so"
-      SHARED_LIBRARY_STATIC_BASE: "libutf8lex.a"
+      LIBRARY_DYNAMIC_BASE: "libutf8lex.so"
+      LIBRARY_STATIC_BASE: "libutf8lex.a"
       PROGRAM_BASE: "utf8lex"
     steps:
       - id: checkout
@@ -795,9 +795,9 @@ jobs:
       - id: utf8lex-version-env
         name: Set the full utf8lex library and program names, with version
         run: |
-            echo "SHARED_LIBRARY_DYNAMIC=${{env.SHARED_LIBRARY_DYNAMIC_BASE}}.${{env.UTF8LEX_VERSION}}" \
+            echo "LIBRARY_DYNAMIC=${{env.LIBRARY_DYNAMIC_BASE}}.${{env.UTF8LEX_VERSION}}" \
                 >> $GITHUB_ENV
-            echo "SHARED_LIBRARY_STATIC=${{env.SHARED_LIBRARY_STATIC_BASE}}.${{env.UTF8LEX_VERSION}}" \
+            echo "LIBRARY_STATIC=${{env.LIBRARY_STATIC_BASE}}.${{env.UTF8LEX_VERSION}}" \
                 >> $GITHUB_ENV
             echo "PROGRAM=${{env.PROGRAM_BASE}}.${{env.UTF8LEX_VERSION}}" \
                 >> $GITHUB_ENV
@@ -806,14 +806,14 @@ jobs:
         name: Download utf8lex dynamic library
         uses: actions/download-artifact@v4
         with:
-          name: ${{env.SHARED_LIBRARY_DYNAMIC}}.${{env.DEBIAN_ARCHITECTURE}}
+          name: ${{env.LIBRARY_DYNAMIC}}.${{env.DEBIAN_ARCHITECTURE}}
           path: /tmp/utf8lex/
 
       - id: download-utf8lex-library-static
         name: Download utf8lex static library
         uses: actions/download-artifact@v4
         with:
-          name: ${{env.SHARED_LIBRARY_STATIC}}.${{env.DEBIAN_ARCHITECTURE}}
+          name: ${{env.LIBRARY_STATIC}}.${{env.DEBIAN_ARCHITECTURE}}
           path: /tmp/utf8lex/
 
       - id: download-utf8lex-program
@@ -829,10 +829,10 @@ jobs:
           echo "matrix.platform=${{matrix.platform}}"
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
           mkdir -p ${{env.BUILD_DIR}}/
-          cp /tmp/utf8lex/${{env.SHARED_LIBRARY_DYNAMIC}}.${{env.DEBIAN_ARCHITECTURE}} \
-              ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY_DYNAMIC}}
-          cp /tmp/utf8lex/${{env.SHARED_LIBRARY_STATIC}}.${{env.DEBIAN_ARCHITECTURE}} \
-              ${{env.BUILD_DIR}}/${{env.SHARED_LIBRARY_STATIC}}
+          cp /tmp/utf8lex/${{env.LIBRARY_DYNAMIC}}.${{env.DEBIAN_ARCHITECTURE}} \
+              ${{env.BUILD_DIR}}/${{env.LIBRARY_DYNAMIC}}
+          cp /tmp/utf8lex/${{env.LIBRARY_STATIC}}.${{env.DEBIAN_ARCHITECTURE}} \
+              ${{env.BUILD_DIR}}/${{env.LIBRARY_STATIC}}
           cp /tmp/utf8lex/${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}} \
               ${{env.BUILD_DIR}}/${{env.PROGRAM}}
 
@@ -845,19 +845,19 @@ jobs:
           # and programs utf8lex and utf8lex.1.
           #
           cd ${{env.BUILD_DIR}}
-          ln -s ${{env.SHARED_LIBRARY_DYNAMIC}} \
-              ${{env.SHARED_LIBRARY_DYNAMIC_BASE}}
-          ln -s ${{env.SHARED_LIBRARY_STATIC}} \
-              ${{env.SHARED_LIBRARY_STATIC_BASE}}
+          ln -s ${{env.LIBRARY_DYNAMIC}} \
+              ${{env.LIBRARY_DYNAMIC_BASE}}
+          ln -s ${{env.LIBRARY_STATIC}} \
+              ${{env.LIBRARY_STATIC_BASE}}
           ln -s ${{env.PROGRAM}} \
               ${{env.PROGRAM_BASE}}
           MAJOR=`echo "${{env.UTF8LEX_VERSION}}" | sed 's|^\([^\.]*\)\..*$|\1|'`
           if test "$MAJOR" != "${{env.UTF8LEX_VERSION}}"; \
           then \
-              ln -s ${{env.SHARED_LIBRARY_DYNAMIC}} \
-                  ${{env.SHARED_LIBRARY_DYNAMIC_BASE}}.$MAJOR ; \
-              ln -s ${{env.SHARED_LIBRARY_STATIC}} \
-                  ${{env.SHARED_LIBRARY_STATIC_BASE}}.$MAJOR ; \
+              ln -s ${{env.LIBRARY_DYNAMIC}} \
+                  ${{env.LIBRARY_DYNAMIC_BASE}}.$MAJOR ; \
+              ln -s ${{env.LIBRARY_STATIC}} \
+                  ${{env.LIBRARY_STATIC_BASE}}.$MAJOR ; \
               ln -s ${{env.PROGRAM}} \
                   ${{env.PROGRAM_BASE}}.$MAJOR ; \
           fi

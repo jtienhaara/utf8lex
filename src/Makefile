@@ -57,6 +57,13 @@ LD_PROGRAM_FLAGS = -Wl,--no-as-needed -lpcre2-8 -lutf8proc
 #
 # Anyhoo we'll use the "-l:libxyz.a" syntax for now.
 #
+# (We decided not to statically link utf8lex executable after all,
+# since the standard c library causes problems for valgrind.  Abort mission!
+# Now we dynamically link all libraries for the ut8lex executable,
+# but statically link the .o files for utf8lex itself, since
+# no distribution in the universe today has libutf8lex.so.
+# Happy compromise.)
+#
 LDSTATIC_EXTRACT = ar
 LDSTATIC_EXTRACT_FLAGS = -x -o
 LDSTATIC_LIBRARY = ar
@@ -210,6 +217,42 @@ $(PROGRAM): $(OBJECT_FILES) $(BUILD_DIR)/libutf8lex/utf8lex.o
 
 .PHONY: build
 build: $(LIBRARY_DYNAMIC) $(LIBRARY_STATIC) $(PROGRAM)
+
+#
+# E.g.: make re-version UTF8LEX_VERSION=1.2.3
+#
+# To make the release process (Docker within GitHub Actions)
+# less excruciatingly painful (but still excruciatingly painful),
+# we re-use the .a file generated during the last commit to the main
+# branch, but then explode it, and re-build the .o files into
+# a newly versioned .so dynamic library.
+#
+# GitHub Actions has to copy the previously-built static library
+# (build/libutf8lex.a.(githuba_hash).(debian_architecture)),
+# and rename it to the new version (build/libutf8lex.a.1.2.3
+# with no architecture in the name), to produce the .so being built
+# (build/libutf8lex.so.1.2.3).
+#
+.PHONY: re-version-explode-archive
+re-version-explode-archive:
+	@echo "Exploding archive to re-version $(UTF8LEX_VERSION)..."
+	@if test ! -f "$(LIBRARY_STATIC)"; \
+	then \
+	    echo "ERROR $(LIBRARY_STATIC) does not exist" >&2; \
+	    echo "ERROR Copy previously built .a to $(LIBRARY_STATIC) and try again" >&2; \
+	    exit 1; \
+	fi
+	rm -rf $(BUILD_DIR)/libutf8lex
+	mkdir -p $(BUILD_DIR)/libutf8lex
+	cd $(BUILD_DIR)/libutf8lex \
+	    && $(LDSTATIC_EXTRACT) $(LDSTATIC_EXTRACT_FLAGS) \
+	        ../libutf8lex.a.$(UTF8LEX_VERSION)
+	cd "$(ORIGINAL_DIR)"
+	touch $(BUILD_DIR)/libutf8lex/*.o
+	@echo "SUCCESS Exploding archive to re-version $(UTF8LEX_VERSION)."
+
+.PHONY: re-version
+re-version: re-version-explode-archive $(LIBRARY_DYNAMIC) $(PROGRAM)
 
 .PHONY: clean
 clean:
