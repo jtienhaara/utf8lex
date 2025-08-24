@@ -42,7 +42,7 @@ CFLAGS = -Werror -fPIC -O2
 LD_LIBRARY = gcc
 LD_LIBRARY_FLAGS = -shared
 LD_PROGRAM = gcc
-LD_PROGRAM_FLAGS = -Wl,--no-as-needed -lpcre2-8 -lutf8proc -L$(UTF8LEX_LIBRARY_DIR) -Wl,-rpath,$(UTF8LEX_LIBRARY_DIR) -lutf8lex
+LD_PROGRAM_FLAGS = -Wl,--no-as-needed -lpcre2-8 -lutf8proc
 
 #
 # Long but very informative discussion about static linking pitfalls:
@@ -61,13 +61,10 @@ LDSTATIC_EXTRACT = ar
 LDSTATIC_EXTRACT_FLAGS = -x -o
 LDSTATIC_LIBRARY = ar
 LDSTATIC_LIBRARY_FLAGS = -c -r -s
-# !!! LDSTATIC_PROGRAM = gcc
-# !!! LDSTATIC_PROGRAM_FLAGS = -static -l:libc.a -l:libutf8proc.a -l:libpcre2-8.a \
-# !!! 	-L$(UTF8LEX_LIBRARY_DIR) -l:libutf8lex.a
-# !!! LDSTATIC_PROGRAM_FLAGS = -Wl,-Bstatic -lutf8proc -lpcre2-8
-# !!! LDSTATIC_PROGRAM_FLAGS = -Wl,-Bstatic -L$(UTF8LEX_LIBRARY_DIR) -lutf8lex
-# !!! LDSTATIC_PROGRAM_FLAGS = -lgcc_s -Wl,-Bstatic -L$(UTF8LEX_LIBRARY_DIR) -lutf8lex
 
+#
+# Do NOT include utf8lex.c (with main()) in SOURCE_FILES:
+#
 SOURCE_FILES ?= \
 	utf8lex_buffer.c \
 	utf8lex_cat.c \
@@ -88,8 +85,7 @@ SOURCE_FILES ?= \
 	utf8lex_string.c \
 	utf8lex_sub_token.c \
 	utf8lex_target_language_c.c \
-	utf8lex_token.c \
-	utf8lex.c
+	utf8lex_token.c
 
 OBJECT_FILES = \
 	$(patsubst %.c,$(BUILD_DIR)/libutf8lex/%.o,$(SOURCE_FILES))
@@ -117,6 +113,10 @@ $(BUILD_DIR)/libutf8lex/%.o: %.c
 check_source_files_list:
 	@for SOURCE_FILE in *.c; \
 	do \
+	    if test "$$SOURCE_FILE" = "utf8lex.c"; \
+	    then \
+	        continue; \
+	    fi; \
 	    OBJECT_FILE=`echo "$$SOURCE_FILE" | sed 's|\\.[a-zA-Z0-9]$$|\\.o|'`; \
 	    if test ! -f "$(BUILD_DIR)/libutf8lex/$$OBJECT_FILE"; \
 	    then \
@@ -127,6 +127,7 @@ check_source_files_list:
 
 # Rule for .so library files:
 $(LIBRARY_DYNAMIC): $(OBJECT_FILES) check_source_files_list
+	@echo "Building $(LIBRARY_DYNAMIC)..."
 	$(LD_LIBRARY) $(LD_LIBRARY_FLAGS)  \
 	    -Wl,-soname,libutf8lex.so.$(UTF8LEX_MAJOR) \
 	    $(OBJECT_FILES) \
@@ -140,9 +141,11 @@ $(LIBRARY_DYNAMIC): $(OBJECT_FILES) check_source_files_list
 	        fi \
 	    && ln -s -f libutf8lex.so.$(UTF8LEX_VERSION) \
 	        libutf8lex.so
+	@echo "SUCCESS Building $(LIBRARY_DYNAMIC)."
 
 # Rule for .a library files:
 $(LIBRARY_STATIC): $(OBJECT_FILES) check_source_files_list
+	@echo "Building $(LIBRARY_STATIC)..."
 	for LIBUTF8PROC in `find /usr/lib -type f -name 'libutf8proc.a'` ; \
 	    do \
 	        echo "Copying libutf8proc to extract from: $$LIBUTF8PROC" \
@@ -179,14 +182,22 @@ $(LIBRARY_STATIC): $(OBJECT_FILES) check_source_files_list
 	        fi \
 	    && ln -s -f libutf8lex.a.$(UTF8LEX_VERSION) \
 	        libutf8lex.a
+	@echo "SUCCESS Building $(LIBRARY_STATIC)."
 
 # Rules for $(PROGRAM):
 $(BUILD_DIR)/libutf8lex/utf8lex.o: utf8lex.c
 	mkdir -p $(BUILD_DIR)/libutf8lex
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(PROGRAM): $(LIBRARY_DYNAMIC) $(BUILD_DIR)/libutf8lex/utf8lex.o
-	$(LD_PROGRAM) $(LD_PROGRAM_FLAGS) $< -o $@
+#
+# We statically link the library object files, along with utf8lex.o,
+# into the executable (but use dynamically linked libpcre2-8.so
+# and libutf8proc.so), so that most operating system distributions
+# will run utf8lex out of the box, no dynamic library install required.
+#
+$(PROGRAM): $(OBJECT_FILES) $(BUILD_DIR)/libutf8lex/utf8lex.o
+	@echo "Building $(PROGRAM)..."
+	$(LD_PROGRAM) $(LD_PROGRAM_FLAGS) $^ -o $@
 	cd $(BUILD_DIR) \
 	    && if test "$(UTF8LEX_MAJOR)" != "$(UTF8LEX_VERSION)" ; \
                 then \
@@ -195,17 +206,7 @@ $(PROGRAM): $(LIBRARY_DYNAMIC) $(BUILD_DIR)/libutf8lex/utf8lex.o
 	        fi \
 	    && ln -s -f utf8lex.$(UTF8LEX_VERSION) \
 	        utf8lex
-
-# !!! $(PROGRAM): $(LIBRARY_STATIC) $(BUILD_DIR)/libutf8lex/utf8lex.o
-# !!! 	$(LDSTATIC_PROGRAM) $(LDSTATIC_PROGRAM_FLAGS) $< -o $@
-# !!! 	cd $(BUILD_DIR) \
-# !!! 	    && if test "$(UTF8LEX_MAJOR)" != "$(UTF8LEX_VERSION)" ; \
-# !!!                 then \
-# !!! 	            ln -s -f utf8lex.$(UTF8LEX_VERSION) \
-# !!! 	                utf8lex.$(UTF8LEX_MAJOR) ; \
-# !!! 	        fi \
-# !!! 	    && ln -s -f utf8lex.$(UTF8LEX_VERSION) \
-# !!! 	        utf8lex
+	@echo "SUCCESS Building $(PROGRAM)."
 
 .PHONY: build
 build: $(LIBRARY_DYNAMIC) $(LIBRARY_STATIC) $(PROGRAM)
