@@ -122,7 +122,7 @@ jobs:
           - linux/s390x
 
     env:
-      BUILD_DIR: ./build
+      BUILD_DIR: build
       DEBIAN_IMAGE_BASE: "utf8lex-debian"
     steps:
       - id: checkout
@@ -187,6 +187,7 @@ jobs:
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
           echo "VALGRIND_PLATFORM=${{env.VALGRIND_PLATFORM}}"
           mkdir -p ${{env.BUILD_DIR}}/
+          chmod a+rwx ${{env.BUILD_DIR}}
           docker buildx build \
               --file debian.Dockerfile \
               --load \
@@ -263,7 +264,7 @@ jobs:
           # Official Debian image hub.docker but not supported: - linux/riscv64
           - linux/s390x
     env:
-      BUILD_DIR: ./build
+      BUILD_DIR: build
       DEBIAN_IMAGE_BASE: "utf8lex-debian"
       UTF8LEX_VERSION: "${{github.sha}}"
       LIBRARY_DYNAMIC_BASE: "libutf8lex.so"
@@ -306,6 +307,7 @@ jobs:
           echo "matrix.platform=${{matrix.platform}}"
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
           mkdir -p ${{env.BUILD_DIR}}/
+          chmod a+rwx ${{env.BUILD_DIR}}
           cp /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz \
               ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
           gunzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
@@ -333,11 +335,17 @@ jobs:
           docker run \
                   --rm \
                   --platform "${{matrix.platform}}" \
-                  --volume `pwd`:/utf8lex:rw \
+                  --volume `pwd`:/utf8lex:ro \
+                  --volume `pwd`/${{env.BUILD_DIR}}:/utf8lex/${{env.BUILD_DIR}}:rw \
                   ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }} \
-                  make build \
-                      BUILD_DIR=../${{env.BUILD_DIR}} \
-                      UTF8LEX_VERSION=${{env.UTF8LEX_VERSION}}
+                  bash -c '
+                      make templates \
+                          BUILD_DIR=../${{env.BUILD_DIR}} \
+                          UTF8LEX_VERSION=${{env.UTF8LEX_VERSION}} \
+                      && make build \
+                          BUILD_DIR=../${{env.BUILD_DIR}} \
+                          UTF8LEX_VERSION=${{env.UTF8LEX_VERSION}}
+                      '
 
       - id: prepare-utf8lex-for-upload
         name: Prepare utf8lex (libraries, executables, ...) for artifact upload
@@ -393,8 +401,8 @@ jobs:
       contents: read
       packages: read
     needs:
-      - debian_image  # from build.yaml
-      - build  # from build.yaml
+      - debian_image
+      - build
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -409,8 +417,8 @@ jobs:
           - linux/s390x
 
     env:
-      BUILD_DIR: ./build
-      TEST_BUILD_DIR: ./tests/build
+      BUILD_DIR: build
+      TEST_BUILD_DIR: tests/build
       DEBIAN_IMAGE_BASE: "utf8lex-debian"
       UTF8LEX_VERSION: "${{github.sha}}"
       LIBRARY_DYNAMIC_BASE: "libutf8lex.so"
@@ -443,6 +451,7 @@ jobs:
           echo "matrix.platform=${{matrix.platform}}"
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
           mkdir -p ${{env.BUILD_DIR}}/
+          chmod a+rwx ${{env.BUILD_DIR}}
           cp /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz \
               ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
           gunzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
@@ -484,6 +493,7 @@ jobs:
           echo "matrix.platform=${{matrix.platform}}"
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
           mkdir -p ${{env.BUILD_DIR}}/
+          chmod a+rwx ${{env.BUILD_DIR}}
           cp /tmp/utf8lex/${{env.LIBRARY_DYNAMIC}}.${{env.DEBIAN_ARCHITECTURE}} \
               ${{env.BUILD_DIR}}/${{env.LIBRARY_DYNAMIC}}
           cp /tmp/utf8lex/${{env.LIBRARY_STATIC}}.${{env.DEBIAN_ARCHITECTURE}} \
@@ -535,6 +545,7 @@ jobs:
           chmod -R a+w ${{env.BUILD_DIR}}
           chmod a+x ${{env.BUILD_DIR}}/${{env.PROGRAM}}
           mkdir -p ${{env.TEST_BUILD_DIR}}/
+          chmod a+rwx ${{env.TEST_BUILD_DIR}}
           chmod -R a+w ${{env.TEST_BUILD_DIR}}
           #
           # docker run documentation:
@@ -543,7 +554,8 @@ jobs:
           docker run \
                   --rm \
                   --platform "${{matrix.platform}}" \
-                  --volume `pwd`:/utf8lex:rw \
+                  --volume `pwd`:/utf8lex:ro \
+                  --volume `pwd`/${{env.TEST_BUILD_DIR}}:/utf8lex/${{env.TEST_BUILD_DIR}}:rw \
                   ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }} \
                   make unit_tests \
                       BUILD_DIR=../../${{env.BUILD_DIR}} \
@@ -564,9 +576,9 @@ jobs:
       contents: read
       packages: read
     needs:
-      - debian_image  # from build.yaml
-      - build  # from build.yaml
-      - unit_tests  # from unit_tests.yaml - just to make sure we unit test 1st.
+      - debian_image
+      - build
+      - unit_tests
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -581,8 +593,8 @@ jobs:
           - linux/s390x
 
     env:
-      BUILD_DIR: ./build
-      TEST_BUILD_DIR: ./tests/build
+      BUILD_DIR: build
+      TEST_BUILD_DIR: tests/build
       DEBIAN_IMAGE_BASE: "utf8lex-debian"
       UTF8LEX_VERSION: "${{github.sha}}"
       LIBRARY_DYNAMIC_BASE: "libutf8lex.so"
@@ -615,6 +627,7 @@ jobs:
           echo "matrix.platform=${{matrix.platform}}"
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
           mkdir -p ${{env.BUILD_DIR}}/
+          chmod a+rwx ${{env.BUILD_DIR}}
           cp /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz \
               ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
           gunzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
@@ -656,6 +669,7 @@ jobs:
           echo "matrix.platform=${{matrix.platform}}"
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
           mkdir -p ${{env.BUILD_DIR}}/
+          chmod a+rwx ${{env.BUILD_DIR}}
           cp /tmp/utf8lex/${{env.LIBRARY_DYNAMIC}}.${{env.DEBIAN_ARCHITECTURE}} \
               ${{env.BUILD_DIR}}/${{env.LIBRARY_DYNAMIC}}
           cp /tmp/utf8lex/${{env.LIBRARY_STATIC}}.${{env.DEBIAN_ARCHITECTURE}} \
@@ -707,6 +721,7 @@ jobs:
           chmod -R a+w ${{env.BUILD_DIR}}
           chmod a+x ${{env.BUILD_DIR}}/${{env.PROGRAM}}
           mkdir -p ${{env.TEST_BUILD_DIR}}/
+          chmod a+rwx ${{env.TEST_BUILD_DIR}}
           chmod -R a+w ${{env.TEST_BUILD_DIR}}
           #
           # docker run documentation:
@@ -715,7 +730,8 @@ jobs:
           docker run \
                   --rm \
                   --platform "${{matrix.platform}}" \
-                  --volume `pwd`:/utf8lex:rw \
+                  --volume `pwd`:/utf8lex:ro \
+                  --volume `pwd`/${{env.TEST_BUILD_DIR}}:/utf8lex/${{env.TEST_BUILD_DIR}}:rw \
                   ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }} \
                   make integration_tests \
                       BUILD_DIR=../../${{env.BUILD_DIR}} \
@@ -737,10 +753,10 @@ jobs:
       contents: read
       packages: read
     needs:
-      - debian_image  # from build.yaml
-      - build  # from build.yaml
-      - unit_tests  # from unit_tests.yaml
-      - integration_tests  # from integration_tests.yaml
+      - debian_image
+      - build
+      - unit_tests
+      - integration_tests
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -755,9 +771,8 @@ jobs:
           - linux/s390x
 
     env:
-      BUILD_DIR: ./build
-      EXAMPLES_DIR: ./examples
-      EXAMPLES_BUILD_DIR: ./examples/build
+      BUILD_DIR: build
+      EXAMPLES_BUILD_DIR: examples/build
       DEBIAN_IMAGE_BASE: "utf8lex-debian"
       UTF8LEX_VERSION: "${{github.sha}}"
       LIBRARY_DYNAMIC_BASE: "libutf8lex.so"
@@ -790,6 +805,7 @@ jobs:
           echo "matrix.platform=${{matrix.platform}}"
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
           mkdir -p ${{env.BUILD_DIR}}/
+          chmod a+rwx ${{env.BUILD_DIR}}
           cp /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz \
               ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
           gunzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
@@ -831,6 +847,7 @@ jobs:
           echo "matrix.platform=${{matrix.platform}}"
           echo "DEBIAN_ARCHITECTURE=${{env.DEBIAN_ARCHITECTURE}}"
           mkdir -p ${{env.BUILD_DIR}}/
+          chmod a+rwx ${{env.BUILD_DIR}}
           cp /tmp/utf8lex/${{env.LIBRARY_DYNAMIC}}.${{env.DEBIAN_ARCHITECTURE}} \
               ${{env.BUILD_DIR}}/${{env.LIBRARY_DYNAMIC}}
           cp /tmp/utf8lex/${{env.LIBRARY_STATIC}}.${{env.DEBIAN_ARCHITECTURE}} \
@@ -882,7 +899,7 @@ jobs:
           chmod -R a+w ${{env.BUILD_DIR}}
           chmod a+x ${{env.BUILD_DIR}}/${{env.PROGRAM}}
           mkdir -p ${{env.EXAMPLES_BUILD_DIR}}/
-          chmod -R a+w ${{env.EXAMPLES_DIR}}
+          chmod a+rwx ${{env.EXAMPLES_BUILD_DIR}}
           chmod -R a+w ${{env.EXAMPLES_BUILD_DIR}}
           #
           # docker run documentation:
@@ -891,7 +908,8 @@ jobs:
           docker run \
                   --rm \
                   --platform "${{matrix.platform}}" \
-                  --volume `pwd`:/utf8lex:rw \
+                  --volume `pwd`:/utf8lex:ro \
+                  --volume `pwd`/${{env.EXAMPLES_BUILD_DIR}}:/utf8lex/${{env.EXAMPLES_BUILD_DIR}}:rw \
                   ${{env.DEBIAN_IMAGE_BASE}}:${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }} \
                   make examples \
                       BUILD_DIR=../${{env.BUILD_DIR}} \

@@ -1,4 +1,14 @@
+!!!
+add tests pass/ fail etc
+
+
 # utf8lex
+
+|  [![Build](https://img.shields.io/github/actions/workflow/status/jtienhaara/utf8lex/build.yaml)](https://github.com/jtienhaara/utf8lex/blob/main/.github/workflows/build.yaml)  |  [![Release](https://img.shields.io/github/v/release/jtienhaara/utf8lex)](https://github.com/jtienhaara/utf8lex/releases)  |
+|  [![License](https://img.shields.io/github/license/jtienhaara/utf8lex)](https://github.com/jtienhaara/utf8lex/blob/main/LICENSE)
+|  ![C](https://img.shields.io/badge/c-%2300599C.svg?style=for-the-badge&logo=c&logoColor=white)  |  [![Valgrind](https://img.shields.io/badge/Valgrind-006094?style=flat-square)](https://github.com/jtienhaara/utf8lex/blob/main/src/Makefile)  |
+|  ![Debian](https://img.shields.io/badge/Debian-D70A53?style=for-the-badge&logo=debian&logoColor=white)  |  386  |  amd64  |  arm/v7  |  arm64  |  mips64le  |  ppc64le  |  s390x  |
+
 C lexing of [UTF-8-encoded characters](http://en.wikipedia.org/wiki/UTF-8).
 
 `utf8lex` is mostly intended to be used as a library.  Static .a and dynamic .so
@@ -51,7 +61,7 @@ Many `lex` features have not yet been implemented.
 - All lexically analyzed tokens (`utf8lex_token_t`) come with multi-level
   source code tracking, all 0-indexed:
   - `UTF8LEX_UNIT_BYTE` within the source file or text that was analyzed;
-  - `UTF8LEX_UNIT_CHAR`, the character position (UTF-8 chars are 1-6 bytes); 
+  - `UTF8LEX_UNIT_CHAR`, the character position (UTF-8 chars are 1-6 bytes);
   - `UTF8LEX_UNIT_GRAPHEME`, the grapheme position (considering diacritics);
   - `UTF8LEX_UNIT_LINE`, calculated automatically (by `utf8lex_read.c`)
     whenever a character in any of the following categories is read
@@ -265,8 +275,8 @@ To build `utf8lex` from scratch, you'll need to install:
 - `pcre2` (`libpcre2-dev` on Debian)
 - `utf8proc` (`libutf8proc-dev` and `libutf8proc2` on Debian)
 - `make`
-- 'awk'
-- 'sed'
+- `awk`
+- `sed`
 - `valgrind` (or `export VALGRIND_PLATFORM=UNSUPPORTED` to build without valgrind)
 
 Make sure your character encoding type is set to UTF-8.  For example, on Debian:
@@ -323,9 +333,12 @@ for example, for the tools and libraries used to build `utf8lex`.
 
 ## Licenses
 
-| utf8lex       | SPDX-License-Identifier: | Apache-2.0                        |
-|---------------|--------------------------|-----------------------------------|
-| Dependencies: |                          |                                   |
+| utf8lex:                 |
+|--------------------------|------------|
+| SPDX-License-Identifier: | Apache-2.0 |
+
+| Dependencies: |
+|---------------|
 | utf8proc      | SPDX-License-Identifier: | MIT                               |
 |               | SPDX-License-Identifier: | Unicode-DFS-2016	               |
 | pcre2         | SPDX-License-Identifier: | BSD-3-Clause WITH PCRE2-exception |
