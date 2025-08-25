@@ -235,5 +235,7 @@ Eventually there will be a [GitHub Issues list](https://github.com/jtienhaara/ut
 
 ## Contact
 
-`utf8lex` is made by @jtienhaara.  For now, until issues have been set up,
-bugs, feature requests and other queries will go through him.
+`utf8lex` is made by
+[Johann Tienhaara](https://github.com/jtienhaara/).
+For now (until issues have been set up), bugs, feature requests
+and other queries will go through him.
