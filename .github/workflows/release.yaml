@@ -296,7 +296,12 @@ jobs:
               cp ${{env.BUILD_DIR}}/${{env.PROGRAM_RELEASE}} \
                   /tmp/release/${{env.PROGRAM_RELEASE}}.$DEBIAN_ARCHITECTURE
               echo "SUCCESS Copying $DEBIAN_ARCHITECTURE files to /tmp/release/"
+
+              echo "Removing build directory"
+              rm -rf ${{env.BUILD_DIR}}
           done
+
+          echo "SUCCESS Re-versioning to ${{env.UTF8LEX_RELEASE_VERSION}}"
 
       - id: prepare-source-for-upload
         name: Prepare utf8lex (libraries, executables, ...) for release upload
