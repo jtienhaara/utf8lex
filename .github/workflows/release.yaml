@@ -48,6 +48,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
+      BUILD_DIR: build
       DEBIAN_IMAGE_BASE: "utf8lex-debian"
       UTF8LEX_DOWNLOAD_VERSION: "${{github.sha}}"
       UTF8LEX_RELEASE_TAG: "${{github.ref_name}}"  # git tag v1.2.3
