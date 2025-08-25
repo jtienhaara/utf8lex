@@ -1,7 +1,3 @@
-!!!
-add tests pass/ fail etc
-
-
 # utf8lex
 
 |  [![Build](https://img.shields.io/github/actions/workflow/status/jtienhaara/utf8lex/build.yaml)](https://github.com/jtienhaara/utf8lex/blob/main/.github/workflows/build.yaml)  |  [![Release](https://img.shields.io/github/v/release/jtienhaara/utf8lex)](https://github.com/jtienhaara/utf8lex/releases)  |
