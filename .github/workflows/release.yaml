@@ -269,6 +269,7 @@ jobs:
               echo "Copying .a to ${{env.LIBRARY_STATIC_RELEASE}}"
               cp /tmp/download/${{env.LIBRARY_STATIC_DOWNLOAD}}.$DEBIAN_ARCHITECTURE/${{env.LIBRARY_STATIC_DOWNLOAD}}.$DEBIAN_ARCHITECTURE \
                   ${{env.BUILD_DIR}}/${{env.LIBRARY_STATIC_RELEASE}}
+              chmod -R a+w ${{env.BUILD_DIR}}
 
               echo "Running make re-version UTF8LEX_VERSION=${{env.UTF8LEX_RELEASE_VERSION}}"
               #
