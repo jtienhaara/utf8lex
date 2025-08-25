@@ -216,7 +216,7 @@ for example, for the tools and libraries used to build `utf8lex`.
 
 ## Licenses
 
-| utf8lex:                 |
+| utf8lex:                 |            |
 |--------------------------|------------|
 | SPDX-License-Identifier: | Apache-2.0 |
 
