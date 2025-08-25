@@ -1,9 +1,14 @@
 # utf8lex
 
-|  [![Build](https://img.shields.io/github/actions/workflow/status/jtienhaara/utf8lex/build.yaml)](https://github.com/jtienhaara/utf8lex/blob/main/.github/workflows/build.yaml)  |  [![Release](https://img.shields.io/github/v/release/jtienhaara/utf8lex)](https://github.com/jtienhaara/utf8lex/releases)  |
-|  [![License](https://img.shields.io/github/license/jtienhaara/utf8lex)](https://github.com/jtienhaara/utf8lex/blob/main/LICENSE)
-|  ![C](https://img.shields.io/badge/c-%2300599C.svg?style=for-the-badge&logo=c&logoColor=white)  |  [![Valgrind](https://img.shields.io/badge/Valgrind-006094?style=flat-square)](https://github.com/jtienhaara/utf8lex/blob/main/src/Makefile)  |
-|  ![Debian](https://img.shields.io/badge/Debian-D70A53?style=for-the-badge&logo=debian&logoColor=white)  |  386  |  amd64  |  arm/v7  |  arm64  |  mips64le  |  ppc64le  |  s390x  |
+[![Build](https://img.shields.io/github/actions/workflow/status/jtienhaara/utf8lex/build.yaml)](https://github.com/jtienhaara/utf8lex/blob/main/.github/workflows/build.yaml)
+[![Release](https://img.shields.io/github/v/release/jtienhaara/utf8lex)](https://github.com/jtienhaara/utf8lex/releases)
+
+[![License](https://img.shields.io/github/license/jtienhaara/utf8lex)](https://github.com/jtienhaara/utf8lex/blob/main/LICENSE)
+
+![C](https://img.shields.io/badge/c-%2300599C.svg?style=for-the-badge&logo=c&logoColor=white)
+![Valgrind](https://img.shields.io/badge/Valgrind-006094?style=flat-square)
+![Debian](https://img.shields.io/badge/Debian-D70A53?style=for-the-badge&logo=debian&logoColor=white)
+
 
 C lexing of [UTF-8-encoded characters](http://en.wikipedia.org/wiki/UTF-8).
 
