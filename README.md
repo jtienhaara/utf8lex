@@ -89,14 +89,14 @@ example of a custom language source file:
 To build a `.l` file into a `.c` file with locally built utf8lex program
 and libraries:
 
-```
+```shell
 cd examples
 ../build/utf8lex programming_tokens.l
 ```
 
 To then compile the `.c` file, along with the example lexer, into a program:
 
-```
+```shell
 gcc -I../src -c example_lexer.c -o example_lexer.o
 gcc -I../src -c programming_tokens.c -o programming_tokens.o
 gcc -Wl,--no-as-needed -lutf8proc -lpcre2-8 \
@@ -108,7 +108,7 @@ gcc -Wl,--no-as-needed -lutf8proc -lpcre2-8 \
 The newly built lexer can then be used to analyze `program_001.language`
 and output tokens to stdout:
 
-```
+```shell
 ./programming_tokens program_001.language
 ```
 
@@ -125,127 +125,9 @@ TOKEN: rule_16 "//"
 TOKEN: rule_1 "\n"
 TOKEN: rule_16 "//     example_lexer program_001.language"
 TOKEN: rule_1 "\n"
-TOKEN: rule_16 "//"
-TOKEN: rule_1 "\n"
-TOKEN: rule_16 "// The example_lexer will output the tokens read by the lexical analyzer,"
-TOKEN: rule_1 "\n"
-TOKEN: rule_16 "// followed by EOF:"
-TOKEN: rule_1 "\n"
-TOKEN: rule_16 "//"
-TOKEN: rule_1 "\n"
-TOKEN: rule_16 "//     TOKEN: rule_16 \"// This is an example programming language file.\""
-TOKEN: rule_1 "\n"
-TOKEN: rule_16 "//     TOKEN: rule_1 \"\\n\""
-TOKEN: rule_1 "\n"
-TOKEN: rule_16 "//     TOKEN: rule_16 \"// Lex it by building the example_lexer program in this directory (make build),\""
-TOKEN: rule_1 "\n"
-TOKEN: rule_16 "//     TOKEN: rule_1 \"\\n\""
-TOKEN: rule_1 "\n"
-TOKEN: rule_16 "//     TOKEN: rule_16 \"// then run:\""
-TOKEN: rule_1 "\n"
-TOKEN: rule_16 "//     TOKEN: rule_1 \"\\n\""
-TOKEN: rule_1 "\n"
-TOKEN: rule_16 "//     TOKEN: rule_16 \"//\""
-TOKEN: rule_1 "\n"
-TOKEN: rule_16 "//     TOKEN: rule_1 \"\\n\""
-TOKEN: rule_1 "\n"
-TOKEN: rule_16 "//     TOKEN: rule_16 \"//     example_lexer program_001.language\""
-TOKEN: rule_1 "\n"
-TOKEN: rule_16 "//     ..."
-TOKEN: rule_1 "\n"
-TOKEN: rule_16 "//     EOF"
-TOKEN: rule_1 "\n"
-TOKEN: rule_16 "//"
-TOKEN: rule_1 "\n"
-TOKEN: rule_16 "// This example programming language file is released to the public domain."
-TOKEN: rule_1 "\n"
-TOKEN: rule_16 "// (It's useless.  It's just a contrived example.)"
-TOKEN: rule_1 "\n"
-TOKEN: rule_16 "//"
-TOKEN: rule_1 "\n"
-TOKEN: rule_68 "x"
-TOKEN: rule_1 " "
-TOKEN: rule_27 "="
-TOKEN: rule_1 " "
-TOKEN: rule_66 "6"
-TOKEN: rule_1 " "
-TOKEN: rule_60 "*"
-TOKEN: rule_1 " "
-TOKEN: rule_66 "9"
-TOKEN: rule_1 "\n"
-TOKEN: rule_68 "x"
-TOKEN: rule_27 "="
-TOKEN: rule_66 "6"
-TOKEN: rule_60 "*"
-TOKEN: rule_66 "9"
-TOKEN: rule_1 "\n"
-TOKEN: rule_68 "x"
-TOKEN: rule_1 " "
-TOKEN: rule_1 " "
-TOKEN: rule_1 " "
-TOKEN: rule_1 " "
-TOKEN: rule_27 "="
-TOKEN: rule_1 " "
-TOKEN: rule_1 " "
-TOKEN: rule_1 " "
-TOKEN: rule_1 " "
-TOKEN: rule_1 " "
-TOKEN: rule_1 " "
-TOKEN: rule_1 " "
-TOKEN: rule_66 "6"
-TOKEN: rule_1 " "
-TOKEN: rule_1 " "
-TOKEN: rule_1 " "
-TOKEN: rule_1 " "
-TOKEN: rule_1 " "
-TOKEN: rule_1 " "
-TOKEN: rule_60 "*"
-TOKEN: rule_1 " "
-TOKEN: rule_1 " "
-TOKEN: rule_1 " "
-TOKEN: rule_66 "9"
-TOKEN: rule_1 "\n"
-TOKEN: rule_68 "int"
-TOKEN: rule_1 " "
-TOKEN: rule_68 "x"
-TOKEN: rule_1 " "
-TOKEN: rule_27 "="
-TOKEN: rule_1 " "
-TOKEN: rule_66 "6"
-TOKEN: rule_1 " "
-TOKEN: rule_60 "*"
-TOKEN: rule_1 " "
-TOKEN: rule_66 "9"
-TOKEN: rule_1 "\n"
-TOKEN: rule_68 "int"
-TOKEN: rule_1 " "
-TOKEN: rule_1 " "
-TOKEN: rule_1 " "
-TOKEN: rule_1 " "
-TOKEN: rule_68 "x"
-TOKEN: rule_27 "="
-TOKEN: rule_66 "6"
-TOKEN: rule_60 "*"
-TOKEN: rule_66 "9"
-TOKEN: rule_1 "\n"
-TOKEN: rule_68 "y"
-TOKEN: rule_1 " "
-TOKEN: rule_27 "="
-TOKEN: rule_1 " "
-TOKEN: rule_6 "\"This is a double quoted string with \\\" in the middle.\""
-TOKEN: rule_1 "\n"
-TOKEN: rule_68 "z"
-TOKEN: rule_1 " "
-TOKEN: rule_27 "="
-TOKEN: rule_1 " "
-TOKEN: rule_7 "'This is a single quoted string with \\\" and \\' and \\\\'"
-TOKEN: rule_1 "\n"
-TOKEN: rule_68 "empty_string"
-TOKEN: rule_1 " "
-TOKEN: rule_27 "="
-TOKEN: rule_1 " "
-TOKEN: rule_6 "\"\""
-TOKEN: rule_1 "\n"
+```
+...and so on...
+```
 TOKEN: rule_68 "anywhere_between_1_and_10_inclusive"
 TOKEN: rule_1 " "
 TOKEN: rule_27 "="
@@ -287,13 +169,13 @@ Make sure your character encoding type is set to UTF-8.  For example, on Debian:
 Now you can either build all source, libraries, executable and build and run
 all tests and examples:
 
-```
+```shell
 make
 ```
 
 Or you can build and/or run individual components:
 
-```
+```shell
 make templates
 make build
 make unit_tests
@@ -322,7 +204,7 @@ for guidance.
 When building with `libutf8lex.so`, or using `utf8lex` from the commandlne,
 you will need to have these two dependencies installed.  For example, on Debian:
 
-```
+```shell
 sudo apt-get update \
     && sudo apt-get install libpcre2-dev libutf8proc-dev libutf8proc2
 ```
