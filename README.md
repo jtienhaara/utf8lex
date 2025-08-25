@@ -216,12 +216,9 @@ for example, for the tools and libraries used to build `utf8lex`.
 
 ## Licenses
 
-| utf8lex:                 |            |
-|--------------------------|------------|
-| SPDX-License-Identifier: | Apache-2.0 |
-
-| Dependencies: |                          |                                   |
+| Licenses:     |                          |                                   |
 |---------------|--------------------------|-----------------------------------|
+| utf8lex       | SPDX-License-Identifier: | Apache-2.0                        |
 | utf8proc      | SPDX-License-Identifier: | MIT                               |
 |               | SPDX-License-Identifier: | Unicode-DFS-2016	               |
 | pcre2         | SPDX-License-Identifier: | BSD-3-Clause WITH PCRE2-exception |
