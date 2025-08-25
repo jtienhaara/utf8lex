@@ -101,7 +101,7 @@ jobs:
             echo "DEBIAN_IMAGE_DOWNLOAD=$DEBIAN_IMAGE_DOWNLOAD" \
                 >> $GITHUB_ENV
             DEBIAN_IMAGE_RELEASE="${{env.DEBIAN_IMAGE_BASE}}.$UTF8LEX_RELEASE_VERSION"
-            echo "DEBIAN_IMAGE_RELEASE=$LIBRARY_STATIC_RELEASE" \
+            echo "DEBIAN_IMAGE_RELEASE=$DEBIAN_IMAGE_RELEASE" \
                 >> $GITHUB_ENV
             LIBRARY_STATIC_DOWNLOAD="${{env.LIBRARY_STATIC_BASE}}.${{env.UTF8LEX_DOWNLOAD_VERSION}}"
             echo "LIBRARY_STATIC_DOWNLOAD=$LIBRARY_STATIC_DOWNLOAD" \
@@ -189,7 +189,7 @@ jobs:
           # event: (defaults to all event types, e.g. push, etc)
           # name: (all artifacts)
           # name_is_regexp: false
-          path: /tmp/utf8lex/
+          path: /tmp/download/
           # repo: (current repo)
           check_artifacts: false
           search_artifacts: false
@@ -207,10 +207,17 @@ jobs:
         uses: docker/setup-qemu-action@v3
 
       - id: re-version-binaries-for-upload
-        name: Extract from .a static library, re-version .so dynamic library
+        name: Re-version .a static library into new .so dynamic library
         run: |
           echo "utf8lex binaries downloaded from GitHub Packages:"
-          find /tmp/utf8lex/ -type f
+          find /tmp/download/ -type f
+
+          echo "Removing /tmp/release"
+          rm -rf /tmp/release
+          mkdir -p /tmp/release
+          chmod a+rwx /tmp/release
+
+          echo "Re-versioning all platforms"
           sudo systemctl start docker
           for MATRIX_PLATFORM in \
               linux/386 \
@@ -224,13 +231,15 @@ jobs:
               echo "MATRIX_PLATFORM=$MATRIX_PLATFORM"
               DEBIAN_ARCHITECTURE=`./get_debian_architecture.sh "$MATRIX_PLATFORM"`
               echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE"
+
+              echo "Cleaning build directory"
               rm -rf ${{env.BUILD_DIR}}
               mkdir -p ${{env.BUILD_DIR}}
               chmod a+rwx ${{env.BUILD_DIR}}
               chmod -R a+w ${{env.BUILD_DIR}}
 
               echo "Loading Docker buider image"
-              cp -i /tmp/utf8lex/utf8lex-debian.$DEBIAN_ARCHITECTURE.*.tar.gz/utf8lex-debian.$DEBIAN_ARCHITECTURE.*.tar.gz \
+              cp /tmp/download/utf8lex-debian.$DEBIAN_ARCHITECTURE.*.tar.gz/utf8lex-debian.$DEBIAN_ARCHITECTURE.*.tar.gz \
                   ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.$DEBIAN_ARCHITECTURE.${{env.UTF8LEX_RELEASE_VERSION}}.tar.gz
               gunzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.$DEBIAN_ARCHITECTURE.${{env.UTF8LEX_RELEASE_VERSION}}.tar.gz
               DEBIAN_IMAGE=`docker image load \
@@ -245,8 +254,8 @@ jobs:
               fi
               rm ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.$DEBIAN_ARCHITECTURE.${{env.UTF8LEX_RELEASE_VERSION}}.tar
 
-              echo "Copying .a into place"
-              cp /tmp/utf8lex/${{env.LIBRARY_STATIC_DOWNLOAD}}.$DEBIAN_ARCHITECTURE/${{env.LIBRARY_STATIC_DOWNLOAD}}.$DEBIAN_ARCHITECTURE \
+              echo "Copying .a to ${{env.LIBRARY_STATIC_RELEASE}}"
+              cp /tmp/download/${{env.LIBRARY_STATIC_DOWNLOAD}}.$DEBIAN_ARCHITECTURE/${{env.LIBRARY_STATIC_DOWNLOAD}}.$DEBIAN_ARCHITECTURE \
                   ${{env.BUILD_DIR}}/${{env.LIBRARY_STATIC_RELEASE}}
 
               echo "Running make re-version UTF8LEX_VERSION=${{env.UTF8LEX_RELEASE_VERSION}}"
@@ -263,27 +272,20 @@ jobs:
                       make re-version \
                           BUILD_DIR=../${{env.BUILD_DIR}} \
                           UTF8LEX_VERSION=${{env.UTF8LEX_RELEASE_VERSION}}
-              cp ${{env.BUILD_DIR}}/${{env.LIBRARY_DYNAMIC}} \
-                  /tmp/utf8lex/${{env.LIBRARY_DYNAMIC}}.$DEBIAN_ARCHITECTURE
-              cp ${{env.BUILD_DIR}}/${{env.LIBRARY_STATIC}} \
-                  /tmp/utf8lex/${{env.LIBRARY_STATIC}}.$DEBIAN_ARCHITECTURE
-              cp ${{env.BUILD_DIR}}/${{env.PROGRAM}} \
-                  /tmp/utf8lex/${{env.PROGRAM}}.$DEBIAN_ARCHITECTURE
-          done
 
-          echo "Removing container images from /tmp/utf8lex"
-          rm -rf /tmp/utf8lex/${{env.DEBIAN_IMAGE_BASE}}.$DEBIAN_ARCHITECTURE.*.tar.gz
+              echo "Copying $DEBIAN_ARCHITECTURE files to /tmp/release/"
+              cp ${{env.BUILD_DIR}}/${{env.LIBRARY_DYNAMIC_RELEASE}} \
+                  /tmp/release/${{env.LIBRARY_DYNAMIC_RELEASE}}.$DEBIAN_ARCHITECTURE
+              cp ${{env.BUILD_DIR}}/${{env.LIBRARY_STATIC_RELEASE}} \
+                  /tmp/release/${{env.LIBRARY_STATIC_RELEASE}}.$DEBIAN_ARCHITECTURE
+              cp ${{env.BUILD_DIR}}/${{env.PROGRAM_RELEASE}} \
+                  /tmp/release/${{env.PROGRAM_RELEASE}}.$DEBIAN_ARCHITECTURE
+          done
 
       - id: prepare-source-for-upload
         name: Prepare utf8lex (libraries, executables, ...) for release upload
         run: |
-          echo "Preparing utf8lex assets for release"
-          # Start with a clean /tmp/utf8lex directory:
-          rm -rf /tmp/utf8lex/
-          mkdir -p /tmp/utf8lex/
-          chmod a+rwx /tmp/utf8lex
-          chmod -R a+w /tmp/utf8lex
-
+          echo "Preparing utf8lex source code for release"
           echo "Removing all gitignore directories (build/ etc)"
           for DIR in `cat .gitignore | sed 's| [ ]*#.*$||' | grep -v '^$'`
           do
@@ -291,23 +293,23 @@ jobs:
           done
 
           echo "Copying utf8lex.h for release"
-          cp src/utf8lex.h /tmp/utf8lex/
+          cp src/utf8lex.h /tmp/release/
 
           echo "Bundling up templates for release"
           cd ..
-          tar czf /tmp/utf8lex/utf8lex-templates-${{env.UTF8LEX_RELEASE_VERSION}}.tar.gz \
+          tar czf /tmp/release/utf8lex-templates-${{env.UTF8LEX_RELEASE_VERSION}}.tar.gz \
               --exclude Makefile \
               utf8lex/templates/
-          zip /tmp/utf8lex/utf8lex-templates-${{env.UTF8LEX_RELEASE_VERSION}}.zip \
+          zip /tmp/release/utf8lex-templates-${{env.UTF8LEX_RELEASE_VERSION}}.zip \
               --exclude Makefile \
               utf8lex
           cd utf8lex
 
           echo "Bundling up source for release"
           cd ..
-          tar czf /tmp/utf8lex/utf8lex-${{env.UTF8LEX_RELEASE_VERSION}}.tar.gz \
+          tar czf /tmp/release/utf8lex-${{env.UTF8LEX_RELEASE_VERSION}}.tar.gz \
               utf8lex
-          zip /tmp/utf8lex/utf8lex-${{env.UTF8LEX_RELEASE_VERSION}}.zip \
+          zip /tmp/release/utf8lex-${{env.UTF8LEX_RELEASE_VERSION}}.zip \
               utf8lex
           cd utf8lex
 
@@ -325,7 +327,7 @@ jobs:
             README.md
             LICENSE
             CHANGELOG.md
-            /tmp/utf8lex/*
+            /tmp/release/*
           overwrite_files: true
           name: ${{env.UTF8LEX_RELEASE_TAG}}
           tag_name: ${{env.UTF8LEX_RELEASE_TAG}}
