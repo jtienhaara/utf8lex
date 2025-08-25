@@ -60,24 +60,6 @@ build:
 	cd src \
 	    && make build
 
-clean:
-	cd templates \
-	    && make clean
-	cd src \
-	    && make clean
-	cd tests/unit \
-	    && make clean
-	cd tests/integration \
-	    && make clean
-	cd examples \
-	    && make clean
-
-.PHONY: examples
-examples:
-	cd examples \
-	    && make build \
-	    && make run
-
 .PHONY: test
 test: unit_tests integration_tests
 
@@ -93,8 +75,32 @@ integration_tests:
 	    && make build \
 	    && make run
 
+.PHONY: examples
+examples:
+	cd examples \
+	    && make build \
+	    && make run
+
+.PHONY: re-version
+re-version:
+	cd src \
+	    && make re-version
+
 .PHONY: debug
 debug:
 	cd tests/integration \
 	    && make build \
 	    && make debug
+
+.PHONY: clean
+clean:
+	cd templates \
+	    && make clean
+	cd src \
+	    && make clean
+	cd tests/unit \
+	    && make clean
+	cd tests/integration \
+	    && make clean
+	cd examples \
+	    && make clean
