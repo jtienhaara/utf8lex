@@ -206,7 +206,7 @@ jobs:
         if: steps.container-image-cache-restore.outputs.cache-hit != 'true'
         uses: docker/setup-qemu-action@v3
 
-      - id: re-version
+      - id: re-version-binaries-for-upload
         name: Extract from .a static library, re-version .so dynamic library
         run: |
           echo "utf8lex binaries downloaded from GitHub Packages:"
@@ -263,12 +263,18 @@ jobs:
                       make re-version \
                           BUILD_DIR=../${{env.BUILD_DIR}} \
                           UTF8LEX_VERSION=${{env.UTF8LEX_RELEASE_VERSION}}
+              cp ${{env.BUILD_DIR}}/${{env.LIBRARY_DYNAMIC}} \
+                  /tmp/utf8lex/${{env.LIBRARY_DYNAMIC}}.$DEBIAN_ARCHITECTURE
+              cp ${{env.BUILD_DIR}}/${{env.LIBRARY_STATIC}} \
+                  /tmp/utf8lex/${{env.LIBRARY_STATIC}}.$DEBIAN_ARCHITECTURE
+              cp ${{env.BUILD_DIR}}/${{env.PROGRAM}} \
+                  /tmp/utf8lex/${{env.PROGRAM}}.$DEBIAN_ARCHITECTURE
           done
 
           echo "Removing container images from /tmp/utf8lex"
           rm -rf /tmp/utf8lex/${{env.DEBIAN_IMAGE_BASE}}.$DEBIAN_ARCHITECTURE.*.tar.gz
 
-      - id: prepare-utf8lex-for-upload
+      - id: prepare-source-for-upload
         name: Prepare utf8lex (libraries, executables, ...) for release upload
         run: |
           echo "Preparing utf8lex assets for release"
@@ -278,28 +284,7 @@ jobs:
           chmod a+rwx /tmp/utf8lex
           chmod -R a+w /tmp/utf8lex
 
-          echo "Copying libraries and programs for release"
-          for MATRIX_PLATFORM in \
-              linux/386 \
-              linux/amd64 \
-              linux/arm/v7 \
-              linux/arm64 \
-              linux/mips64le \
-              linux/ppc64le \
-              linux/s390x
-          do
-              echo "MATRIX_PLATFORM=$MATRIX_PLATFORM"
-              DEBIAN_ARCHITECTURE=`./get_debian_architecture.sh "$MATRIX_PLATFORM"`
-              echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE"
-              cp ${{env.BUILD_DIR}}/${{env.LIBRARY_DYNAMIC}} \
-                  /tmp/utf8lex/${{env.LIBRARY_DYNAMIC}}.$DEBIAN_ARCHITECTURE
-              cp ${{env.BUILD_DIR}}/${{env.LIBRARY_STATIC}} \
-                  /tmp/utf8lex/${{env.LIBRARY_STATIC}}.$DEBIAN_ARCHITECTURE
-              cp ${{env.BUILD_DIR}}/${{env.PROGRAM}} \
-                  /tmp/utf8lex/${{env.PROGRAM}}.$DEBIAN_ARCHITECTURE
-          done
-
-          echo "Removing all gitignore directories"
+          echo "Removing all gitignore directories (build/ etc)"
           for DIR in `cat .gitignore | sed 's| [ ]*#.*$||' | grep -v '^$'`
           do
               rm -rf "$DIR"
