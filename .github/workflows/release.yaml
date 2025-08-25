@@ -233,16 +233,16 @@ jobs:
                   ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.$DEBIAN_ARCHITECTURE.${{env.UTF8LEX_RELEASE_VERSION}}.tar.gz
               gunzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.$DEBIAN_ARCHITECTURE.${{env.UTF8LEX_RELEASE_VERSION}}.tar.gz
               DEBIAN_IMAGE=`docker image load \
-                                --input ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{env.UTF8LEX_RELEASE_VERSION}}.tar \
+                                --input ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.$DEBIAN_ARCHITECTURE.${{env.UTF8LEX_RELEASE_VERSION}}.tar \
                                 | grep 'Loaded image:' \
                                 | tail -1 \
                                 | awk '{ print $NF; }'`
               if test -z "$DEBIAN_IMAGE"
               then
-                  echo "ERROR Failed to load Debian builder image ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{env.UTF8LEX_RELEASE_VERSION}}.tar: could not determine image tag" >&2
+                  echo "ERROR Failed to load Debian builder image ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.$DEBIAN_ARCHITECTURE.${{env.UTF8LEX_RELEASE_VERSION}}.tar: could not determine image tag" >&2
                   exit 1
               fi
-              rm ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{env.UTF8LEX_RELEASE_VERSION}}.tar
+              rm ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.$DEBIAN_ARCHITECTURE.${{env.UTF8LEX_RELEASE_VERSION}}.tar
 
               echo "Copying .a into place"
               cp /tmp/utf8lex/${{env.LIBRARY_STATIC_DOWNLOAD}}.$DEBIAN_ARCHITECTURE/${{env.LIBRARY_STATIC_DOWNLOAD}}.$DEBIAN_ARCHITECTURE \
@@ -288,11 +288,11 @@ jobs:
               DEBIAN_ARCHITECTURE=`./get_debian_architecture.sh "$MATRIX_PLATFORM"`
               echo "DEBIAN_ARCHITECTURE=$DEBIAN_ARCHITECTURE"
               cp ${{env.BUILD_DIR}}/${{env.LIBRARY_DYNAMIC}} \
-                  /tmp/utf8lex/${{env.LIBRARY_DYNAMIC}}.${{env.DEBIAN_ARCHITECTURE}}
+                  /tmp/utf8lex/${{env.LIBRARY_DYNAMIC}}.$DEBIAN_ARCHITECTURE
               cp ${{env.BUILD_DIR}}/${{env.LIBRARY_STATIC}} \
-                  /tmp/utf8lex/${{env.LIBRARY_STATIC}}.${{env.DEBIAN_ARCHITECTURE}}
+                  /tmp/utf8lex/${{env.LIBRARY_STATIC}}.$DEBIAN_ARCHITECTURE
               cp ${{env.BUILD_DIR}}/${{env.PROGRAM}} \
-                  /tmp/utf8lex/${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}}
+                  /tmp/utf8lex/${{env.PROGRAM}}.$DEBIAN_ARCHITECTURE
           done
 
           echo "Removing all gitignore directories"
