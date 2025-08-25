@@ -287,8 +287,6 @@ re-version-explode-archive:
 
 .PHONY: re-version
 re-version: re-version-explode-archive $(LIBRARY_DYNAMIC) $(PROGRAM)
-	@echo "Making exploded ar files writable by all"
-	chmod -R a+w $(BUILD_DIR)
 
 .PHONY: clean
 clean:
