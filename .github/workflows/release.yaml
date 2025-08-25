@@ -229,8 +229,9 @@ jobs:
               chmod -R a+w ${{env.BUILD_DIR}}
 
               echo "Loading Docker buider image"
-              cp /tmp/utf8lex/${{env.DEBIAN_IMAGE_BASE}}.$DEBIAN_ARCHITECTURE.*.tar \
-                  ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.$DEBIAN_ARCHITECTURE.${{env.UTF8LEX_RELEASE_VERSION}}.tar
+              cp -i /tmp/utf8lex/utf8lex-debian.$DEBIAN_ARCHITECTURE.*.tar.gz/utf8lex-debian.$DEBIAN_ARCHITECTURE.*.tar.gz \
+                  ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.$DEBIAN_ARCHITECTURE.${{env.UTF8LEX_RELEASE_VERSION}}.tar.gz
+              gunzip ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.$DEBIAN_ARCHITECTURE.${{env.UTF8LEX_RELEASE_VERSION}}.tar.gz
               DEBIAN_IMAGE=`docker image load \
                                 --input ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{env.UTF8LEX_RELEASE_VERSION}}.tar \
                                 | grep 'Loaded image:' \
@@ -244,7 +245,7 @@ jobs:
               rm ${{env.BUILD_DIR}}/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{env.UTF8LEX_RELEASE_VERSION}}.tar
 
               echo "Copying .a into place"
-              cp /tmp/utf8lex/${{env.LIBRARY_STATIC_DOWNLOAD}}
+              cp /tmp/utf8lex/${{env.LIBRARY_STATIC_DOWNLOAD}}.$DEBIAN_ARCHITECTURE/${{env.LIBRARY_STATIC_DOWNLOAD}}.$DEBIAN_ARCHITECTURE \
                   ${{env.BUILD_DIR}}/${{env.LIBRARY_STATIC_RELEASE}}
 
               echo "Running make re-version UTF8LEX_VERSION=${{env.UTF8LEX_RELEASE_VERSION}}"
@@ -262,15 +263,17 @@ jobs:
                           UTF8LEX_VERSION=${{env.UTF8LEX_RELEASE_VERSION}}
           done
 
-          echo "Removing container images /tmp/utf8lex/${{env.DEBIAN_IMAGE_BASE}}.$DEBIAN_ARCHITECTURE.*.tar"
-          rm /tmp/utf8lex/${{env.DEBIAN_IMAGE_BASE}}.$DEBIAN_ARCHITECTURE.*.tar
+          echo "Removing container images from /tmp/utf8lex"
+          rm -rf /tmp/utf8lex/${{env.DEBIAN_IMAGE_BASE}}.$DEBIAN_ARCHITECTURE.*.tar.gz
 
       - id: prepare-utf8lex-for-upload
         name: Prepare utf8lex (libraries, executables, ...) for release upload
         run: |
           echo "Preparing utf8lex assets for release"
+          # Start with a clean /tmp/utf8lex directory:
           rm -rf /tmp/utf8lex/
           mkdir -p /tmp/utf8lex/
+
           echo "Copying libraries and programs for release"
           for MATRIX_PLATFORM in \
               linux/386 \
@@ -291,13 +294,16 @@ jobs:
               cp ${{env.BUILD_DIR}}/${{env.PROGRAM}} \
                   /tmp/utf8lex/${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}}
           done
+
           echo "Removing all gitignore directories"
           for DIR in `cat .gitignore | sed 's| [ ]*#.*$||' | grep -v '^$'`
           do
               rm -rf "$DIR"
           done
+
           echo "Copying utf8lex.h for release"
           cp src/utf8lex.h /tmp/utf8lex/
+
           echo "Bundling up templates for release"
           cd ..
           tar czf /tmp/utf8lex/utf8lex-templates-${{env.UTF8LEX_RELEASE_VERSION}}.tar.gz \
@@ -307,6 +313,7 @@ jobs:
               --exclude Makefile \
               utf8lex
           cd utf8lex
+
           echo "Bundling up source for release"
           cd ..
           tar czf /tmp/utf8lex/utf8lex-${{env.UTF8LEX_RELEASE_VERSION}}.tar.gz \
