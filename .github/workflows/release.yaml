@@ -274,12 +274,16 @@ jobs:
                           UTF8LEX_VERSION=${{env.UTF8LEX_RELEASE_VERSION}}
 
               echo "Copying $DEBIAN_ARCHITECTURE files to /tmp/release/"
+              echo "- ${{env.LIBRARY_DYNAMIC_RELEASE}}"
               cp ${{env.BUILD_DIR}}/${{env.LIBRARY_DYNAMIC_RELEASE}} \
                   /tmp/release/${{env.LIBRARY_DYNAMIC_RELEASE}}.$DEBIAN_ARCHITECTURE
+              echo "- ${{env.LIBRARY_STATIC_RELEASE}}"
               cp ${{env.BUILD_DIR}}/${{env.LIBRARY_STATIC_RELEASE}} \
                   /tmp/release/${{env.LIBRARY_STATIC_RELEASE}}.$DEBIAN_ARCHITECTURE
+              echo "${{env.PROGRAM_RELEASE}}"
               cp ${{env.BUILD_DIR}}/${{env.PROGRAM_RELEASE}} \
                   /tmp/release/${{env.PROGRAM_RELEASE}}.$DEBIAN_ARCHITECTURE
+              echo "SUCCESS Copying $DEBIAN_ARCHITECTURE files to /tmp/release/"
           done
 
       - id: prepare-source-for-upload
