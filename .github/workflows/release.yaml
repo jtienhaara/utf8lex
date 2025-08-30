@@ -154,8 +154,7 @@ jobs:
           rm -rf /tmp/release_notes.md
           echo "# ${{env.UTF8LEX_RELEASE_VERSION}}" \
               >> /tmp/release_notes.md
-          RELEASE_DATE=`date --utc '+%Y-%m-%d'`
-          echo "Date: $RELEASE_DATE" \
+          echo "Date: ${{ steps.query-release-info.outputs.release-date }}" \
               >> /tmp/release_notes.md
           echo "${{ steps.query-release-info.outputs.release-notes }}" \
               >> /tmp/release_notes.md

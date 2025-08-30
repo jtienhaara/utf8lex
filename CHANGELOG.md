@@ -41,7 +41,7 @@ Types of changes:
 
 ## [Unreleased]
 
-## [0.0.1]
+## [0.0.1] - 2025-08-30
 
 ### Added
 - First crack at utf8lex by @jtienhaara
