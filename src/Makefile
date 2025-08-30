@@ -194,7 +194,8 @@ $(LIBRARY_STATIC): $(GENERATED_OBJECT_FILES) $(OBJECT_FILES) check_source_files_
 	    done
 	cd $(BUILD_DIR)/libutf8proc \
 	    && $(LDSTATIC_EXTRACT) $(LDSTATIC_EXTRACT_FLAGS) libutf8proc.a \
-	    && rm libutf8proc.a
+	    && rm libutf8proc.a \
+	    && chmod -R a+rw .
 	cd "$(ORIGINAL_DIR)"
 	for LIBPCRE2 in `find /usr/lib -type f -name 'libpcre2-8.a'` ; \
 	    do \
