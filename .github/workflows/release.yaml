@@ -304,6 +304,9 @@ jobs:
                   /tmp/release/${{env.PROGRAM_RELEASE}}.$DEBIAN_ARCHITECTURE
               echo "SUCCESS Copying $DEBIAN_ARCHITECTURE files to /tmp/release/"
 
+              echo "chown so packer:packer doesn't own the ${{env.BUILD_DIR}}:"
+              chown -R `id -n -u`:`id -n -g` ${{env.BUILD_DIR}}/
+
               echo '!!! FIND ' "${{env.BUILD_DIR}}:"
               find "${{env.BUILD_DIR}}" -type d -exec ls -lad '{}' ';'
               find "${{env.BUILD_DIR}}" -type f -exec ls -lad '{}' ';'
