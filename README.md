@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/github/license/jtienhaara/utf8lex)](https://github.com/jtienhaara/utf8lex/blob/main/LICENSE)
 
 ![C](https://img.shields.io/badge/c-%2300599C.svg?style=for-the-badge&logo=c&logoColor=white)
-![Valgrind](https://img.shields.io/badge/Valgrind-006094?style=flat-square)
+![Valgrind](https://img.shields.io/badge/Valgrind-006094?style=for-the-badge)
 ![Debian](https://img.shields.io/badge/Debian-D70A53?style=for-the-badge&logo=debian&logoColor=white)
 
 

@@ -299,8 +299,8 @@ jobs:
               echo "SUCCESS Copying $DEBIAN_ARCHITECTURE files to /tmp/release/"
 
               echo '!!! FIND ' "${{env.BUILD_DIR}}:"
-              find "${{env.BUILD_DIR}}:" -type d -exec ls -lad '{}' ';'
-              find "${{env.BUILD_DIR}}:" -type f -exec ls -lad '{}' ';'
+              find "${{env.BUILD_DIR}}" -type d -exec ls -lad '{}' ';'
+              find "${{env.BUILD_DIR}}" -type f -exec ls -lad '{}' ';'
 
               echo "Removing build directory"
               rm -rf ${{env.BUILD_DIR}}
