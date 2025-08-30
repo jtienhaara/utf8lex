@@ -271,11 +271,7 @@ jobs:
                   ${{env.BUILD_DIR}}/${{env.LIBRARY_STATIC_RELEASE}}
 
               echo "Making sure ${{env.BUILD_DIR}}/libutf8lex exists and is a+rwx"
-              mkdir -p ${{env.BUILD_DIR}}/libutf8lex
-              chmod a+rwx ${{env.BUILD_DIR}}/libutf8lex
               chmod -R a+w ${{env.BUILD_DIR}}
-
-              echo '!!!' && ls -lad ${{env.BUILD_DIR}}/libutf8lex/
 
               echo "Running make re-version UTF8LEX_VERSION=${{env.UTF8LEX_RELEASE_VERSION}}"
               #
@@ -304,14 +300,8 @@ jobs:
                   /tmp/release/${{env.PROGRAM_RELEASE}}.$DEBIAN_ARCHITECTURE
               echo "SUCCESS Copying $DEBIAN_ARCHITECTURE files to /tmp/release/"
 
-              echo '!!!' && lsattr ${{env.BUILD_DIR}}/libutf8lex
-
               echo "chown so packer:packer doesn't own the ${{env.BUILD_DIR}}:"
               sudo chown -R `id -n -u`:`id -n -g` ${{env.BUILD_DIR}}/
-
-              echo '!!! FIND ' "${{env.BUILD_DIR}}:"
-              find "${{env.BUILD_DIR}}" -type d -exec ls -lad '{}' ';'
-              find "${{env.BUILD_DIR}}" -type f -exec ls -lad '{}' ';'
 
               echo "Removing build directory"
               sudo rm -rf ${{env.BUILD_DIR}}
@@ -338,8 +328,8 @@ jobs:
               --exclude Makefile \
               utf8lex/templates/
           zip /tmp/release/utf8lex-templates-${{env.UTF8LEX_RELEASE_VERSION}}.zip \
-              --exclude Makefile \
-              utf8lex
+              utf8lex \
+              --exclude Makefile
           cd utf8lex
 
           echo "Bundling up source for release"

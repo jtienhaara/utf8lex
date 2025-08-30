@@ -193,10 +193,8 @@ $(LIBRARY_STATIC): $(GENERATED_OBJECT_FILES) $(OBJECT_FILES) check_source_files_
 	        && cp "$$LIBUTF8PROC" $(BUILD_DIR)/libutf8proc/ ; \
 	    done
 	cd $(BUILD_DIR)/libutf8proc \
-	    && chmod -R a+rw . \
 	    && $(LDSTATIC_EXTRACT) $(LDSTATIC_EXTRACT_FLAGS) libutf8proc.a \
-	    && rm libutf8proc.a \
-	    && chmod -R a+rw .
+	    && rm libutf8proc.a
 	cd "$(ORIGINAL_DIR)"
 	for LIBPCRE2 in `find /usr/lib -type f -name 'libpcre2-8.a'` ; \
 	    do \
