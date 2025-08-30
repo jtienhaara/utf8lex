@@ -17,8 +17,8 @@
  *       BSD license
  *
  * This generated file is licensed according to the source code with which
- * it is distributed.  The template files from which this file derives
- * are public domain.
+ * it is distributed.  The template files (from which this generated file
+ * derives) are public domain.
  */
 #include <stdio.h>
 #include <string.h>  // For strlen(), strcpy(), strcat, strncpy

@@ -154,7 +154,8 @@ jobs:
           rm -rf /tmp/release_notes.md
           echo "# ${{env.UTF8LEX_RELEASE_VERSION}}" \
               >> /tmp/release_notes.md
-          echo "Date: {{ steps.query-release-info.outputs.release-date }}" \
+          RELEASE_DATE=`date --utc '+%Y-%m-%d'`
+          echo "Date: $RELEASE_DATE" \
               >> /tmp/release_notes.md
           echo "${{ steps.query-release-info.outputs.release-notes }}" \
               >> /tmp/release_notes.md
@@ -325,19 +326,22 @@ jobs:
           echo "Bundling up templates for release"
           cd ..
           tar czf /tmp/release/utf8lex-templates-${{env.UTF8LEX_RELEASE_VERSION}}.tar.gz \
-              --exclude Makefile \
+              --exclude utf8lex/templates/Makefile \
               utf8lex/templates/
-          zip /tmp/release/utf8lex-templates-${{env.UTF8LEX_RELEASE_VERSION}}.zip \
-              utf8lex \
-              --exclude Makefile
+          zip -r /tmp/release/utf8lex-templates-${{env.UTF8LEX_RELEASE_VERSION}}.zip \
+              utf8lex/templates/ \
+              --exclude utf8lex/templates/Makefile \
           cd utf8lex
 
-          echo "Bundling up source for release"
+          echo "Bundling up source code for release"
           cd ..
           tar czf /tmp/release/utf8lex-${{env.UTF8LEX_RELEASE_VERSION}}.tar.gz \
+              --exclude utf8lex/.git/ \
               utf8lex
-          zip /tmp/release/utf8lex-${{env.UTF8LEX_RELEASE_VERSION}}.zip \
-              utf8lex
+          zip -r /tmp/release/utf8lex-${{env.UTF8LEX_RELEASE_VERSION}}.zip \
+              utf8lex/* \
+              utf8lex/.gitignore \
+              utf8lex/.github/
           cd utf8lex
 
       #
@@ -356,7 +360,7 @@ jobs:
             CHANGELOG.md
             /tmp/release/*
           overwrite_files: true
-          name: ${{env.UTF8LEX_RELEASE_TAG}}
+          name: ${{env.UTF8LEX_RELEASE_VERSION}}
           tag_name: ${{env.UTF8LEX_RELEASE_TAG}}
           fail_on_unmatched_files: true
           # repository	String	Name of a target repository in <owner>/<repo> format. Defaults to GITHUB_REPOSITORY env variable

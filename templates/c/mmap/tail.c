@@ -377,5 +377,6 @@ utf8lex_error_t yylex_end()
  *       BSD license
  *
  * This generated file is licensed according to the source code with which
- * it is distributed.
+ * it is distributed.  The template files (from which this generated file
+ * derives) are public domain.
  */

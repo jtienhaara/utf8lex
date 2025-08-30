@@ -41,6 +41,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.0.1]
+
 ### Added
 - First crack at utf8lex by @jtienhaara
 - Data structures for lexical analysis of UTF-8 documents.
