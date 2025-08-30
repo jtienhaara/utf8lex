@@ -269,6 +269,11 @@ build: check_generated_source_files \
 #
 .PHONY: re-version-explode-archive
 re-version-explode-archive:
+	@if test -z "$(UTF8LEX_VERSION)" ; \
+	then \
+	    echo "ERROR Cannot re-version to UTF8LEX_VERSION='$(UTF8LEX_VERSION)'" >&2 ; \
+	    exit 1; \
+	fi
 	@echo "Exploding archive to re-version $(UTF8LEX_VERSION)..."
 	@if test ! -f "$(LIBRARY_STATIC)"; \
 	then \

@@ -283,7 +283,7 @@ jobs:
                       --volume `pwd`/${{env.BUILD_DIR}}:/utf8lex/${{env.BUILD_DIR}}:rw \
                       "$DEBIAN_IMAGE" \
                       make re-version \
-                          BUILD_DIR=../${{env.BUILD_DIR}} \
+                          BUILD_DIR=/utf8lex/${{env.BUILD_DIR}} \
                           UTF8LEX_VERSION=${{env.UTF8LEX_RELEASE_VERSION}}
 
               echo "Copying $DEBIAN_ARCHITECTURE files to /tmp/release/"
@@ -297,6 +297,10 @@ jobs:
               cp ${{env.BUILD_DIR}}/${{env.PROGRAM_RELEASE}} \
                   /tmp/release/${{env.PROGRAM_RELEASE}}.$DEBIAN_ARCHITECTURE
               echo "SUCCESS Copying $DEBIAN_ARCHITECTURE files to /tmp/release/"
+
+              echo '!!! FIND ' "${{env.BUILD_DIR}}:"
+              find "${{env.BUILD_DIR}}:" -type d -exec ls -lad '{}' ';'
+              find "${{env.BUILD_DIR}}:" -type f -exec ls -lad '{}' ';'
 
               echo "Removing build directory"
               rm -rf ${{env.BUILD_DIR}}

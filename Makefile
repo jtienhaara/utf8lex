@@ -41,6 +41,15 @@ debian-container: build-debian-container
 	    utf8lex-debian:latest \
 	    bash -c 'make clean && make all'
 
+.PHONY: debian-container-re-version
+debian-container-re-version: build-debian-container
+	docker run \
+	    --rm \
+	    --env UTF8LEX_VERSION=$$UTF8LEX_VERSION \
+	    --volume `pwd`:/utf8lex:rw \
+	    utf8lex-debian:latest \
+	    bash -c 'make re-version'
+
 .PHONY: debian-container-debug
 debian-container-debug: build-debian-container
 	docker run \

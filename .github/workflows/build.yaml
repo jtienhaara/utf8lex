@@ -232,7 +232,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
-          path: /tmp/builder/
+          path: /tmp/builder/${{env.DEBIAN_IMAGE_BASE}}.${{env.DEBIAN_ARCHITECTURE}}.${{ hashFiles('debian.Dockerfile', 'get_debian_architecture.sh', 'get_valgrind_platform.sh') }}.tar.gz
           if-no-files-found: error
           retention-days: 1
   # --------------------------------------------------------------------
@@ -365,7 +365,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{env.LIBRARY_DYNAMIC}}.${{env.DEBIAN_ARCHITECTURE}}
-          path: /tmp/utf8lex/
+          path: /tmp/utf8lex/${{env.LIBRARY_DYNAMIC}}.${{env.DEBIAN_ARCHITECTURE}}
           if-no-files-found: error
           retention-days: 1
 
@@ -374,7 +374,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{env.LIBRARY_STATIC}}.${{env.DEBIAN_ARCHITECTURE}}
-          path: /tmp/utf8lex/
+          path: /tmp/utf8lex/${{env.LIBRARY_STATIC}}.${{env.DEBIAN_ARCHITECTURE}}
           if-no-files-found: error
           retention-days: 1
 
@@ -383,7 +383,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}}
-          path: /tmp/utf8lex/
+          path: /tmp/utf8lex/${{env.PROGRAM}}.${{env.DEBIAN_ARCHITECTURE}}
           if-no-files-found: error
           retention-days: 1
   # --------------------------------------------------------------------
