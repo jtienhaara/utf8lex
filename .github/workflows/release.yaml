@@ -269,7 +269,13 @@ jobs:
               echo "Copying .a to ${{env.LIBRARY_STATIC_RELEASE}}"
               cp /tmp/download/${{env.LIBRARY_STATIC_DOWNLOAD}}.$DEBIAN_ARCHITECTURE/${{env.LIBRARY_STATIC_DOWNLOAD}}.$DEBIAN_ARCHITECTURE \
                   ${{env.BUILD_DIR}}/${{env.LIBRARY_STATIC_RELEASE}}
+
+              echo "Making sure ${{env.BUILD_DIR}}/libutf8lex exists and is a+rwx"
+              mkdir -p ${{env.BUILD_DIR}}/libutf8lex
+              chmod a+rwx ${{env.BUILD_DIR}}/libutf8lex
               chmod -R a+w ${{env.BUILD_DIR}}
+
+              echo '!!!' && ls -lad ${{env.BUILD_DIR}}/libutf8lex/
 
               echo "Running make re-version UTF8LEX_VERSION=${{env.UTF8LEX_RELEASE_VERSION}}"
               #

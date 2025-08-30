@@ -193,6 +193,7 @@ $(LIBRARY_STATIC): $(GENERATED_OBJECT_FILES) $(OBJECT_FILES) check_source_files_
 	        && cp "$$LIBUTF8PROC" $(BUILD_DIR)/libutf8proc/ ; \
 	    done
 	cd $(BUILD_DIR)/libutf8proc \
+	    && chmod -R a+rw . \
 	    && $(LDSTATIC_EXTRACT) $(LDSTATIC_EXTRACT_FLAGS) libutf8proc.a \
 	    && rm libutf8proc.a \
 	    && chmod -R a+rw .
