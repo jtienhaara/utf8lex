@@ -223,7 +223,7 @@ for example, for the tools and libraries used to build `utf8lex`.
 |               | SPDX-License-Identifier: | Unicode-DFS-2016	               |
 | pcre2         | SPDX-License-Identifier: | BSD-3-Clause WITH PCRE2-exception |
 
-[utf8proce LICENSE.md](https://github.com/JuliaStrings/utf8proc/blob/master/LICENSE.md)
+[utf8proc LICENSE.md](https://github.com/JuliaStrings/utf8proc/blob/master/LICENSE.md)
 
 [pcre2 LICENSE.md](https://github.com/PCRE2Project/pcre2/blob/master/LICENCE.md)
 

@@ -31,7 +31,8 @@ static utf8lex_error_t test_utf8lex_generate_c_mmap(
         unsigned char *template_dir,
         unsigned char *generated_dir,
         unsigned char *name,
-        utf8lex_state_t *state
+        utf8lex_settings_t *settings,  // Already initialized.
+        utf8lex_state_t *state         // Will be initialized.
         )
 {
   if (lex_dir == NULL
@@ -81,6 +82,7 @@ static utf8lex_error_t test_utf8lex_generate_c_mmap(
       lex_path,  // lex_file_path
       template_dir,  // template_dir_path
       generated_path,  // generated_file_path
+      settings,  // settings
       state);  // state
   if (error != UTF8LEX_OK)
   {
@@ -96,7 +98,8 @@ static utf8lex_error_t test_utf8lex_generate(
         unsigned char *template_dir,
         unsigned char *generated_dir,
         unsigned char *name,
-        utf8lex_state_t *state
+        utf8lex_settings_t *settings,  // Already initialized.
+        utf8lex_state_t *state         // Will be initialized.
         )
 {
   if (lex_dir == NULL
@@ -116,6 +119,7 @@ static utf8lex_error_t test_utf8lex_generate(
               template_dir,
               generated_dir,
               name,
+              settings,
               state);
   if (error != UTF8LEX_OK)
   {
@@ -157,12 +161,17 @@ int main(
   unsigned char *generated_dir = (unsigned char *) argv[3];
   unsigned char *name = (unsigned char *) argv[4];
 
+  utf8lex_settings_t settings;
+  utf8lex_settings_init_defaults(&settings);
+
   utf8lex_state_t state;
   state.buffer = NULL;
+
   utf8lex_error_t error = test_utf8lex_generate(lex_dir,
                                                 template_dir,
                                                 generated_dir,
                                                 name,
+                                                &settings,
                                                 &state);
   if (error == UTF8LEX_OK)
   {

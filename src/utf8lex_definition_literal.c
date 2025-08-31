@@ -82,6 +82,7 @@ utf8lex_error_t utf8lex_literal_definition_init(
                       true);         // is_eof
   utf8lex_state_t state;
   utf8lex_state_init(&state,         // self
+                     NULL,           // Temporary state with default settings.
                      &buffer);       // buffer
   for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
        unit < UTF8LEX_UNIT_MAX;

@@ -339,8 +339,8 @@ jobs:
               utf8lex
           zip -r /tmp/release/utf8lex-${{env.UTF8LEX_RELEASE_VERSION}}.zip \
               utf8lex/* \
-              utf8lex/.gitignore \
-              utf8lex/.github/
+              utf8lex/.github/ \
+              utf8lex/.gitignore
           cd utf8lex
 
       #

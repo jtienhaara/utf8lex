@@ -225,11 +225,13 @@ utf8lex_error_t utf8lex_error_string(
     return UTF8LEX_ERROR_BAD_ERROR;
   }
 
+  str->length_bytes = num_bytes_written;
+
   if (num_bytes_written >= str->max_length_bytes)
   {
     // The error string was truncated.
     UTF8LEX_DEBUG("EXIT utf8lex_error_string()");
-    return UTF8LEX_ERROR_BAD_LENGTH;
+    return UTF8LEX_MORE;
   }
 
   UTF8LEX_DEBUG("EXIT utf8lex_error_string()");

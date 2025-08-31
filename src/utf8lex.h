@@ -45,6 +45,7 @@ typedef enum _ENUM_utf8lex_printable_flag       utf8lex_printable_flag_t;
 typedef struct _STRUCT_utf8lex_reference        utf8lex_reference_t;
 typedef struct _STRUCT_utf8lex_regex_definition utf8lex_regex_definition_t;
 typedef struct _STRUCT_utf8lex_rule             utf8lex_rule_t;
+typedef struct _STRUCT_utf8lex_settings         utf8lex_settings_t;
 typedef struct _STRUCT_utf8lex_state            utf8lex_state_t;
 typedef struct _STRUCT_utf8lex_string           utf8lex_string_t;
 typedef struct _STRUCT_utf8lex_sub_token        utf8lex_sub_token_t;
@@ -866,10 +867,37 @@ extern utf8lex_error_t utf8lex_sub_token_cat_string(
         size_t max_bytes);
 
 
+struct _STRUCT_utf8lex_settings
+{
+  unsigned char *input_filename;  // or NULL.
+  unsigned char *output_filename;  // or NULL.
+  bool is_tracing;  // Trace through the lexical definitions and rules?
+};
+
+extern utf8lex_error_t utf8lex_settings_init(
+        utf8lex_settings_t *self,
+        unsigned char *input_filename,  // or NULL.
+        unsigned char *output_filename,  // or NULL.
+        bool is_tracing
+        );
+extern utf8lex_error_t utf8lex_settings_init_defaults(
+        utf8lex_settings_t *self
+        );
+extern utf8lex_error_t utf8lex_settings_copy(
+        utf8lex_settings_t *from,
+        utf8lex_settings_t *to
+        );
+extern utf8lex_error_t utf8lex_settings_clear(
+        utf8lex_settings_t *self
+        );
+
+
 struct _STRUCT_utf8lex_state
 {
   utf8lex_buffer_t *buffer;  // Current buffer being lexed.
   utf8lex_location_t loc[UTF8LEX_UNIT_MAX];  // Current location within buffer.
+
+  utf8lex_settings_t settings;  // Such as output file, tracing, etc.
 
   // Tokens matching multi-definitions have component sub-tokens
   // matching the children of the multi-definition.
@@ -880,6 +908,7 @@ struct _STRUCT_utf8lex_state
 
 extern utf8lex_error_t utf8lex_state_init(
         utf8lex_state_t *self,
+        utf8lex_settings_t *settings,  // Can be NULL to set defaults.
         utf8lex_buffer_t *buffer
         );
 extern utf8lex_error_t utf8lex_state_clear(
@@ -930,6 +959,7 @@ extern utf8lex_error_t utf8lex_generate(
         unsigned char *lex_file_path,
         unsigned char *template_dir_path,
         unsigned char *generated_file_path,
+        utf8lex_settings_t *settings,   // Already initialized.
         utf8lex_state_t *state_pointer  // Will be initialized.
         );
 

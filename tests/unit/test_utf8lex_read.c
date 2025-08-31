@@ -56,7 +56,8 @@ static utf8lex_error_t test_utf8lex_init_state(
                               true);  // is_eof
   if (error != UTF8LEX_OK) { return error; }
 
-  error = utf8lex_state_init(state,  // self
+  error = utf8lex_state_init(state,    // self
+                             NULL,     // settings
                              buffer);  // buffer
   if (error != UTF8LEX_OK) { return error; }
 

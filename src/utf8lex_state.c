@@ -70,6 +70,7 @@ utf8lex_error_t utf8lex_state_string(
 
 utf8lex_error_t utf8lex_state_init(
         utf8lex_state_t *self,
+        utf8lex_settings_t *settings,
         utf8lex_buffer_t *buffer
         )
 {
@@ -80,6 +81,17 @@ utf8lex_error_t utf8lex_state_init(
   {
     UTF8LEX_DEBUG("EXIT utf8lex_state_init()");
     return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  if (settings == NULL)
+  {
+    utf8lex_settings_init_defaults(&(self->settings));
+  }
+  else
+  {
+    utf8lex_settings_copy(
+        settings,            // from
+        &(self->settings));  // to
   }
 
   self->buffer = buffer;

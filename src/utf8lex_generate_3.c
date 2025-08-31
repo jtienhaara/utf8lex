@@ -2243,6 +2243,7 @@ UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rule_callbacks()");
 
 static utf8lex_error_t utf8lex_generate_parse(
         const utf8lex_target_language_t *target_language,
+        utf8lex_settings_t *settings,
         utf8lex_state_t *state_pointer,
         utf8lex_buffer_t *lex_file,
         int fd_out
@@ -2252,6 +2253,7 @@ static utf8lex_error_t utf8lex_generate_parse(
 
   int i = 5;
   if (target_language == NULL
+      || settings == NULL
       || state_pointer == NULL)
   {
     fprintf(stderr, "ERROR 257 in utf8lex_generate_parse() [%d.%d]: UTF8LEX_ERROR_NULL_POINTER\n", /* line */ 0, /* char */ 0);
@@ -2281,7 +2283,10 @@ static utf8lex_error_t utf8lex_generate_parse(
   }
 
   // Get the .l file lexer state set up:
-  error = utf8lex_state_init(state_pointer, lex_file);
+  error = utf8lex_state_init(
+              state_pointer,  // self
+              settings,       // settings
+              lex_file);      // buffer
   if (error != UTF8LEX_OK)
   {
     UTF8LEX_DEBUG("EXIT utf8lex_generate_parse()");
@@ -2864,6 +2869,7 @@ utf8lex_error_t utf8lex_generate(
         unsigned char *lex_file_path,
         unsigned char *template_dir_path,
         unsigned char *generated_file_path,
+        utf8lex_settings_t *settings,   // Already initialized.
         utf8lex_state_t *state_pointer  // Will be initialized.
         )
 {
@@ -3045,6 +3051,7 @@ utf8lex_error_t utf8lex_generate(
   }
 
   error = utf8lex_generate_parse(target_language,
+                                 settings,       // Already initialized.
                                  state_pointer,  // Will be initialized.
                                  &lex_file_buffer,
                                  fd_out);

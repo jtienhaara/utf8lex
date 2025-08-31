@@ -46,7 +46,8 @@ static utf8lex_error_t yylex_from_template(
         unsigned char *lex_dir,
         unsigned char *template_dir,
         unsigned char *generated_dir,
-        unsigned char *name
+        unsigned char *name,
+        utf8lex_settings_t *settings
         )
 {
   UTF8LEX_DEBUG("ENTER yylex_from_template()");
@@ -54,7 +55,8 @@ static utf8lex_error_t yylex_from_template(
   if (lex_dir == NULL
       || template_dir == NULL
       || generated_dir == NULL
-      || name == NULL)
+      || name == NULL
+      || settings == NULL)
   {
     UTF8LEX_DEBUG("EXIT yylex_from_template()");
     return UTF8LEX_ERROR_NULL_POINTER;
@@ -98,10 +100,11 @@ static utf8lex_error_t yylex_from_template(
 
   error = utf8lex_generate(
       TARGET_LANGUAGE_C,  // target_language
-      lex_path,  // lex_file_path
-      template_dir,  // template_dir_path
-      generated_path,  // generated_file_path
-      &state);  // state
+      lex_path,           // lex_file_path
+      template_dir,       // template_dir_path
+      generated_path,     // generated_file_path
+      settings,           // settings
+      &state);            // state
 
   if (error != UTF8LEX_OK)
   {
@@ -155,7 +158,8 @@ static utf8lex_error_t yylex_from_template(
 
 
 static utf8lex_error_t yylex(
-        unsigned char *source_l_file
+        unsigned char *source_l_file,
+        utf8lex_settings_t *settings
         )
 {
   UTF8LEX_DEBUG("ENTER yylex()");
@@ -166,7 +170,7 @@ static utf8lex_error_t yylex(
   unsigned char separator = '/';
   unsigned char dot = '.';
   unsigned char *lex_dir = source_l_file;
-  unsigned char *template_dir = "/utf8lex/templates/c/mmap";  // TODO no templates
+  unsigned char *template_dir = "/utf8lex/templates/c/mmap";
   unsigned char *generated_dir = lex_dir;
   unsigned char *name = NULL;
   unsigned char *search = (unsigned char *)
@@ -244,7 +248,8 @@ static utf8lex_error_t yylex(
               lex_dir,
               template_dir,
               generated_dir,
-              name);
+              name,
+              settings);
   if (error != UTF8LEX_OK)
   {
     UTF8LEX_DEBUG("EXIT yylex()");
@@ -258,26 +263,63 @@ static utf8lex_error_t yylex(
 
 int main(
         int argc,
-        char *argv[]
+        unsigned char *argv[]
         )
 {
   UTF8LEX_DEBUG("ENTER main()");
 
-  if (argc != 2)
+  utf8lex_settings_t settings;
+  utf8lex_settings_init(&settings,    // self
+                        NULL,         // input_filename
+                        NULL,         // output_filename
+                        false);       // is_tracing
+
+  
+  unsigned char *source_l_file = NULL;
+  for (int a = 1; a < argc; a ++)
   {
-    fprintf(stderr, "Usage: %s (lex-file)\n",
+    if (a == (argc - 1))
+    {
+      source_l_file = argv[a];
+      settings.input_filename = source_l_file;
+    }
+    else if (strcmp("--output", argv[a]) == 0)
+    {
+      settings.output_filename = argv[a + 1];
+      a ++;  // Can consume the input_filename, which will lead to error/usage.
+    }
+    else if (strcmp("--tracing", argv[a]) == 0)
+    {
+      settings.is_tracing = true;
+    }
+    else
+    {
+      fprintf(stderr, "ERROR Unrecognized option: '%s'.\n", argv[a]);
+    }
+  }
+
+  if (source_l_file == NULL)
+  {
+    fprintf(stderr, "Usage: %s (option)... (lex-file)\n",
             argv[0]);
+    fprintf(stderr, "\n");
+    fprintf(stderr, "(option):\n");
+    fprintf(stderr, "    --output (filename):\n");
+    fprintf(stderr, "        Specifies the path to the .c file to generate.\n");
+    fprintf(stderr, "    --tracing:\n");
+    fprintf(stderr, "        Enables stdout tracing through definitions and rules.\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "(lex-file):\n");
     fprintf(stderr, "    Full path to the .l file to source.\n");
-    fprintf(stderr, "    A .c file will be generated in the same directory.\n");
+    fprintf(stderr, "    A .c file will be generated in the same directory,\n");
+    fprintf(stderr, "    or at the path specified by --output (filename).\n");
     UTF8LEX_DEBUG("EXIT main()");
     return 1;
   }
 
-  unsigned char *source_l_file = argv[1];
+  utf8lex_error_t error = yylex(source_l_file, &settings);
 
-  utf8lex_error_t error = yylex(source_l_file);
+  utf8lex_settings_clear(&settings);  // self
 
   if (error == UTF8LEX_OK)
   {

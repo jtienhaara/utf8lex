@@ -148,6 +148,34 @@ static utf8lex_error_t yylex_print_error(
 
 
 // =====================================================================
+// Settings for lexing.
+// (If not called, defaults will be used.)
+// ---------------------------------------------------------------------
+utf8lex_error_t yylex_settings(
+        utf8lex_settings_t *settings
+        )
+{
+  if (settings == NULL)
+  {
+    return yylex_print_error(UTF8LEX_ERROR_NULL_POINTER);
+  }
+
+  utf8lex_error_t error = utf8lex_settings_copy(
+        settings,       // from
+        &YY_SETTINGS);  // to
+
+  if (error != UTF8LEX_OK)
+  {
+    return yylex_print_error(error);
+  }
+
+  YY_IS_SETTINGS_INITIALIZED = true;
+
+  return UTF8LEX_OK;
+}
+
+
+// =====================================================================
 // Begin lexing.
 // ---------------------------------------------------------------------
 utf8lex_error_t yylex_start(
@@ -183,9 +211,19 @@ utf8lex_error_t yylex_start(
     return yylex_print_error(error);
   }
 
+  if (YY_IS_SETTINGS_INITIALIZED != true)
+  {
+    utf8lex_settings_init(
+        &YY_SETTINGS,  // self
+        path,          // input_filename
+        NULL,          // output_filename
+        false);        // is_tracing
+  }
+
   // Initialize the lexing state:
-  error = utf8lex_state_init(&YY_STATE,  // self
-                             &YY_BUFFER);  // buffer
+  error = utf8lex_state_init(&YY_STATE,     // self
+                             &YY_SETTINGS,  // settings
+                             &YY_BUFFER);   // buffer
   if (error != UTF8LEX_OK)
   {
     return yylex_print_error(error);

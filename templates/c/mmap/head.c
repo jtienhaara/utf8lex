@@ -21,6 +21,7 @@
  * derives) are public domain.
  */
 #include <stdio.h>
+#include <stdbool.h>  // for bool, true, false
 #include <string.h>  // For strlen(), strcpy(), strcat, strncpy
 
 #include "utf8lex.h"
@@ -30,6 +31,8 @@ static utf8lex_definition_t *YY_FIRST_DEFINITION = NULL;
 static utf8lex_rule_t *YY_FIRST_RULE = NULL;
 
 // Runtime variables (non-thread-safe, of course):
+static bool YY_IS_SETTINGS_INITIALIZED = false;
+static utf8lex_settings_t YY_SETTINGS;
 static utf8lex_state_t YY_STATE;
 static utf8lex_buffer_t YY_BUFFER;
 static utf8lex_string_t YY_STRING;

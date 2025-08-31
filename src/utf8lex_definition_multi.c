@@ -560,8 +560,9 @@ static utf8lex_error_t utf8lex_lex_multi(
                                               NULL,  // prev
                                               state->buffer->str,  // str
                                               state->buffer->is_eof);  // is_eof
-  error = utf8lex_state_init(&multi_state,  // self
-                             &multi_buffer);  // buffer
+  error = utf8lex_state_init(&multi_state,        // self
+                             &(state->settings),  // settings
+                             &multi_buffer);      // buffer
 
   utf8lex_location_t sequence_loc[UTF8LEX_UNIT_MAX];
   for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;

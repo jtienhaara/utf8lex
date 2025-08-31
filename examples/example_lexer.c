@@ -21,11 +21,14 @@
  */
 
 #include <stdio.h>
-#include <unistd.h>  // For execl(), fork(), getcwd()
-#include <sys/wait.h>  // For waitpid()
+#include <string.h>  // For strcmp()
+#include <stdbool.h>  // For true
 
 #include "utf8lex.h"
 
+extern utf8lex_error_t yylex_settings(
+        utf8lex_settings_t *settings
+        );
 extern utf8lex_error_t yylex_start(
         unsigned char *path
         );
@@ -35,12 +38,41 @@ extern int yyutf8lex(
         );
 extern utf8lex_error_t yylex_end();
 
-int main(int argc, char *argv[])
+int main(int argc, unsigned char *argv[])
 {
-  if (argc != 2)
+  utf8lex_settings_t settings;
+  utf8lex_settings_init(&settings,    // self
+                        NULL,         // input_filename
+                        NULL,         // output_filename
+                        false);       // is_tracing
+
+  
+  unsigned char *input_file_path = NULL;
+  for (int a = 1; a < argc; a ++)
+  {
+    if (a == (argc - 1))
+    {
+      input_file_path = argv[a];
+      settings.input_filename = input_file_path;
+    }
+    else if (strcmp("--tracing", argv[a]) == 0)
+    {
+      settings.is_tracing = true;
+    }
+    else
+    {
+      fprintf(stderr, "ERROR Unrecognized option: '%s'.\n", argv[a]);
+    }
+  }
+
+  if (input_file_path == NULL)
   {
     fprintf(stderr, "Usage: %s (input_file)\n",
             argv[0]);
+    fprintf(stderr, "\n");
+    fprintf(stderr, "(option):\n");
+    fprintf(stderr, "    --tracing:\n");
+    fprintf(stderr, "        Enables stdout tracing through definitions and rules.\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "(input_file):\n");
     fprintf(stderr, "    A text file to analyze with the linked lexer.\n");
@@ -50,12 +82,26 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  char *input_file_path = argv[1];
-
   utf8lex_error_t error;
 
   unsigned char token_str[4096];
   unsigned char printable_str[4096];
+
+  error = yylex_settings(&settings);
+  if (error != UTF8LEX_OK)
+  {
+    unsigned char error_name[256];
+    error_name[0] = '\0';
+    utf8lex_string_t error_string;
+    utf8lex_error_t string_error = utf8lex_string(&error_string, 256, error_name);
+    string_error = utf8lex_error_string(&error_string, error);
+    fprintf(stderr, "ERROR Failed yylex_settings(...): %d %s\n",
+            (int) error,
+            error_name);
+    fflush(stdout);
+    fflush(stderr);
+    return (int) error;
+  }
 
   error = yylex_start(input_file_path);
   if (error != UTF8LEX_OK)
