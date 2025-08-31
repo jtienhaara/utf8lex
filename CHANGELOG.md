@@ -41,6 +41,11 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.0.2] - 2025-08-31
+
+### Added
+- Tracing option (pass --tracing to utf8lex, or to the exampler_lexer, etc).
+
 ## [0.0.1] - 2025-08-30
 
 ### Added
