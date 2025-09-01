@@ -41,6 +41,11 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.0.3] - 2025-09-01
+
+### Changed
+- [8 - Feature: Detailed trace information](https://github.com/jtienhaara/utf8lex/issues/8)
+
 ## [0.0.2] - 2025-08-31
 
 ### Added

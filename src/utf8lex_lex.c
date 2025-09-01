@@ -97,7 +97,7 @@ utf8lex_error_t utf8lex_lex(
     // Trace pre.
     if (state->settings.is_tracing == true)
     {
-      fprintf(stdout, "TRACE: pre rule %u '%s'\n", rule->id, rule->name);
+      utf8lex_trace_pre(rule, state);
     }
 
     // Call the definition_type's lexer.  On successful tokenization,
@@ -112,51 +112,7 @@ utf8lex_error_t utf8lex_lex(
     // Trace post.
     if (state->settings.is_tracing == true)
     {
-      utf8lex_error_t trace_error;
-      unsigned char trace_details[256];
-      if (error == UTF8LEX_OK)
-      {
-        trace_error = utf8lex_token_copy_string(
-            token_pointer,  // self
-            trace_details,  // str
-            (size_t) 256);  // max_bytes
-        if (trace_error == UTF8LEX_OK)
-        {
-          fprintf(stdout, "TRACE: post rule %u '%s': token '%s'\n",
-                  rule->id, rule->name, trace_details);
-        }
-        else
-        {
-          fprintf(stdout, "TRACE: post rule %u '%s': token (can't print)\n",
-                  rule->id, rule->name);
-        }
-      }
-      else
-      {
-        utf8lex_string_t error_str;
-        trace_error = utf8lex_string_init(
-            &error_str,      // self
-            (size_t) 255,    // max_length_bytes
-            (size_t) 0,      // length_bytes
-            trace_details);  // bytes
-        if (trace_error == UTF8LEX_OK)
-        {
-          trace_error = utf8lex_error_string(
-              &error_str,  // str
-              error);
-          error_str.bytes[error_str.length_bytes] = '\0';
-        }
-        if (trace_error == UTF8LEX_OK)
-        {
-          fprintf(stdout, "TRACE: post rule %u '%s': error %u '%s'\n",
-                  rule->id, rule->name, (unsigned long) error, error_str.bytes);
-        }
-        else
-        {
-          fprintf(stdout, "TRACE: post rule %u '%s': error %u (can't print)\n",
-                  rule->id, rule->name, (unsigned long) error);
-        }
-      }
+      utf8lex_trace_post(rule, state, token_pointer, error);
     }
 
     // Decide what to do with the lex result.

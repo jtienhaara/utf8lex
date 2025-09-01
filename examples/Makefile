@@ -140,5 +140,6 @@ run-example_lexer_kludgy_grammar:
 	@echo "================================================================"
 	@echo "example_lexer_kludgy_grammar:"
 	$(PROGRAM)_kludgy_grammar \
+	    --tracing \
 	    program_001.language
 	@echo "----------------------------------------------------------------"
