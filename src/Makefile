@@ -104,7 +104,8 @@ SOURCE_FILES ?= \
 	utf8lex_string.c \
 	utf8lex_sub_token.c \
 	utf8lex_target_language_c.c \
-	utf8lex_token.c
+	utf8lex_token.c \
+	utf8lex_trace.c
 
 GENERATED_OBJECT_FILES = \
 	$(patsubst $(BUILD_DIR)/templates/%.c,$(BUILD_DIR)/libutf8lex/%.o,$(GENERATED_SOURCE_FILES))

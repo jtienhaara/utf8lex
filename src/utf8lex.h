@@ -74,6 +74,20 @@ extern utf8lex_error_t utf8lex_lex(
         utf8lex_token_t *token_pointer
         );
 
+//
+// Tracing for utf8lex_lex():
+//
+extern utf8lex_error_t utf8lex_trace_pre(
+        utf8lex_rule_t *rule,
+        utf8lex_state_t *state
+        );
+extern utf8lex_error_t utf8lex_trace_post(
+        utf8lex_rule_t *rule,
+        utf8lex_state_t *state,
+        utf8lex_token_t *token,
+        utf8lex_error_t lex_error
+        );
+
 
 enum _ENUM_utf8lex_error
 {
@@ -172,6 +186,13 @@ extern utf8lex_error_t utf8lex_state_string(
         utf8lex_string_t *str,
         utf8lex_state_t *state
         );
+
+// Print state location "line-start.bytes-start" to the specified char array
+// (e.g. "1.0" or "17.39" and so on).
+utf8lex_error_t utf8lex_state_location_copy_string(
+        utf8lex_state_t *state,
+        unsigned char *str,
+        size_t max_bytes);
 
 // Print error message to the specified string:
 extern utf8lex_error_t utf8lex_error_string(

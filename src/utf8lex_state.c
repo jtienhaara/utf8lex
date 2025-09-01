@@ -60,10 +60,44 @@ utf8lex_error_t utf8lex_state_string(
   {
     // The error string was truncated.
     UTF8LEX_DEBUG("EXIT utf8lex_state_string()");
-    return UTF8LEX_ERROR_BAD_LENGTH;
+    return UTF8LEX_MORE;
   }
 
   UTF8LEX_DEBUG("EXIT utf8lex_state_string()");
+  return UTF8LEX_OK;
+}
+
+// Print state location "line-start.bytes-start" to the specified char array
+// (e.g. "1.0" or "17.39" and so on).
+utf8lex_error_t utf8lex_state_location_copy_string(
+        utf8lex_state_t *state,
+        unsigned char *str,
+        size_t max_bytes)
+{
+  UTF8LEX_DEBUG("ENTER utf8lex_state_location_copy_string()");
+
+  if (state == NULL
+      || str == NULL)
+  {
+    UTF8LEX_DEBUG("EXIT utf8lex_state_location_copy_string()");
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  size_t num_bytes_written = snprintf(
+      str,
+      max_bytes,
+      "%d.%d",
+      state->loc[UTF8LEX_UNIT_LINE].start,
+      state->loc[UTF8LEX_UNIT_BYTE].start);
+
+  if (num_bytes_written >= max_bytes)
+  {
+    // The error string was truncated.
+    UTF8LEX_DEBUG("EXIT utf8lex_state_location_copy_string()");
+    return UTF8LEX_MORE;
+  }
+
+  UTF8LEX_DEBUG("EXIT utf8lex_state_location_copy_string()");
   return UTF8LEX_OK;
 }
 
