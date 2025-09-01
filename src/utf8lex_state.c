@@ -83,14 +83,14 @@ utf8lex_error_t utf8lex_state_location_copy_string(
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
-  int line_position =
-    state->loc[UTF8LEX_UNIT_LINE].start + state->loc[UTF8LEX_UNIT_LINE].length;
+  int line_position = state->loc[UTF8LEX_UNIT_LINE].start;
   if (state->loc[UTF8LEX_UNIT_LINE].after >= 0) {
     line_position = state->loc[UTF8LEX_UNIT_LINE].after;
   }
+  // 0-indexed; bump up by 1:
+  line_position ++;
 
-  int char_position =
-    state->loc[UTF8LEX_UNIT_CHAR].start + state->loc[UTF8LEX_UNIT_CHAR].length;
+  int char_position = state->loc[UTF8LEX_UNIT_CHAR].start;
   if (state->loc[UTF8LEX_UNIT_CHAR].after >= 0) {
     char_position = state->loc[UTF8LEX_UNIT_CHAR].after;
   }

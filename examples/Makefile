@@ -130,15 +130,16 @@ run: run-example_lexer_tokens run-example_lexer_kludgy_grammar
 .PHONY: run-example_lexer_tokens
 run-example_lexer_tokens:
 	@echo "================================================================"
-	@echo "example_lexer_tokens:"
+	@echo "example_lexer_tokens (with tracing turned on):"
 	$(PROGRAM)_tokens \
+	    --tracing \
 	    program_001.language
 	@echo "----------------------------------------------------------------"
 
 .PHONY: run-example_lexer_kludgy_grammar
 run-example_lexer_kludgy_grammar:
 	@echo "================================================================"
-	@echo "example_lexer_kludgy_grammar:"
+	@echo "example_lexer_kludgy_grammar (with tracing turned on):"
 	$(PROGRAM)_kludgy_grammar \
 	    --tracing \
 	    program_001.language
