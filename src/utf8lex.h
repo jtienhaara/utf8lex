@@ -156,7 +156,7 @@ enum _ENUM_utf8lex_unit
 
 struct _STRUCT_utf8lex_location
 {
-  int start;  // First byte / char / grapheme / and so on of a token.
+  int start;  // First byte / char / grapheme / and so on of a token (0, ...).
   int length;  // # of bytes / chars / graphemes / and so on of a token.
   int after;  // Either -1, or reset the start location to this, if >= 0.
 

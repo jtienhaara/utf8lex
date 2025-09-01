@@ -67,7 +67,7 @@ utf8lex_error_t utf8lex_state_string(
   return UTF8LEX_OK;
 }
 
-// Print state location "line-start.bytes-start" to the specified char array
+// Print state location "line-start.char-start" to the specified char array
 // (e.g. "1.0" or "17.39" and so on).
 utf8lex_error_t utf8lex_state_location_copy_string(
         utf8lex_state_t *state,
@@ -83,12 +83,24 @@ utf8lex_error_t utf8lex_state_location_copy_string(
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
+  int line_position = state->loc[UTF8LEX_UNIT_LINE].start;
+  if (state->loc[UTF8LEX_UNIT_LINE].after >= 0) {
+    line_position = state->loc[UTF8LEX_UNIT_LINE].after;
+  }
+  // 0-indexed; bump up by 1:
+  line_position ++;
+
+  int char_position = state->loc[UTF8LEX_UNIT_CHAR].start;
+  if (state->loc[UTF8LEX_UNIT_CHAR].after >= 0) {
+    char_position = state->loc[UTF8LEX_UNIT_CHAR].after;
+  }
+
   size_t num_bytes_written = snprintf(
       str,
       max_bytes,
       "%d.%d",
-      state->loc[UTF8LEX_UNIT_LINE].start,
-      state->loc[UTF8LEX_UNIT_BYTE].start);
+      line_position,
+      char_position);
 
   if (num_bytes_written >= max_bytes)
   {
