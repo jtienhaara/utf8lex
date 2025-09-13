@@ -20,6 +20,7 @@
 
 #include <stdio.h>
 #include <inttypes.h>  // For int32_t.
+#include <stdbool.h>  // For bool, true, false.
 
 #include "utf8lex.h"
 
@@ -135,6 +136,60 @@ utf8lex_error_t utf8lex_cat_definition_clear(
   cat_definition->max = 0;
 
   UTF8LEX_DEBUG("EXIT utf8lex_cat_definition_clear()");
+  return UTF8LEX_OK;
+}
+
+
+//
+// Formats the name and pattern of the specified utf8lex_definition_t
+// into the specified string, returning UTF8LEX_MORE if it was truncated.
+//
+static utf8lex_error_t utf8lex_cat_definition_to_str(
+        utf8lex_definition_t *self,
+        unsigned char *str,
+        size_t max_bytes
+        )
+{
+  if (self == NULL
+      || self->name == NULL
+      || self->definition_type == NULL
+      || self->definition_type->name == NULL
+      || str == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+  else if (self->definition_type != UTF8LEX_DEFINITION_TYPE_CAT)
+  {
+    return UTF8LEX_ERROR_DEFINITION_TYPE;
+  }
+
+  utf8lex_cat_definition_t *cat_definition =
+    (utf8lex_cat_definition_t *) self;
+
+  size_t num_bytes_written = (size_t) 0;
+
+  // Type of the definition.
+  num_bytes_written += snprintf(str + num_bytes_written,
+                                max_bytes - num_bytes_written,
+                                "cat ");
+
+  // Name of the definition.
+  num_bytes_written += snprintf(str + num_bytes_written,
+                                max_bytes - num_bytes_written,
+                                "'%s'",
+                                self->name);
+
+  if (cat_definition->min != 1
+      || cat_definition->max != 1)
+  {
+    // Min, max recurrences.
+    num_bytes_written += snprintf(str + num_bytes_written,
+                                  max_bytes - num_bytes_written,
+                                  "[%d..%d]",
+                                  cat_definition->min,
+                                  cat_definition->max);
+  }
+
   return UTF8LEX_OK;
 }
 
@@ -338,6 +393,7 @@ static utf8lex_definition_type_t UTF8LEX_DEFINITION_TYPE_CAT_INTERNAL =
   {
     .name = "CATEGORY",
     .lex = utf8lex_lex_cat,
+    .to_str = utf8lex_cat_definition_to_str,
     .clear = utf8lex_cat_definition_clear
   };
 utf8lex_definition_type_t *UTF8LEX_DEFINITION_TYPE_CAT =

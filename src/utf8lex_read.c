@@ -66,12 +66,6 @@ utf8lex_error_t utf8lex_read_grapheme(
     return UTF8LEX_ERROR_BAD_START;
   }
 
-  // Trace pre.
-  if (state->settings.is_tracing == true)
-  {
-    utf8lex_trace_pre("Read grapheme", state);
-  }
-
   utf8lex_error_t error = UTF8LEX_ERROR_BAD_ERROR;
   off_t curr_offset = *offset_pointer;
   utf8proc_int32_t first_codepoint = (utf8proc_int32_t) -1;
@@ -214,12 +208,6 @@ utf8lex_error_t utf8lex_read_grapheme(
     {
       // Maybe a utf8lex bug?
       UTF8LEX_DEBUG("EXIT utf8lex_read_grapheme()");
-      // Trace post.
-      if (state->settings.is_tracing == true)
-      {
-        utf8lex_trace_post("Read grapheme", state, error);
-      }
-
       return error;
     }
     if (u8c == 0)
@@ -262,12 +250,6 @@ utf8lex_error_t utf8lex_read_grapheme(
   {
     // Could be bad UTF-8, or need more bytes, etc.
     UTF8LEX_DEBUG("EXIT utf8lex_read_grapheme()");
-    // Trace post.
-    if (state->settings.is_tracing == true)
-    {
-      utf8lex_trace_post("Read grapheme", state, error);
-    }
-
     return error;
   }
 
@@ -297,11 +279,5 @@ utf8lex_error_t utf8lex_read_grapheme(
   *cat_pointer = first_cat;
 
   UTF8LEX_DEBUG("EXIT utf8lex_read_grapheme()");
-  // Trace post.
-  if (state->settings.is_tracing == true)
-  {
-    utf8lex_trace_post("Read grapheme", state, UTF8LEX_OK);
-  }
-
   return UTF8LEX_OK;
 }

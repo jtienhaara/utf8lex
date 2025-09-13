@@ -19,9 +19,37 @@
  */
 
 #include <stdio.h>
-#include <string.h>  // For strcpy
+#include <string.h>  // For strcpy, strcat
+
+#include <inttypes.h>  // For uint32_t
 
 #include "utf8lex.h"
+
+
+static utf8lex_error_t utf8lex_trace_indents(
+    uint32_t num_indents,
+    unsigned char indents[256]
+    )
+{
+  if (indents == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  indents[0] = '\0';
+  for (int indent = 0; indent < num_indents; indent ++)
+  {
+    if (indent >= 127)
+    {
+      // 256 char buffer isn't big enough for 128 * 2 byte indents plus '\0'.
+      return UTF8LEX_MORE;
+    }
+
+    strcat(indents, "  ");
+  }
+
+  return UTF8LEX_OK;
+}
 
 
 static utf8lex_error_t utf8lex_trace_location_to_str(
@@ -82,10 +110,19 @@ static utf8lex_error_t utf8lex_trace_details_with_token(
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
+  unsigned char token_text[256];
   utf8lex_error_t trace_error = utf8lex_token_copy_string(
       token,          // self
-      trace_details,  // str
+      token_text,     // str
       (size_t) 256);  // max_bytes
+  if (trace_error == UTF8LEX_OK)
+  {
+    trace_error = utf8lex_printable_str(
+            trace_details,
+            (size_t) 256,
+            token_text,
+            UTF8LEX_PRINTABLE_ALL);
+  }
 
   return trace_error;
 }
@@ -133,6 +170,8 @@ utf8lex_error_t utf8lex_trace_definition_pre(
         )
 {
   if (definition == NULL
+      || definition->definition_type == NULL
+      || definition->definition_type->to_str == NULL
       || trace == NULL
       || state == NULL
       || state->buffer == NULL
@@ -149,8 +188,20 @@ utf8lex_error_t utf8lex_trace_definition_pre(
   unsigned char next_byte;
   trace_error = utf8lex_trace_next_byte(state, &next_byte);
 
-  fprintf(stdout, "TRACE: pre definition '%s' %s [%s]: '%c' (%d)\n",
-          definition->name,
+  unsigned char indents[256];
+  utf8lex_error_t indent_error = utf8lex_trace_indents(
+      state->num_tracing_indents,
+      indents);
+  state->num_tracing_indents ++;
+
+  unsigned char definition_str[256];
+  trace_error = definition->definition_type->to_str(definition,
+                                                    definition_str,
+                                                    256);
+
+  fprintf(stdout, "TRACE: %spre  %s %s [%s]: '%c' (%d)\n",
+          indents,
+          definition_str,
           trace,
           location_str,
           next_byte,
@@ -174,6 +225,8 @@ utf8lex_error_t utf8lex_trace_definition_post(
         )
 {
   if (definition == NULL
+      || definition->definition_type == NULL
+      || definition->definition_type->to_str == NULL
       || trace == NULL
       || state == NULL
       || token == NULL)
@@ -181,10 +234,21 @@ utf8lex_error_t utf8lex_trace_definition_post(
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
+  unsigned char indents[256];
+  state->num_tracing_indents --;
+  utf8lex_error_t indent_error = utf8lex_trace_indents(
+      state->num_tracing_indents,
+      indents);
+
   utf8lex_error_t trace_error = UTF8LEX_OK;
 
   unsigned char location_str[32];
   trace_error = utf8lex_trace_location_to_str(state, location_str);
+
+  unsigned char definition_str[256];
+  trace_error = definition->definition_type->to_str(definition,
+                                                    definition_str,
+                                                    256);
 
   unsigned char trace_details[256];
   if (lex_error == UTF8LEX_OK)
@@ -193,16 +257,18 @@ utf8lex_error_t utf8lex_trace_definition_post(
                                                    trace_details);
     if (trace_error == UTF8LEX_OK)
     {
-      fprintf(stdout, "TRACE: post definition '%s' %s [%s]: token '%s'\n",
-              definition->name,
+      fprintf(stdout, "TRACE: %spost %s %s [%s]: token '%s'\n",
+              indents,
+              definition_str,
               trace,
               location_str,
               trace_details);
     }
     else
     {
-      fprintf(stdout, "TRACE: post definition '%s' %s [%s]: token (can't print)\n",
-              definition->name,
+      fprintf(stdout, "TRACE: %spost %s %s [%s]: token (can't print)\n",
+              indents,
+              definition_str,
               trace,
               location_str);
     }
@@ -212,8 +278,9 @@ utf8lex_error_t utf8lex_trace_definition_post(
     trace_error = utf8lex_trace_error(lex_error, trace_details);
     if (trace_error == UTF8LEX_OK)
     {
-      fprintf(stdout, "TRACE: post definition '%s' %s [%s]: lex error %u '%s'\n",
-              definition->name,
+      fprintf(stdout, "TRACE: %spost %s %s [%s]: lex error %u '%s'\n",
+              indents,
+              definition_str,
               trace,
               location_str,
               (unsigned long) lex_error,
@@ -221,8 +288,9 @@ utf8lex_error_t utf8lex_trace_definition_post(
     }
     else
     {
-      fprintf(stdout, "TRACE: post definition '%s' %s [%s]: lex error %u (can't print)\n",
-              definition->name,
+      fprintf(stdout, "TRACE: %spost %s %s [%s]: lex error %u (can't print)\n",
+              indents,
+              definition_str,
               trace,
               location_str,
               (unsigned long) lex_error);
@@ -259,7 +327,14 @@ utf8lex_error_t utf8lex_trace_rule_pre(
   unsigned char next_byte;
   trace_error = utf8lex_trace_next_byte(state, &next_byte);
 
-  fprintf(stdout, "TRACE: pre rule %u '%s' [%s]: '%c' (%d)\n",
+  unsigned char indents[256];
+  utf8lex_error_t indent_error = utf8lex_trace_indents(
+      state->num_tracing_indents,
+      indents);
+  state->num_tracing_indents ++;
+
+  fprintf(stdout, "TRACE: %spre  rule %u '%s' [%s]: '%c' (%d)\n",
+          indents,
           rule->id,
           rule->name,
           location_str,
@@ -289,6 +364,12 @@ utf8lex_error_t utf8lex_trace_rule_post(
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
+  unsigned char indents[256];
+  state->num_tracing_indents --;
+  utf8lex_error_t indent_error = utf8lex_trace_indents(
+      state->num_tracing_indents,
+      indents);
+
   utf8lex_error_t trace_error = UTF8LEX_OK;
 
   unsigned char location_str[32];
@@ -301,7 +382,8 @@ utf8lex_error_t utf8lex_trace_rule_post(
                                                    trace_details);
     if (trace_error == UTF8LEX_OK)
     {
-      fprintf(stdout, "TRACE: post rule %u '%s' [%s]: token '%s'\n",
+      fprintf(stdout, "TRACE: %spost rule %u '%s' [%s]: token '%s'\n",
+              indents,
               rule->id,
               rule->name,
               location_str,
@@ -309,7 +391,8 @@ utf8lex_error_t utf8lex_trace_rule_post(
     }
     else
     {
-      fprintf(stdout, "TRACE: post rule %u '%s' [%s]: token (can't print)\n",
+      fprintf(stdout, "TRACE: %spost rule %u '%s' [%s]: token (can't print)\n",
+              indents,
               rule->id,
               rule->name,
               location_str);
@@ -320,7 +403,8 @@ utf8lex_error_t utf8lex_trace_rule_post(
     trace_error = utf8lex_trace_error(lex_error, trace_details);
     if (trace_error == UTF8LEX_OK)
     {
-      fprintf(stdout, "TRACE: post rule %u '%s' [%s]: lex error %u '%s'\n",
+      fprintf(stdout, "TRACE: %spost rule %u '%s' [%s]: lex error %u '%s'\n",
+              indents,
               rule->id,
               rule->name,
               location_str,
@@ -329,7 +413,8 @@ utf8lex_error_t utf8lex_trace_rule_post(
     }
     else
     {
-      fprintf(stdout, "TRACE: post rule %u '%s' [%s]: lex error %u (can't print)\n",
+      fprintf(stdout, "TRACE: %spost rule %u '%s' [%s]: lex error %u (can't print)\n",
+              indents,
               rule->id,
               rule->name,
               location_str,
@@ -378,7 +463,14 @@ utf8lex_error_t utf8lex_trace_pre(
   unsigned char next_byte;
   trace_error = utf8lex_trace_next_byte(state, &next_byte);
 
-  fprintf(stdout, "TRACE: pre %s [%s]: '%c' (%d)\n",
+  unsigned char indents[256];
+  utf8lex_error_t indent_error = utf8lex_trace_indents(
+      state->num_tracing_indents,
+      indents);
+  state->num_tracing_indents ++;
+
+  fprintf(stdout, "TRACE: %spre  %s [%s]: '%c' (%d)\n",
+          indents,
           trace,
           location_str,
           next_byte,
@@ -405,6 +497,12 @@ utf8lex_error_t utf8lex_trace_post(
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
+  unsigned char indents[256];
+  state->num_tracing_indents --;
+  utf8lex_error_t indent_error = utf8lex_trace_indents(
+      state->num_tracing_indents,
+      indents);
+
   utf8lex_error_t trace_error = UTF8LEX_OK;
 
   unsigned char location_str[32];
@@ -413,7 +511,8 @@ utf8lex_error_t utf8lex_trace_post(
   unsigned char trace_details[256];
   if (lex_error == UTF8LEX_OK)
   {
-    fprintf(stdout, "TRACE: post %s [%s]\n",
+    fprintf(stdout, "TRACE: %spost %s [%s]\n",
+            indents,
             trace,
             location_str);
   }
@@ -422,7 +521,8 @@ utf8lex_error_t utf8lex_trace_post(
     trace_error = utf8lex_trace_error(lex_error, trace_details);
     if (trace_error == UTF8LEX_OK)
     {
-      fprintf(stdout, "TRACE: post %s [%s]: lex error %u '%s'\n",
+      fprintf(stdout, "TRACE: %spost %s [%s]: lex error %u '%s'\n",
+              indents,
               trace,
               location_str,
               (unsigned long) lex_error,
@@ -430,7 +530,8 @@ utf8lex_error_t utf8lex_trace_post(
     }
     else
     {
-      fprintf(stdout, "TRACE: post %s [%s]: lex error %u (can't print)\n",
+      fprintf(stdout, "TRACE: %spost %s [%s]: lex error %u (can't print)\n",
+              indents,
               trace,
               location_str,
               (unsigned long) lex_error);
