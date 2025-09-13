@@ -260,6 +260,12 @@ static utf8lex_error_t utf8lex_lex_literal(
     return UTF8LEX_ERROR_DEFINITION_TYPE;
   }
 
+  // Trace pre.
+  if (state->settings.is_tracing == true)
+  {
+    utf8lex_trace_definition_pre(rule->definition, "Lex", state);
+  }
+
   off_t offset = (off_t) state->buffer->loc[UTF8LEX_UNIT_BYTE].start;
   size_t remaining_bytes = state->buffer->str->length_bytes - (size_t) offset;
 
@@ -273,6 +279,16 @@ static utf8lex_error_t utf8lex_lex_literal(
   {
     if (state->buffer->str->bytes[offset + c] != literal->str[c])
     {
+      // Trace post.
+      if (state->settings.is_tracing == true)
+      {
+        utf8lex_trace_definition_post(rule->definition,
+                                      "Lex (chars)",
+                                      state,
+                                      token_pointer,
+                                      UTF8LEX_NO_MATCH);
+      }
+
       UTF8LEX_DEBUG("EXIT utf8lex_lex_literal()");
       return UTF8LEX_NO_MATCH;
     }
@@ -285,6 +301,16 @@ static utf8lex_error_t utf8lex_lex_literal(
     if (state->buffer->is_eof)
     {
       // No more bytes can be read in, we're at EOF.
+      // Trace post.
+      if (state->settings.is_tracing == true)
+      {
+        utf8lex_trace_definition_post(rule->definition,
+                                      "Lex (EOF)",
+                                      state,
+                                      token_pointer,
+                                      UTF8LEX_NO_MATCH);
+      }
+
       UTF8LEX_DEBUG("EXIT utf8lex_lex_literal()");
       return UTF8LEX_NO_MATCH;
     }
@@ -292,6 +318,16 @@ static utf8lex_error_t utf8lex_lex_literal(
     {
       // Need to read more bytes for the full grapheme.
       UTF8LEX_DEBUG("EXIT utf8lex_lex_literal()");
+      // Trace post.
+      if (state->settings.is_tracing == true)
+      {
+        utf8lex_trace_definition_post(rule->definition,
+                                      "Lex (more)",
+                                      state,
+                                      token_pointer,
+                                      UTF8LEX_MORE);
+      }
+
       return UTF8LEX_MORE;
     }
   }
@@ -317,7 +353,27 @@ static utf8lex_error_t utf8lex_lex_literal(
   if (error != UTF8LEX_OK)
   {
     UTF8LEX_DEBUG("EXIT utf8lex_lex_literal()");
+    // Trace post.
+    if (state->settings.is_tracing == true)
+    {
+      utf8lex_trace_definition_post(rule->definition,
+                                    "Lex (token2)",
+                                    state,
+                                    token_pointer,
+                                    error);
+    }
+
     return error;
+  }
+
+  // Trace post.
+  if (state->settings.is_tracing == true)
+  {
+    utf8lex_trace_definition_post(rule->definition,
+                                  "Lex",
+                                  state,
+                                  token_pointer,
+                                  UTF8LEX_OK);
   }
 
   UTF8LEX_DEBUG("EXIT utf8lex_lex_literal()");

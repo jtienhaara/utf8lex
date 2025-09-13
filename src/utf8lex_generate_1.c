@@ -1023,6 +1023,21 @@ static utf8lex_error_t utf8lex_generate_read_to_eol(
 {
   UTF8LEX_DEBUG("ENTER utf8lex_generate_read_to_eol()");
 
+  if (lex == NULL
+      || state == NULL
+      || line_token_pointer == NULL
+      || newline_token_pointer == NULL)
+  {
+    UTF8LEX_DEBUG("EXIT utf8lex_generate_read_to_eol()");
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  // Trace pre.
+  if (state->settings.is_tracing == true)
+  {
+    utf8lex_trace_pre("Read to EOL", state);
+  }
+
   bool is_empty_to_eol = false;
   utf8lex_error_t error = utf8lex_lex(&(lex->to_eol),
                                       state,
@@ -1030,6 +1045,12 @@ static utf8lex_error_t utf8lex_generate_read_to_eol(
   if (error == UTF8LEX_EOF)
   {
     UTF8LEX_DEBUG("EXIT utf8lex_generate_read_to_eol()");
+    // Trace post.
+    if (state->settings.is_tracing == true)
+    {
+      utf8lex_trace_post("Read to EOL", state, error);
+    }
+
     return error;
   }
   else if (error == UTF8LEX_NO_MATCH)
@@ -1048,6 +1069,12 @@ static utf8lex_error_t utf8lex_generate_read_to_eol(
     fprintf(stderr,
             "ERROR utf8lex Failed to read to EOL [%d.%d]: \"%s\"\n", state->loc[UTF8LEX_UNIT_LINE].start + 1, state->loc[UTF8LEX_UNIT_CHAR].start, some_of_remaining_buffer);
     UTF8LEX_DEBUG("EXIT utf8lex_generate_read_to_eol()");
+    // Trace post.
+    if (state->settings.is_tracing == true)
+    {
+      utf8lex_trace_post("Read to EOL", state, error);
+    }
+
     return error;
   }
 
@@ -1058,6 +1085,12 @@ static utf8lex_error_t utf8lex_generate_read_to_eol(
   if (error == UTF8LEX_EOF)
   {
     UTF8LEX_DEBUG("EXIT utf8lex_generate_read_to_eol()");
+    // Trace post.
+    if (state->settings.is_tracing == true)
+    {
+      utf8lex_trace_post("Read to EOL", state, error);
+    }
+
     return error;
   }
   else if (error != UTF8LEX_OK)
@@ -1075,6 +1108,12 @@ static utf8lex_error_t utf8lex_generate_read_to_eol(
             state->loc[UTF8LEX_UNIT_CHAR].start,
             some_of_remaining_buffer);
     UTF8LEX_DEBUG("EXIT utf8lex_generate_read_to_eol()");
+    // Trace post.
+    if (state->settings.is_tracing == true)
+    {
+      utf8lex_trace_post("Read to EOL", state, error);
+    }
+
     return error;
   }
 
@@ -1098,6 +1137,12 @@ static utf8lex_error_t utf8lex_generate_read_to_eol(
   }
 
   UTF8LEX_DEBUG("EXIT utf8lex_generate_read_to_eol()");
+  // Trace post.
+  if (state->settings.is_tracing == true)
+  {
+    utf8lex_trace_post("Read to EOL", state, UTF8LEX_OK);
+  }
+
   return UTF8LEX_OK;
 }
 

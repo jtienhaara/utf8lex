@@ -168,6 +168,12 @@ static utf8lex_error_t utf8lex_lex_cat(
     return UTF8LEX_ERROR_DEFINITION_TYPE;
   }
 
+  // Trace pre.
+  if (state->settings.is_tracing == true)
+  {
+    utf8lex_trace_definition_pre(rule->definition, "Lex", state);
+  }
+
   off_t offset = (off_t) state->buffer->loc[UTF8LEX_UNIT_BYTE].start;
   utf8lex_location_t token_loc[UTF8LEX_UNIT_MAX];
   for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
@@ -201,6 +207,16 @@ static utf8lex_error_t utf8lex_lex_cat(
 
     if (error == UTF8LEX_MORE)
     {
+      // Trace post.
+      if (state->settings.is_tracing == true)
+      {
+        utf8lex_trace_definition_post(rule->definition,
+                                      "Lex (more)",
+                                      state,
+                                      token_pointer,
+                                      error);
+      }
+
       UTF8LEX_DEBUG("EXIT utf8lex_lex_cat()");
       return error;
     }
@@ -208,6 +224,16 @@ static utf8lex_error_t utf8lex_lex_cat(
     {
       if (ug < cat_definition->min)
       {
+        // Trace post.
+        if (state->settings.is_tracing == true)
+        {
+          utf8lex_trace_definition_post(rule->definition,
+                                        "Lex (too few)",
+                                        state,
+                                        token_pointer,
+                                        error);
+        }
+
         UTF8LEX_DEBUG("EXIT utf8lex_lex_cat()");
         return error;
       }
@@ -230,6 +256,16 @@ static utf8lex_error_t utf8lex_lex_cat(
       // Not the category we're looking for, and we haven't found
       // at least (min) graphemes matching this category, so fail
       // with no match.
+      // Trace post.
+      if (state->settings.is_tracing == true)
+      {
+        utf8lex_trace_definition_post(rule->definition,
+                                      "Lex (wrong cat, too few)",
+                                      state,
+                                      token_pointer,
+                                      UTF8LEX_NO_MATCH);
+      }
+
       UTF8LEX_DEBUG("EXIT utf8lex_lex_cat()");
       return UTF8LEX_NO_MATCH;
     }
@@ -267,8 +303,28 @@ static utf8lex_error_t utf8lex_lex_cat(
       state);  // For buffer and absolute location.
   if (error != UTF8LEX_OK)
   {
+    // Trace post.
+    if (state->settings.is_tracing == true)
+    {
+      utf8lex_trace_definition_post(rule->definition,
+                                    "Lex (token init)",
+                                    state,
+                                    token_pointer,
+                                    error);
+    }
+
     UTF8LEX_DEBUG("EXIT utf8lex_lex_cat()");
     return error;
+  }
+
+  // Trace post.
+  if (state->settings.is_tracing == true)
+  {
+    utf8lex_trace_definition_post(rule->definition,
+                                  "Lex",
+                                  state,
+                                  token_pointer,
+                                  UTF8LEX_OK);
   }
 
   UTF8LEX_DEBUG("EXIT utf8lex_lex_cat()");

@@ -97,7 +97,7 @@ utf8lex_error_t utf8lex_lex(
     // Trace pre.
     if (state->settings.is_tracing == true)
     {
-      utf8lex_trace_pre(rule, state);
+      utf8lex_trace_rule_pre(rule, state);
     }
 
     // Call the definition_type's lexer.  On successful tokenization,
@@ -112,7 +112,7 @@ utf8lex_error_t utf8lex_lex(
     // Trace post.
     if (state->settings.is_tracing == true)
     {
-      utf8lex_trace_post(rule, state, token_pointer, error);
+      utf8lex_trace_rule_post(rule, state, token_pointer, error);
     }
 
     // Decide what to do with the lex result.

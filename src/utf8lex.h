@@ -21,7 +21,7 @@
 #ifndef UTF8LEX_H_INCLUDED
 #define UTF8LEX_H_INCLUDED
 
-#include <inttypes.h>  // For uint32_t.
+#include <inttypes.h>  // For uint32_t
 #include <stdbool.h>  // For bool, true, false.
 
 // 8-bit character units for pcre2:
@@ -77,14 +77,35 @@ extern utf8lex_error_t utf8lex_lex(
 //
 // Tracing for utf8lex_lex():
 //
-extern utf8lex_error_t utf8lex_trace_pre(
+extern utf8lex_error_t utf8lex_trace_definition_pre(
+        utf8lex_definition_t *definition,
+        unsigned char *trace,
+        utf8lex_state_t *state
+        );
+extern utf8lex_error_t utf8lex_trace_definition_post(
+        utf8lex_definition_t *definition,
+        unsigned char *trace,
+        utf8lex_state_t *state,
+        utf8lex_token_t *token,
+        utf8lex_error_t lex_error
+        );
+extern utf8lex_error_t utf8lex_trace_rule_pre(
         utf8lex_rule_t *rule,
         utf8lex_state_t *state
         );
-extern utf8lex_error_t utf8lex_trace_post(
+extern utf8lex_error_t utf8lex_trace_rule_post(
         utf8lex_rule_t *rule,
         utf8lex_state_t *state,
         utf8lex_token_t *token,
+        utf8lex_error_t lex_error
+        );
+extern utf8lex_error_t utf8lex_trace_pre(
+        unsigned char *trace,
+        utf8lex_state_t *state
+        );
+extern utf8lex_error_t utf8lex_trace_post(
+        unsigned char *trace,
+        utf8lex_state_t *state,
         utf8lex_error_t lex_error
         );
 
