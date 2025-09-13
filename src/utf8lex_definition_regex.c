@@ -20,6 +20,7 @@
 
 #include <stdio.h>
 #include <inttypes.h>  // For uint32_t, int32_t.
+#include <stdbool.h>  // For bool, true, false.
 
 // 8-bit character units for pcre2:
 #define PCRE2_CODE_UNIT_WIDTH 8
@@ -161,6 +162,64 @@ utf8lex_error_t utf8lex_regex_definition_clear(
 }
 
 
+//
+// Formats the name and pattern of the specified utf8lex_definition_t
+// into the specified string, returning UTF8LEX_MORE if it was truncated.
+//
+static utf8lex_error_t utf8lex_regex_definition_to_str(
+        utf8lex_definition_t *self,
+        unsigned char *str,
+        size_t max_bytes
+        )
+{
+  if (self == NULL
+      || self->name == NULL
+      || self->definition_type == NULL
+      || self->definition_type->name == NULL
+      || str == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+  else if (self->definition_type != UTF8LEX_DEFINITION_TYPE_REGEX)
+  {
+    return UTF8LEX_ERROR_DEFINITION_TYPE;
+  }
+
+  utf8lex_regex_definition_t *regex_definition =
+    (utf8lex_regex_definition_t *) self;
+
+  size_t num_bytes_written = (size_t) 0;
+
+  // Type of the definition.
+  num_bytes_written += snprintf(str + num_bytes_written,
+                                max_bytes - num_bytes_written,
+                                "regex ");
+
+  // Name of the definition.
+  num_bytes_written += snprintf(str + num_bytes_written,
+                                max_bytes - num_bytes_written,
+                                "'%s'",
+                                self->name);
+
+  // The regular expression pattern.
+  unsigned char pattern[256];
+  utf8lex_error_t error = utf8lex_printable_str(
+          pattern,
+          (size_t) 256,
+          regex_definition->pattern,
+          UTF8LEX_PRINTABLE_ALL);
+  if (error == UTF8LEX_OK)
+  {
+    num_bytes_written += snprintf(str + num_bytes_written,
+                                  max_bytes - num_bytes_written,
+                                  " /%s/",
+                                  pattern);
+  }
+
+  return UTF8LEX_OK;
+}
+
+
 static utf8lex_error_t utf8lex_lex_regex(
         utf8lex_rule_t *rule,
         utf8lex_state_t *state,
@@ -188,6 +247,12 @@ static utf8lex_error_t utf8lex_lex_regex(
     return UTF8LEX_ERROR_DEFINITION_TYPE;
   }
 
+  // Trace pre.
+  if (state->settings.is_tracing == true)
+  {
+    utf8lex_trace_definition_pre(rule->definition, "Lex", state);
+  }
+
   off_t offset = (off_t) state->buffer->loc[UTF8LEX_UNIT_BYTE].start;
   size_t remaining_bytes = state->buffer->str->length_bytes - (size_t) offset;
 
@@ -202,6 +267,16 @@ static utf8lex_error_t utf8lex_lex_regex(
   if (match == NULL)
   {
     UTF8LEX_DEBUG("EXIT utf8lex_lex_regex()");
+    // Trace post.
+    if (state->settings.is_tracing == true)
+    {
+      utf8lex_trace_definition_post(rule->definition,
+                                    "Lex (create)",
+                                    state,
+                                    token_pointer,
+                                    UTF8LEX_ERROR_STATE);
+    }
+
     return UTF8LEX_ERROR_STATE;
   }
 
@@ -254,6 +329,16 @@ static utf8lex_error_t utf8lex_lex_regex(
   {
     pcre2_match_data_free(match);
     UTF8LEX_DEBUG("EXIT utf8lex_lex_regex()");
+    // Trace post.
+    if (state->settings.is_tracing == true)
+    {
+      utf8lex_trace_definition_post(rule->definition,
+                                    "Lex (no match)",
+                                    state,
+                                    token_pointer,
+                                    UTF8LEX_NO_MATCH);
+    }
+
     return UTF8LEX_NO_MATCH;
   }
   else if (pcre2_error == PCRE2_ERROR_PARTIAL)
@@ -264,12 +349,32 @@ static utf8lex_error_t utf8lex_lex_regex(
       // No more bytes can be read in, we're at EOF.
       // Bad UTF-8 character at the end of the buffer.
       UTF8LEX_DEBUG("EXIT utf8lex_lex_regex()");
+      // Trace post.
+      if (state->settings.is_tracing == true)
+      {
+        utf8lex_trace_definition_post(rule->definition,
+                                      "Lex (EOF)",
+                                      state,
+                                      token_pointer,
+                                      UTF8LEX_ERROR_BAD_UTF8);
+      }
+
       return UTF8LEX_ERROR_BAD_UTF8;
     }
     else
     {
       // Need to read more bytes for the full grapheme.
       UTF8LEX_DEBUG("EXIT utf8lex_lex_regex()");
+      // Trace post.
+      if (state->settings.is_tracing == true)
+      {
+        utf8lex_trace_definition_post(rule->definition,
+                                      "Lex (more)",
+                                      state,
+                                      token_pointer,
+                                      UTF8LEX_MORE);
+      }
+
       return UTF8LEX_MORE;
     }
   }
@@ -287,6 +392,16 @@ static utf8lex_error_t utf8lex_lex_regex(
     fflush(stderr);
     pcre2_match_data_free(match);
     UTF8LEX_DEBUG("EXIT utf8lex_lex_regex()");
+    // Trace post.
+    if (state->settings.is_tracing == true)
+    {
+      utf8lex_trace_definition_post(rule->definition,
+                                    "Lex (pcre2 error)",
+                                    state,
+                                    token_pointer,
+                                    UTF8LEX_ERROR_REGEX);
+    }
+
     return UTF8LEX_ERROR_REGEX;
   }
 
@@ -295,6 +410,16 @@ static utf8lex_error_t utf8lex_lex_regex(
   {
     pcre2_match_data_free(match);
     UTF8LEX_DEBUG("EXIT utf8lex_lex_regex()");
+    // Trace post.
+    if (state->settings.is_tracing == true)
+    {
+      utf8lex_trace_definition_post(rule->definition,
+                                    "Lex (#ovectors)",
+                                    state,
+                                    token_pointer,
+                                    UTF8LEX_ERROR_REGEX);
+    }
+
     return UTF8LEX_ERROR_REGEX;
   }
 
@@ -312,6 +437,16 @@ static utf8lex_error_t utf8lex_lex_regex(
   if (match_length_bytes == (size_t) 0)
   {
     UTF8LEX_DEBUG("EXIT utf8lex_lex_regex()");
+    // Trace post.
+    if (state->settings.is_tracing == true)
+    {
+      utf8lex_trace_definition_post(rule->definition,
+                                    "Lex (#bytes)",
+                                    state,
+                                    token_pointer,
+                                    UTF8LEX_NO_MATCH);
+    }
+
     return UTF8LEX_NO_MATCH;
   }
 
@@ -361,6 +496,16 @@ static utf8lex_error_t utf8lex_lex_regex(
       // pcre2 matched something that utf8proc either needs MORE bytes for,
       // or rejected outright.
       UTF8LEX_DEBUG("EXIT utf8lex_lex_regex()");
+      // Trace post.
+      if (state->settings.is_tracing == true)
+      {
+        utf8lex_trace_definition_post(rule->definition,
+                                      "Lex (pcre2 vs. utf8proc)",
+                                      state,
+                                      token_pointer,
+                                      error);
+      }
+
       return error;
     }
 
@@ -399,10 +544,30 @@ static utf8lex_error_t utf8lex_lex_regex(
   if (error != UTF8LEX_OK)
   {
     UTF8LEX_DEBUG("EXIT utf8lex_lex_regex()");
+    // Trace post.
+    if (state->settings.is_tracing == true)
+    {
+      utf8lex_trace_definition_post(rule->definition,
+                                    "Lex (token)",
+                                    state,
+                                    token_pointer,
+                                    error);
+    }
+
     return error;
   }
 
   UTF8LEX_DEBUG("EXIT utf8lex_lex_regex()");
+  // Trace post.
+  if (state->settings.is_tracing == true)
+  {
+    utf8lex_trace_definition_post(rule->definition,
+                                  "Lex",
+                                  state,
+                                  token_pointer,
+                                  UTF8LEX_OK);
+  }
+
   return UTF8LEX_OK;
 }
 
@@ -414,6 +579,7 @@ static utf8lex_definition_type_t UTF8LEX_DEFINITION_TYPE_REGEX_INTERNAL =
   {
     .name = "REGEX",
     .lex = utf8lex_lex_regex,
+    .to_str = utf8lex_regex_definition_to_str,
     .clear = utf8lex_regex_definition_clear
   };
 utf8lex_definition_type_t *UTF8LEX_DEFINITION_TYPE_REGEX =

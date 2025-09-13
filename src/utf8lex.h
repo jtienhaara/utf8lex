@@ -21,7 +21,7 @@
 #ifndef UTF8LEX_H_INCLUDED
 #define UTF8LEX_H_INCLUDED
 
-#include <inttypes.h>  // For uint32_t.
+#include <inttypes.h>  // For uint32_t
 #include <stdbool.h>  // For bool, true, false.
 
 // 8-bit character units for pcre2:
@@ -77,14 +77,35 @@ extern utf8lex_error_t utf8lex_lex(
 //
 // Tracing for utf8lex_lex():
 //
-extern utf8lex_error_t utf8lex_trace_pre(
+extern utf8lex_error_t utf8lex_trace_definition_pre(
+        utf8lex_definition_t *definition,
+        unsigned char *trace,
+        utf8lex_state_t *state
+        );
+extern utf8lex_error_t utf8lex_trace_definition_post(
+        utf8lex_definition_t *definition,
+        unsigned char *trace,
+        utf8lex_state_t *state,
+        utf8lex_token_t *token,
+        utf8lex_error_t lex_error
+        );
+extern utf8lex_error_t utf8lex_trace_rule_pre(
         utf8lex_rule_t *rule,
         utf8lex_state_t *state
         );
-extern utf8lex_error_t utf8lex_trace_post(
+extern utf8lex_error_t utf8lex_trace_rule_post(
         utf8lex_rule_t *rule,
         utf8lex_state_t *state,
         utf8lex_token_t *token,
+        utf8lex_error_t lex_error
+        );
+extern utf8lex_error_t utf8lex_trace_pre(
+        unsigned char *trace,
+        utf8lex_state_t *state
+        );
+extern utf8lex_error_t utf8lex_trace_post(
+        unsigned char *trace,
+        utf8lex_state_t *state,
         utf8lex_error_t lex_error
         );
 
@@ -388,6 +409,16 @@ struct _STRUCT_utf8lex_definition_type
           utf8lex_rule_t *rule,
           utf8lex_state_t *state,
           utf8lex_token_t *token_pointer
+          );
+
+  //
+  // Formats the name and pattern of the specified utf8lex_definition_t
+  // into the specified string, returning UTF8LEX_MORE if it was truncated.
+  //
+  utf8lex_error_t (*to_str)(
+          utf8lex_definition_t *self,
+          unsigned char *str,
+          size_t max_bytes
           );
 
   // When a rule is cleared, its definition_type will free any
@@ -919,6 +950,7 @@ struct _STRUCT_utf8lex_state
   utf8lex_location_t loc[UTF8LEX_UNIT_MAX];  // Current location within buffer.
 
   utf8lex_settings_t settings;  // Such as output file, tracing, etc.
+  uint32_t num_tracing_indents;  // Used only when settings.is_tracing == true.
 
   // Tokens matching multi-definitions have component sub-tokens
   // matching the children of the multi-definition.

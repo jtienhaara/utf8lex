@@ -19,6 +19,8 @@
  */
 
 #include <stdio.h>
+#include <inttypes.h>  // For uint32_t
+#include <stdbool.h>  // For bool, true, false.
 
 #include "utf8lex.h"
 
@@ -140,6 +142,8 @@ utf8lex_error_t utf8lex_state_init(
         &(self->settings));  // to
   }
 
+  self->num_tracing_indents = (uint32_t) 0;
+
   self->buffer = buffer;
   for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
        unit < UTF8LEX_UNIT_MAX;
@@ -169,6 +173,9 @@ utf8lex_error_t utf8lex_state_clear(
     return UTF8LEX_ERROR_NULL_POINTER;
   }
 
+  utf8lex_error_t error = utf8lex_settings_clear(&(self->settings));
+  self->num_tracing_indents = (uint32_t) 0;
+
   self->buffer = NULL;
   for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
        unit < UTF8LEX_UNIT_MAX;
@@ -177,6 +184,12 @@ utf8lex_error_t utf8lex_state_clear(
     self->loc[unit].start = -1;
     self->loc[unit].length = -1;
     self->loc[unit].after = -2;
+  }
+
+  if (error != UTF8LEX_OK)
+  {
+    UTF8LEX_DEBUG("EXIT utf8lex_state_clear()");
+    return error;
   }
 
   UTF8LEX_DEBUG("EXIT utf8lex_state_clear()");

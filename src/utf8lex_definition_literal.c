@@ -233,6 +233,64 @@ utf8lex_error_t utf8lex_literal_definition_clear(
 }
 
 
+//
+// Formats the name and pattern of the specified utf8lex_definition_t
+// into the specified string, returning UTF8LEX_MORE if it was truncated.
+//
+static utf8lex_error_t utf8lex_literal_definition_to_str(
+        utf8lex_definition_t *self,
+        unsigned char *str,
+        size_t max_bytes
+        )
+{
+  if (self == NULL
+      || self->name == NULL
+      || self->definition_type == NULL
+      || self->definition_type->name == NULL
+      || str == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+  else if (self->definition_type != UTF8LEX_DEFINITION_TYPE_LITERAL)
+  {
+    return UTF8LEX_ERROR_DEFINITION_TYPE;
+  }
+
+  utf8lex_literal_definition_t *literal_definition =
+    (utf8lex_literal_definition_t *) self;
+
+  size_t num_bytes_written = (size_t) 0;
+
+  // Type of the definition.
+  num_bytes_written += snprintf(str + num_bytes_written,
+                                max_bytes - num_bytes_written,
+                                "literal ");
+
+  // Name of the definition.
+  num_bytes_written += snprintf(str + num_bytes_written,
+                                max_bytes - num_bytes_written,
+                                "'%s'",
+                                self->name);
+
+  // The literal text.
+  unsigned char literal_text[256];
+  utf8lex_error_t error = utf8lex_printable_str(
+          literal_text,
+          (size_t) 256,
+          literal_definition->str,
+          UTF8LEX_PRINTABLE_ALL);
+  if (error == UTF8LEX_OK)
+  {
+    num_bytes_written += snprintf(str + num_bytes_written,
+                                  max_bytes - num_bytes_written,
+                                  " \"%s\"",
+                                  literal_text);
+  }
+
+  return UTF8LEX_OK;
+}
+
+
 static utf8lex_error_t utf8lex_lex_literal(
         utf8lex_rule_t *rule,
         utf8lex_state_t *state,
@@ -260,6 +318,12 @@ static utf8lex_error_t utf8lex_lex_literal(
     return UTF8LEX_ERROR_DEFINITION_TYPE;
   }
 
+  // Trace pre.
+  if (state->settings.is_tracing == true)
+  {
+    utf8lex_trace_definition_pre(rule->definition, "Lex", state);
+  }
+
   off_t offset = (off_t) state->buffer->loc[UTF8LEX_UNIT_BYTE].start;
   size_t remaining_bytes = state->buffer->str->length_bytes - (size_t) offset;
 
@@ -273,6 +337,16 @@ static utf8lex_error_t utf8lex_lex_literal(
   {
     if (state->buffer->str->bytes[offset + c] != literal->str[c])
     {
+      // Trace post.
+      if (state->settings.is_tracing == true)
+      {
+        utf8lex_trace_definition_post(rule->definition,
+                                      "Lex (chars)",
+                                      state,
+                                      token_pointer,
+                                      UTF8LEX_NO_MATCH);
+      }
+
       UTF8LEX_DEBUG("EXIT utf8lex_lex_literal()");
       return UTF8LEX_NO_MATCH;
     }
@@ -285,6 +359,16 @@ static utf8lex_error_t utf8lex_lex_literal(
     if (state->buffer->is_eof)
     {
       // No more bytes can be read in, we're at EOF.
+      // Trace post.
+      if (state->settings.is_tracing == true)
+      {
+        utf8lex_trace_definition_post(rule->definition,
+                                      "Lex (EOF)",
+                                      state,
+                                      token_pointer,
+                                      UTF8LEX_NO_MATCH);
+      }
+
       UTF8LEX_DEBUG("EXIT utf8lex_lex_literal()");
       return UTF8LEX_NO_MATCH;
     }
@@ -292,6 +376,16 @@ static utf8lex_error_t utf8lex_lex_literal(
     {
       // Need to read more bytes for the full grapheme.
       UTF8LEX_DEBUG("EXIT utf8lex_lex_literal()");
+      // Trace post.
+      if (state->settings.is_tracing == true)
+      {
+        utf8lex_trace_definition_post(rule->definition,
+                                      "Lex (more)",
+                                      state,
+                                      token_pointer,
+                                      UTF8LEX_MORE);
+      }
+
       return UTF8LEX_MORE;
     }
   }
@@ -317,7 +411,27 @@ static utf8lex_error_t utf8lex_lex_literal(
   if (error != UTF8LEX_OK)
   {
     UTF8LEX_DEBUG("EXIT utf8lex_lex_literal()");
+    // Trace post.
+    if (state->settings.is_tracing == true)
+    {
+      utf8lex_trace_definition_post(rule->definition,
+                                    "Lex (token2)",
+                                    state,
+                                    token_pointer,
+                                    error);
+    }
+
     return error;
+  }
+
+  // Trace post.
+  if (state->settings.is_tracing == true)
+  {
+    utf8lex_trace_definition_post(rule->definition,
+                                  "Lex",
+                                  state,
+                                  token_pointer,
+                                  UTF8LEX_OK);
   }
 
   UTF8LEX_DEBUG("EXIT utf8lex_lex_literal()");
@@ -331,6 +445,7 @@ static utf8lex_definition_type_t UTF8LEX_DEFINITION_TYPE_LITERAL_INTERNAL =
   {
     .name = "LITERAL",
     .lex = utf8lex_lex_literal,
+    .to_str = utf8lex_literal_definition_to_str,
     .clear = utf8lex_literal_definition_clear
   };
 utf8lex_definition_type_t *UTF8LEX_DEFINITION_TYPE_LITERAL =

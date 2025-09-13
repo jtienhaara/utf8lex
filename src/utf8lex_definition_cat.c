@@ -20,6 +20,7 @@
 
 #include <stdio.h>
 #include <inttypes.h>  // For int32_t.
+#include <stdbool.h>  // For bool, true, false.
 
 #include "utf8lex.h"
 
@@ -139,6 +140,60 @@ utf8lex_error_t utf8lex_cat_definition_clear(
 }
 
 
+//
+// Formats the name and pattern of the specified utf8lex_definition_t
+// into the specified string, returning UTF8LEX_MORE if it was truncated.
+//
+static utf8lex_error_t utf8lex_cat_definition_to_str(
+        utf8lex_definition_t *self,
+        unsigned char *str,
+        size_t max_bytes
+        )
+{
+  if (self == NULL
+      || self->name == NULL
+      || self->definition_type == NULL
+      || self->definition_type->name == NULL
+      || str == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+  else if (self->definition_type != UTF8LEX_DEFINITION_TYPE_CAT)
+  {
+    return UTF8LEX_ERROR_DEFINITION_TYPE;
+  }
+
+  utf8lex_cat_definition_t *cat_definition =
+    (utf8lex_cat_definition_t *) self;
+
+  size_t num_bytes_written = (size_t) 0;
+
+  // Type of the definition.
+  num_bytes_written += snprintf(str + num_bytes_written,
+                                max_bytes - num_bytes_written,
+                                "cat ");
+
+  // Name of the definition.
+  num_bytes_written += snprintf(str + num_bytes_written,
+                                max_bytes - num_bytes_written,
+                                "'%s'",
+                                self->name);
+
+  if (cat_definition->min != 1
+      || cat_definition->max != 1)
+  {
+    // Min, max recurrences.
+    num_bytes_written += snprintf(str + num_bytes_written,
+                                  max_bytes - num_bytes_written,
+                                  "[%d..%d]",
+                                  cat_definition->min,
+                                  cat_definition->max);
+  }
+
+  return UTF8LEX_OK;
+}
+
+
 static utf8lex_error_t utf8lex_lex_cat(
         utf8lex_rule_t *rule,
         utf8lex_state_t *state,
@@ -166,6 +221,12 @@ static utf8lex_error_t utf8lex_lex_cat(
   {
     UTF8LEX_DEBUG("EXIT utf8lex_lex_cat()");
     return UTF8LEX_ERROR_DEFINITION_TYPE;
+  }
+
+  // Trace pre.
+  if (state->settings.is_tracing == true)
+  {
+    utf8lex_trace_definition_pre(rule->definition, "Lex", state);
   }
 
   off_t offset = (off_t) state->buffer->loc[UTF8LEX_UNIT_BYTE].start;
@@ -201,6 +262,16 @@ static utf8lex_error_t utf8lex_lex_cat(
 
     if (error == UTF8LEX_MORE)
     {
+      // Trace post.
+      if (state->settings.is_tracing == true)
+      {
+        utf8lex_trace_definition_post(rule->definition,
+                                      "Lex (more)",
+                                      state,
+                                      token_pointer,
+                                      error);
+      }
+
       UTF8LEX_DEBUG("EXIT utf8lex_lex_cat()");
       return error;
     }
@@ -208,6 +279,16 @@ static utf8lex_error_t utf8lex_lex_cat(
     {
       if (ug < cat_definition->min)
       {
+        // Trace post.
+        if (state->settings.is_tracing == true)
+        {
+          utf8lex_trace_definition_post(rule->definition,
+                                        "Lex (too few)",
+                                        state,
+                                        token_pointer,
+                                        error);
+        }
+
         UTF8LEX_DEBUG("EXIT utf8lex_lex_cat()");
         return error;
       }
@@ -230,6 +311,16 @@ static utf8lex_error_t utf8lex_lex_cat(
       // Not the category we're looking for, and we haven't found
       // at least (min) graphemes matching this category, so fail
       // with no match.
+      // Trace post.
+      if (state->settings.is_tracing == true)
+      {
+        utf8lex_trace_definition_post(rule->definition,
+                                      "Lex (wrong cat, too few)",
+                                      state,
+                                      token_pointer,
+                                      UTF8LEX_NO_MATCH);
+      }
+
       UTF8LEX_DEBUG("EXIT utf8lex_lex_cat()");
       return UTF8LEX_NO_MATCH;
     }
@@ -267,8 +358,28 @@ static utf8lex_error_t utf8lex_lex_cat(
       state);  // For buffer and absolute location.
   if (error != UTF8LEX_OK)
   {
+    // Trace post.
+    if (state->settings.is_tracing == true)
+    {
+      utf8lex_trace_definition_post(rule->definition,
+                                    "Lex (token init)",
+                                    state,
+                                    token_pointer,
+                                    error);
+    }
+
     UTF8LEX_DEBUG("EXIT utf8lex_lex_cat()");
     return error;
+  }
+
+  // Trace post.
+  if (state->settings.is_tracing == true)
+  {
+    utf8lex_trace_definition_post(rule->definition,
+                                  "Lex",
+                                  state,
+                                  token_pointer,
+                                  UTF8LEX_OK);
   }
 
   UTF8LEX_DEBUG("EXIT utf8lex_lex_cat()");
@@ -282,6 +393,7 @@ static utf8lex_definition_type_t UTF8LEX_DEFINITION_TYPE_CAT_INTERNAL =
   {
     .name = "CATEGORY",
     .lex = utf8lex_lex_cat,
+    .to_str = utf8lex_cat_definition_to_str,
     .clear = utf8lex_cat_definition_clear
   };
 utf8lex_definition_type_t *UTF8LEX_DEFINITION_TYPE_CAT =

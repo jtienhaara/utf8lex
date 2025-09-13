@@ -41,15 +41,23 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.0.4] - 2025-09-13
+
+### Changed
+- [8 - Feature: Detailed trace information](https://github.com/jtienhaara/utf8lex/issues/8)
+
+
 ## [0.0.3] - 2025-09-01
 
 ### Changed
 - [8 - Feature: Detailed trace information](https://github.com/jtienhaara/utf8lex/issues/8)
 
+
 ## [0.0.2] - 2025-08-31
 
 ### Added
 - Tracing option (pass --tracing to utf8lex, or to the exampler_lexer, etc).
+
 
 ## [0.0.1] - 2025-08-30
 

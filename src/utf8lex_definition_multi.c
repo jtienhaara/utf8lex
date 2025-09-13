@@ -515,6 +515,117 @@ utf8lex_error_t utf8lex_multi_definition_resolve(
 }
 
 
+//
+// Formats the name and pattern of the specified utf8lex_definition_t
+// into the specified string, returning UTF8LEX_MORE if it was truncated.
+//
+static utf8lex_error_t utf8lex_multi_definition_to_str(
+        utf8lex_definition_t *self,
+        unsigned char *str,
+        size_t max_bytes
+        )
+{
+  if (self == NULL
+      || self->name == NULL
+      || self->definition_type == NULL
+      || self->definition_type->name == NULL
+      || str == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+  else if (self->definition_type != UTF8LEX_DEFINITION_TYPE_MULTI)
+  {
+    return UTF8LEX_ERROR_DEFINITION_TYPE;
+  }
+
+  utf8lex_multi_definition_t *multi_definition =
+    (utf8lex_multi_definition_t *) self;
+
+  size_t num_bytes_written = (size_t) 0;
+
+  // Type of the definition.
+  num_bytes_written += snprintf(str + num_bytes_written,
+                                max_bytes - num_bytes_written,
+                                "multi ");
+
+  // Name of the definition.
+  num_bytes_written += snprintf(str + num_bytes_written,
+                                max_bytes - num_bytes_written,
+                                "'%s' ( ",
+                                self->name);
+
+  utf8lex_error_t error = UTF8LEX_OK;
+  utf8lex_reference_t *reference = multi_definition->references;
+  uint32_t infinite_loop = UTF8LEX_REFERENCES_LENGTH_MAX;
+  bool is_infinite_loop = true;
+  for (uint32_t r = 0; r < infinite_loop; r ++)
+  {
+    if (reference == NULL)
+    {
+      is_infinite_loop = false;
+      break;
+    }
+
+    if (r == 0)
+    {
+      num_bytes_written += snprintf(str + num_bytes_written,
+                                    max_bytes - num_bytes_written,
+                                    "%s",
+                                    reference->definition_name);
+    }
+    else if (multi_definition->multi_type == UTF8LEX_MULTI_TYPE_SEQUENCE)
+    {
+      num_bytes_written += snprintf(str + num_bytes_written,
+                                    max_bytes - num_bytes_written,
+                                    ", %s",
+                                    reference->definition_name);
+    }
+    else if (multi_definition->multi_type == UTF8LEX_MULTI_TYPE_OR)
+    {
+      num_bytes_written += snprintf(str + num_bytes_written,
+                                    max_bytes - num_bytes_written,
+                                    " | %s",
+                                    reference->definition_name);
+    }
+    else
+    {
+      error = UTF8LEX_ERROR_BAD_MULTI_TYPE;
+      num_bytes_written += snprintf(str + num_bytes_written,
+                                    max_bytes - num_bytes_written,
+                                    " ? %s",
+                                    reference->definition_name);
+    }
+
+    if (reference->min != 1
+        || reference->max != 1)
+    {
+      num_bytes_written += snprintf(str + num_bytes_written,
+                                    max_bytes - num_bytes_written,
+                                    "[%d..%d]",
+                                    reference->min,
+                                    reference->max);
+    }
+
+    reference = reference->next;
+  }
+
+  num_bytes_written += snprintf(str + num_bytes_written,
+                                max_bytes - num_bytes_written,
+                                " )");
+
+  if (is_infinite_loop)
+  {
+    return UTF8LEX_ERROR_INFINITE_LOOP;
+  }
+  else if (error != UTF8LEX_OK)
+  {
+    return error;
+  }
+
+  return UTF8LEX_OK;
+}
+
+
 static utf8lex_error_t utf8lex_lex_multi(
         utf8lex_rule_t *rule,
         utf8lex_state_t *state,
@@ -542,12 +653,28 @@ static utf8lex_error_t utf8lex_lex_multi(
     return UTF8LEX_ERROR_DEFINITION_TYPE;
   }
 
+  // Trace pre.
+  if (state->settings.is_tracing == true)
+  {
+    utf8lex_trace_definition_pre(rule->definition, "Lex", state);
+  }
+
   utf8lex_multi_definition_t *multi =
     (utf8lex_multi_definition_t *) rule->definition;
 
   if (multi->references == NULL)
   {
     UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
+    // Trace post.
+    if (state->settings.is_tracing == true)
+    {
+      utf8lex_trace_definition_post(rule->definition,
+                                    "Lex (references)",
+                                    state,
+                                    token_pointer,
+                                    UTF8LEX_ERROR_EMPTY_DEFINITION);
+    }
+
     return UTF8LEX_ERROR_EMPTY_DEFINITION;
   }
 
@@ -563,6 +690,7 @@ static utf8lex_error_t utf8lex_lex_multi(
   error = utf8lex_state_init(&multi_state,        // self
                              &(state->settings),  // settings
                              &multi_buffer);      // buffer
+  multi_state.num_tracing_indents = state->num_tracing_indents;
 
   utf8lex_location_t sequence_loc[UTF8LEX_UNIT_MAX];
   for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
@@ -603,11 +731,33 @@ static utf8lex_error_t utf8lex_lex_multi(
     if (definition == NULL)
     {
       UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
+      // Trace post.
+      if (state->settings.is_tracing == true)
+      {
+        utf8lex_trace_definition_post(rule->definition,
+                                      "Lex (definition)",
+                                      state,
+                                      token_pointer,
+                                      UTF8LEX_ERROR_UNRESOLVED_DEFINITION);
+      }
+
+      utf8lex_state_clear(&multi_state);
       return UTF8LEX_ERROR_UNRESOLVED_DEFINITION;
     }
     else if (definition->definition_type == NULL)
     {
       UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
+      // Trace post.
+      if (state->settings.is_tracing == true)
+      {
+        utf8lex_trace_definition_post(rule->definition,
+                                      "Lex (type)",
+                                      state,
+                                      token_pointer,
+                                      UTF8LEX_ERROR_NULL_POINTER);
+      }
+
+      utf8lex_state_clear(&multi_state);
       return UTF8LEX_ERROR_NULL_POINTER;
     }
 
@@ -640,6 +790,17 @@ static utf8lex_error_t utf8lex_lex_multi(
       else if (error != UTF8LEX_OK)
       {
         UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
+        // Trace post.
+        if (state->settings.is_tracing == true)
+        {
+          utf8lex_trace_definition_post(rule->definition,
+                                        "Lex (child lex)",
+                                        state,
+                                        token_pointer,
+                                        error);
+        }
+
+        utf8lex_state_clear(&multi_state);
         return error;
       }
 
@@ -659,6 +820,17 @@ static utf8lex_error_t utf8lex_lex_multi(
       if (error != UTF8LEX_OK)
       {
         UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
+        // Trace post.
+        if (state->settings.is_tracing == true)
+        {
+          utf8lex_trace_definition_post(rule->definition,
+                                        "Lex (sub-token)",
+                                        state,
+                                        token_pointer,
+                                        error);
+        }
+
+        utf8lex_state_clear(&multi_state);
         return error;
       }
       sub_token->token.parent_or_null = token_pointer;
@@ -697,6 +869,17 @@ static utf8lex_error_t utf8lex_lex_multi(
     if (m == UTF8LEX_REFERENCES_LENGTH_MAX)
     {
       UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
+      // Trace post.
+      if (state->settings.is_tracing == true)
+      {
+        utf8lex_trace_definition_post(rule->definition,
+                                      "Lex (max refs)",
+                                      state,
+                                      token_pointer,
+                                      UTF8LEX_ERROR_INFINITE_LOOP);
+      }
+
+      utf8lex_state_clear(&multi_state);
       return UTF8LEX_ERROR_INFINITE_LOOP;
     }
     else if (m < reference->min
@@ -706,6 +889,17 @@ static utf8lex_error_t utf8lex_lex_multi(
       if (reference->next == NULL)
       {
         UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
+        // Trace post.
+        if (state->settings.is_tracing == true)
+        {
+          utf8lex_trace_definition_post(rule->definition,
+                                        "Lex (no more references)",
+                                        state,
+                                        token_pointer,
+                                        UTF8LEX_NO_MATCH);
+        }
+
+        utf8lex_state_clear(&multi_state);
         return UTF8LEX_NO_MATCH;
       }
 
@@ -715,6 +909,17 @@ static utf8lex_error_t utf8lex_lex_multi(
     else if (m < reference->min)
     {
       UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
+      // Trace post.
+      if (state->settings.is_tracing == true)
+      {
+        utf8lex_trace_definition_post(rule->definition,
+                                      "Lex (min)",
+                                      state,
+                                      token_pointer,
+                                      UTF8LEX_NO_MATCH);
+      }
+
+      utf8lex_state_clear(&multi_state);
       return UTF8LEX_NO_MATCH;
     }
     else if (multi->multi_type == UTF8LEX_MULTI_TYPE_OR)
@@ -740,11 +945,33 @@ static utf8lex_error_t utf8lex_lex_multi(
   if (is_infinite_loop == true)
   {
     UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
+    // Trace post.
+    if (state->settings.is_tracing == true)
+    {
+      utf8lex_trace_definition_post(rule->definition,
+                                    "Lex (infinite)",
+                                    state,
+                                    token_pointer,
+                                    UTF8LEX_ERROR_INFINITE_LOOP);
+    }
+
+    utf8lex_state_clear(&multi_state);
     return UTF8LEX_ERROR_INFINITE_LOOP;
   }
   else if (matching_definition == NULL)
   {
     UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
+    // Trace post.
+    if (state->settings.is_tracing == true)
+    {
+      utf8lex_trace_definition_post(rule->definition,
+                                    "Lex (multi)",
+                                    state,
+                                    token_pointer,
+                                    UTF8LEX_ERROR_STATE);
+    }
+
+    utf8lex_state_clear(&multi_state);
     return UTF8LEX_ERROR_STATE;
   }
 
@@ -768,12 +995,34 @@ static utf8lex_error_t utf8lex_lex_multi(
   if (error != UTF8LEX_OK)
   {
     UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
+    // Trace post.
+    if (state->settings.is_tracing == true)
+    {
+      utf8lex_trace_definition_post(rule->definition,
+                                    "Lex (token)",
+                                    state,
+                                    token_pointer,
+                                    error);
+    }
+
+    utf8lex_state_clear(&multi_state);
     return error;
   }
 
   token_pointer->sub_tokens = first_sub_token;
 
   UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
+  // Trace post.
+  if (state->settings.is_tracing == true)
+  {
+    utf8lex_trace_definition_post(rule->definition,
+                                  "Lex",
+                                  state,
+                                  token_pointer,
+                                  UTF8LEX_OK);
+  }
+
+  utf8lex_state_clear(&multi_state);
   return UTF8LEX_OK;
 }
 
@@ -784,6 +1033,7 @@ static utf8lex_definition_type_t UTF8LEX_DEFINITION_TYPE_MULTI_INTERNAL =
   {
     .name = "MULTI",
     .lex = utf8lex_lex_multi,
+    .to_str = utf8lex_multi_definition_to_str,
     .clear = utf8lex_multi_definition_clear
   };
 utf8lex_definition_type_t *UTF8LEX_DEFINITION_TYPE_MULTI =
