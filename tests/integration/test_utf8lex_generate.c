@@ -135,9 +135,48 @@ int main(
         char *argv[]
         )
 {
-  if (argc != 5)
+  utf8lex_settings_t settings;
+  utf8lex_settings_init_defaults(&settings);
+
+  unsigned char *lex_dir = (unsigned char *) NULL;
+  unsigned char *template_dir = (unsigned char *) NULL;
+  unsigned char *generated_dir = (unsigned char *) NULL;
+  unsigned char *name = (unsigned char *) NULL;
+
+  for (int a = 1; a < argc; a ++)
   {
-    fprintf(stderr, "Usage: %s (lex-dir) (template-dir) (generated-dir) (name)\n",
+    if (strcmp("--tracing", argv[a]) == 0)
+    {
+      settings.is_tracing = true;
+    }
+    else if (lex_dir == NULL)
+    {
+      lex_dir = argv[a];
+    }
+    else if (template_dir == NULL)
+    {
+      template_dir = argv[a];
+    }
+    else if (generated_dir == NULL)
+    {
+      generated_dir = argv[a];
+    }
+    else if (name == NULL)
+    {
+      name = argv[a];
+    }
+    else
+    {
+      fprintf(stderr, "ERROR Unrecognized option: '%s'.\n", argv[a]);
+    }
+  }
+
+  if (lex_dir == NULL
+      || template_dir == NULL
+      || generated_dir == NULL
+      || name == NULL)
+  {
+    fprintf(stderr, "Usage: %s (lex-dir) (template-dir) (generated-dir) (name) (option)...\n",
             argv[0]);
     fprintf(stderr, "\n");
     fprintf(stderr, "(lex-dir):\n");
@@ -153,16 +192,11 @@ int main(
     fprintf(stderr, "(name):\n");
     fprintf(stderr, "    The base name (without path or extension) of the .l lex file\n");
     fprintf(stderr, "    and of the generated source code file.\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "(option)...:\n");
+    fprintf(stderr, "    --tracing: Enable tracing through the lexer.\n");
     return 1;
   }
-
-  unsigned char *lex_dir = (unsigned char *) argv[1];
-  unsigned char *template_dir = (unsigned char *) argv[2];
-  unsigned char *generated_dir = (unsigned char *) argv[3];
-  unsigned char *name = (unsigned char *) argv[4];
-
-  utf8lex_settings_t settings;
-  utf8lex_settings_init_defaults(&settings);
 
   utf8lex_state_t state;
   state.buffer = NULL;
@@ -214,8 +248,10 @@ int main(
       off_t offset = (off_t) state.loc[UTF8LEX_UNIT_BYTE].start;
       unsigned char *bad_string = &state.buffer->str->bytes[offset];
       fprintf(stderr,
-              "ERROR utf8lex %s: Failed with error code: %d %s: \"%s\"\n",
+              "ERROR utf8lex %s: Failed at [%d.%d] with error code: %d %s: \"%s\"\n",
               state_string.bytes,
+              state.loc[UTF8LEX_UNIT_LINE].start + 1,
+              state.loc[UTF8LEX_UNIT_CHAR].start,
               (int) error,
               error_string.bytes,
               bad_string);

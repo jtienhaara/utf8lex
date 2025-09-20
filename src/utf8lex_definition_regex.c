@@ -182,6 +182,7 @@ static utf8lex_error_t utf8lex_regex_definition_to_str(
   }
   else if (self->definition_type != UTF8LEX_DEFINITION_TYPE_REGEX)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_regex_definition_to_str()");
     return UTF8LEX_ERROR_DEFINITION_TYPE;
   }
 

@@ -136,7 +136,7 @@ static utf8lex_error_t yylex_print_error(
   if (fill_error == UTF8LEX_OK)
   {
     fprintf(stderr,
-            "ERROR (%s) yylex failed to parse %d.%d: \"%s\"\n",
+            "ERROR (%s) yylex failed to parse [%d.%d]: \"%s\"\n",
             error_name,
             YY_STATE.loc[UTF8LEX_UNIT_LINE].start + 1,
             YY_STATE.loc[UTF8LEX_UNIT_CHAR].start,

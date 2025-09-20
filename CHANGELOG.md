@@ -41,6 +41,13 @@ Types of changes:
 
 ## [Unreleased]
 
+
+## [0.0.5] - 2025-09-20
+
+### Changed
+- [12 - Fix: Remove definition with same name](https://github.com/jtienhaara/utf8lex/issues/12)
+
+
 ## [0.0.4] - 2025-09-13
 
 ### Changed

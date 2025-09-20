@@ -481,8 +481,10 @@ int main(
       off_t offset = (off_t) state.loc[UTF8LEX_UNIT_BYTE].start;
       unsigned char *bad_string = &state.buffer->str->bytes[offset];
       fprintf(stderr,
-              "ERROR utf8lex %s: Failed with error code: %d %s: \"%s\"\n",
+              "ERROR utf8lex %s: Failed at [%d.%d] with error code: %d %s: \"%s\"\n",
               state_string.bytes,
+              state.loc[UTF8LEX_UNIT_LINE].start + 1,
+              state.loc[UTF8LEX_UNIT_CHAR].start,
               (int) error,
               error_string.bytes,
               bad_string);

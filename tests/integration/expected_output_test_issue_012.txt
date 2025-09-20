@@ -19,3 +19,4 @@ TOKEN: WHITESPACE " "
 TOKEN: EVERYTHING_ELSE "name.\nLotsOfSpace>>>"
 TOKEN: WHITESPACE "                  "
 TOKEN: EVERYTHING_ELSE "<<<ShouldShowUpAs1TokenBetweenEveryhingElse.\n"
+EOF

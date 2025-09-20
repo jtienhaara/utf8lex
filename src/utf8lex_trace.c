@@ -257,7 +257,7 @@ utf8lex_error_t utf8lex_trace_definition_post(
                                                    trace_details);
     if (trace_error == UTF8LEX_OK)
     {
-      fprintf(stdout, "TRACE: %spost %s %s [%s]: token '%s'\n",
+      fprintf(stdout, "TRACE: %spost %s %s [%s] SUCCESS: token '%s'\n",
               indents,
               definition_str,
               trace,
@@ -266,7 +266,7 @@ utf8lex_error_t utf8lex_trace_definition_post(
     }
     else
     {
-      fprintf(stdout, "TRACE: %spost %s %s [%s]: token (can't print)\n",
+      fprintf(stdout, "TRACE: %spost %s %s [%s] SUCCESS: token (can't print)\n",
               indents,
               definition_str,
               trace,
@@ -382,7 +382,7 @@ utf8lex_error_t utf8lex_trace_rule_post(
                                                    trace_details);
     if (trace_error == UTF8LEX_OK)
     {
-      fprintf(stdout, "TRACE: %spost rule %u '%s' [%s]: token '%s'\n",
+      fprintf(stdout, "TRACE: %spost rule %u '%s' [%s] SUCCESS: token '%s'\n",
               indents,
               rule->id,
               rule->name,
@@ -391,7 +391,7 @@ utf8lex_error_t utf8lex_trace_rule_post(
     }
     else
     {
-      fprintf(stdout, "TRACE: %spost rule %u '%s' [%s]: token (can't print)\n",
+      fprintf(stdout, "TRACE: %spost rule %u '%s' [%s] SUCCESS: token (can't print)\n",
               indents,
               rule->id,
               rule->name,
@@ -511,7 +511,7 @@ utf8lex_error_t utf8lex_trace_post(
   unsigned char trace_details[256];
   if (lex_error == UTF8LEX_OK)
   {
-    fprintf(stdout, "TRACE: %spost %s [%s]\n",
+    fprintf(stdout, "TRACE: %spost %s [%s] SUCCESS\n",
             indents,
             trace,
             location_str);
