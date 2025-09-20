@@ -53,12 +53,16 @@ struct _STRUCT_utf8lex_db
   // Literals matching the category names
   // LETTER, LETTER_LOWER, NUM, HSPACE, VSPACE, and so on:
   unsigned char cat_names[UTF8LEX_NUM_CATEGORIES][UTF8LEX_CAT_FORMAT_MAX_LENGTH];
+  uint32_t num_cat_definitions;
   utf8lex_cat_definition_t cat_definitions[UTF8LEX_NUM_CATEGORIES];
   utf8lex_rule_t cats[UTF8LEX_NUM_CATEGORIES];
 
   // Definitions from the .l file (NOT in any order -- use definitions_db).
   // Note that the first UTF8LEX_NUM_CATEGORIES definitions are pre-defined,
   // not from the .l file.
+  // A definition with name "X" will be deleted if another definition
+  // with name "X" is defined in the .l file.  But the name index remains.
+  uint32_t num_definition_names;
   uint32_t num_definitions;
   unsigned char definition_names[UTF8LEX_DEFINITIONS_DB_LENGTH_MAX][UTF8LEX_NAME_LENGTH_MAX];
   // For literals and regexes:

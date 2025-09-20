@@ -112,62 +112,45 @@ run-test_utf8lex:
 .PHONY: run-test_utf8lex_generate
 run-test_utf8lex_generate:
 	@echo "VALGRIND_PLATFORM=$(VALGRIND_PLATFORM)"
-	@echo "================================================================"
-	@echo "test_utf8lex_generate 001:"
-	if test "$(VALGRIND_PLATFORM)" = "UNSUPPORTED"; \
-	then \
-	    $(TEST_BUILD_DIR)/test_utf8lex_generate \
-	        . \
-	        ../../templates/c/mmap \
-	        $(TEST_BUILD_DIR) \
-	        test_utf8lex_generate_001 ; \
-	else \
-	    valgrind $(RUNTIME_LEAK_OPTIONS) $(TEST_BUILD_DIR)/test_utf8lex_generate \
-	        . \
-	        ../../templates/c/mmap \
-	        $(TEST_BUILD_DIR) \
-	        test_utf8lex_generate_001 ; \
-	fi
-	$(CC) $(CFLAGS) \
-	    -c $(TEST_BUILD_DIR)/test_utf8lex_generate_001.c \
-	    -o $(TEST_BUILD_DIR)/test_utf8lex_generate_001.o
-	$(LD) $(LDFLAGS) \
-	    $(TEST_BUILD_DIR)/test_utf8lex_generate_001.o \
-	    $(TEST_BUILD_DIR)/test_l_file.o \
-	    -o $(TEST_BUILD_DIR)/test_utf8lex_generate_001
-	$(TEST_BUILD_DIR)/test_utf8lex_generate_001 \
-	    test_l_file_001_input.txt \
-	    test_l_file_001_expected_output.txt \
-	    $(TEST_BUILD_DIR)/test_l_file_001_actual_output.txt
-	echo "----------------------------------------------------------------"
-	echo "================================================================"
-	echo "test_utf8lex_generate 002:"
-	if test "$(VALGRIND_PLATFORM)" = "UNSUPPORTED"; \
-	then \
-	    $(TEST_BUILD_DIR)/test_utf8lex_generate \
-	        . \
-	        ../../templates/c/mmap \
-	        $(TEST_BUILD_DIR) \
-	        test_utf8lex_generate_002 ; \
-	else \
-	    valgrind $(RUNTIME_LEAK_OPTIONS) $(TEST_BUILD_DIR)/test_utf8lex_generate \
-	        . \
-	        ../../templates/c/mmap \
-	        $(TEST_BUILD_DIR) \
-	        test_utf8lex_generate_002 ; \
-	fi
-	$(CC) $(CFLAGS) \
-	    -c $(TEST_BUILD_DIR)/test_utf8lex_generate_002.c \
-	    -o $(TEST_BUILD_DIR)/test_utf8lex_generate_002.o
-	$(LD) $(LDFLAGS) \
-	    $(TEST_BUILD_DIR)/test_utf8lex_generate_002.o \
-	    $(TEST_BUILD_DIR)/test_l_file.o \
-	    -o $(TEST_BUILD_DIR)/test_utf8lex_generate_002
-	$(TEST_BUILD_DIR)/test_utf8lex_generate_002 \
-	    test_l_file_002_input.txt \
-	    test_l_file_002_expected_output.txt \
-	    $(TEST_BUILD_DIR)/test_l_file_002_actual_output.txt
-	echo "----------------------------------------------------------------"
+	@for TEST_NAME in \
+	    test_utf8lex_generate_001 \
+	    test_utf8lex_generate_002 \
+	    test_issue_012 ; \
+	do \
+	    echo "================================================================" ; \
+	    echo "$$TEST_NAME:" ; \
+	    if test "$(VALGRIND_PLATFORM)" = "UNSUPPORTED"; \
+	    then \
+	        $(TEST_BUILD_DIR)/test_utf8lex_generate \
+	            . \
+	            ../../templates/c/mmap \
+	            $(TEST_BUILD_DIR) \
+	            $$TEST_NAME \
+	            || exit 1; \
+	    else \
+	        valgrind $(RUNTIME_LEAK_OPTIONS) $(TEST_BUILD_DIR)/test_utf8lex_generate \
+	            . \
+	            ../../templates/c/mmap \
+	            $(TEST_BUILD_DIR) \
+	            $$TEST_NAME \
+	            || exit 1; \
+	    fi ; \
+	    $(CC) $(CFLAGS) \
+	        -c $(TEST_BUILD_DIR)/$$TEST_NAME.c \
+	        -o $(TEST_BUILD_DIR)/$$TEST_NAME.o \
+	        || exit 1; \
+	    $(LD) $(LDFLAGS) \
+	        $(TEST_BUILD_DIR)/$$TEST_NAME.o \
+	        $(TEST_BUILD_DIR)/test_l_file.o \
+	        -o $(TEST_BUILD_DIR)/$$TEST_NAME \
+	        || exit 1; \
+	    $(TEST_BUILD_DIR)/$$TEST_NAME \
+	        input_$$TEST_NAME.txt \
+	        expected_output_$$TEST_NAME.txt \
+	        $(TEST_BUILD_DIR)/actual_output_$$TEST_NAME.txt \
+	        || exit 1; \
+	    echo "----------------------------------------------------------------" ; \
+	done
 
 .PHONY: debug
 debug:

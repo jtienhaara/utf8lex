@@ -22,7 +22,7 @@
 #include <fcntl.h>  // For open(), unlink()
 #include <inttypes.h>  // For uint32_t
 #include <stdbool.h>  // For bool, true, false
-#include <string.h>  // For strlen(), strcpy(), strcat, strncpy
+#include <string.h>  // For strlen(), strcpy(), strcat, strncpy, strcmp()
 #include <unistd.h>  // For write()
 
 #include "utf8lex.h"
@@ -87,6 +87,72 @@ struct _STRUCT_utf8lex_lex_transition
   utf8lex_rule_t *rule;
   utf8lex_lex_state_t to;
 };
+
+// Removes a definition from the lexicon database, to be replaced
+// by a new definition with the same name.
+utf8lex_error_t utf8lex_remove_definition(
+        utf8lex_generate_lexicon_t *lex,  // .l file lexicon, this file's db.
+        unsigned char *name  // name of the definition to remove.
+        )
+{
+  if (lex == NULL
+      || lex->db.definitions_db == NULL
+      || name == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  utf8lex_definition_t *definition = lex->db.definitions_db;  // First element.
+  for (int d = 0;
+       d < lex->db.num_definitions;
+       d ++)
+  {
+    if (definition == NULL)
+    {
+      return UTF8LEX_ERROR_NULL_POINTER;
+    }
+    else if (d >= UTF8LEX_DEFINITIONS_DB_LENGTH_MAX)
+    {
+      return UTF8LEX_ERROR_INFINITE_LOOP;
+    }
+
+    if (strcmp(definition->name, name) != 0)
+    {
+      definition = definition->next;
+      continue;
+    }
+
+    utf8lex_definition_t *prev = definition->prev;
+    if (prev != NULL)
+    {
+      prev->next = definition->next;
+    }
+
+    utf8lex_definition_t *next = definition->next;
+    if (next != NULL)
+    {
+      next->prev = definition->prev;
+    }
+
+    // Remove the definition.
+    definition->prev = NULL;
+    definition->next = NULL;
+
+    d --;
+    // Decrement the number of definitions, but leave the definition names.
+    // We don't remove names, since they're still referenced by
+    // the definitions that have been removed from the linked list.
+    lex->db.num_definitions --;
+    if (lex->db.last_definition == definition)
+    {
+      lex->db.last_definition = prev;
+    }
+    definition = prev;  // Carry on to next when we iterate the loop.
+  }
+
+  return UTF8LEX_OK;
+}
+
 
 // Exported:
 utf8lex_error_t utf8lex_generate_definition(
@@ -429,14 +495,13 @@ utf8lex_error_t utf8lex_generate_definition(
 
   // If this is a new definition for a rule, store the name of the definition
   // (which is the same as the rule name).
-  int dn = lex->db.num_definitions;
+  int dn = lex->db.num_definition_names;
   if (name != lex->db.definition_names[dn])
   {
     strcpy(lex->db.definition_names[dn],
            name);
   }
-  lex->db.num_definitions ++;
-  if (lex->db.num_definitions >= UTF8LEX_DEFINITIONS_DB_LENGTH_MAX)
+  if ((lex->db.num_definition_names + 1) >= UTF8LEX_DEFINITIONS_DB_LENGTH_MAX)
   {
     fprintf(stderr, "ERROR 12 in utf8lex_generate_definition() [%d.%d]: UTF8LEX_ERROR_MAX_LENGTH\n", state->loc[UTF8LEX_UNIT_LINE].start + 1, state->loc[UTF8LEX_UNIT_CHAR].start);
     UTF8LEX_DEBUG("EXIT utf8lex_generate_definition()");
@@ -466,8 +531,6 @@ utf8lex_error_t utf8lex_generate_definition(
     UTF8LEX_DEBUG("EXIT utf8lex_generate_definition()");
     return UTF8LEX_ERROR_MAX_LENGTH;
   }
-  lex->db.last_definition = (utf8lex_definition_t *)
-    &(lex->db.multi_definitions[md]);
 
   // Now parse the definition.
   // DEF1 ...definition... (space first).
@@ -481,9 +544,9 @@ utf8lex_error_t utf8lex_generate_definition(
   utf8lex_lex_state_t history[16];
   int infinite_loop_protector = 0;
   utf8lex_definition_type_t *definition_type = NULL;
-  lex->db.str[dn][0] = 0;
+  lex->db.str[dn][0] = '\0';
   unsigned char regex_space[256];
-  regex_space[0] = 0;
+  regex_space[0] = '\0';
   utf8lex_multi_type_t multi_type = UTF8LEX_MULTI_TYPE_NONE;
   utf8lex_reference_t *last_reference = NULL;
   utf8lex_token_t token;
@@ -819,14 +882,6 @@ utf8lex_error_t utf8lex_generate_definition(
   // If we do not need the multi definition, delete it.
   if (definition_type != UTF8LEX_DEFINITION_TYPE_MULTI)
   {
-    if (lex->db.last_definition != (utf8lex_definition_t *)
-        &(lex->db.multi_definitions[md]))
-    {
-      fprintf(stderr, "ERROR 20 in utf8lex_generate_definition() [%d.%d]: UTF8LEX_ERROR_STATE\n", state->loc[UTF8LEX_UNIT_LINE].start + 1, state->loc[UTF8LEX_UNIT_CHAR].start);
-      UTF8LEX_DEBUG("EXIT utf8lex_generate_definition()");
-      return UTF8LEX_ERROR_STATE;
-    }
-    lex->db.last_definition = lex->db.last_definition->prev;
     error = utf8lex_multi_definition_clear(
                 (utf8lex_definition_t *)
                 &(lex->db.multi_definitions[md])  // self
@@ -862,8 +917,23 @@ utf8lex_error_t utf8lex_generate_definition(
       UTF8LEX_DEBUG("EXIT utf8lex_generate_definition()");
       return UTF8LEX_ERROR_MAX_LENGTH;
     }
+    // If a previous definition with the same name already exists, remove it.
+    error = utf8lex_remove_definition(lex,
+                                      lex->db.literal_definitions[ld].base.name);
+    if (error != UTF8LEX_OK)
+    {
+      fprintf(stderr, "ERROR 21.5 in utf8lex_generate_definition() [%d.%d]: error %d from ut8flex_remove_definition()\n", state->loc[UTF8LEX_UNIT_LINE].start + 1, state->loc[UTF8LEX_UNIT_CHAR].start, error);
+      UTF8LEX_DEBUG("EXIT utf8lex_generate_definition()");
+      return error;
+    }
+    // Add the definition to the database.
+    // Note that if we removed any definitions, the last definition in the
+    // database will have changed, but we still need to point to the
+    // same definition_names[dn].  So we do not decrement dn.
     lex->db.last_definition = (utf8lex_definition_t *)
       &(lex->db.literal_definitions[ld]);
+    lex->db.num_definition_names ++;
+    lex->db.num_definitions ++;
   }
   else if (definition_type == UTF8LEX_DEFINITION_TYPE_REGEX)
   {
@@ -885,12 +955,47 @@ utf8lex_error_t utf8lex_generate_definition(
       UTF8LEX_DEBUG("EXIT utf8lex_generate_definition()");
       return UTF8LEX_ERROR_MAX_LENGTH;
     }
+    // If a previous definition with the same name already exists, remove it.
+    error = utf8lex_remove_definition(lex,
+                                      lex->db.regex_definitions[rd].base.name);
+    if (error != UTF8LEX_OK)
+    {
+      fprintf(stderr, "ERROR 22.5 in utf8lex_generate_definition() [%d.%d]: error %d from ut8flex_remove_definition()\n", state->loc[UTF8LEX_UNIT_LINE].start + 1, state->loc[UTF8LEX_UNIT_CHAR].start, error);
+      UTF8LEX_DEBUG("EXIT utf8lex_generate_definition()");
+      return error;
+    }
+    // Add the definition to the database.
+    // Note that if we removed any definitions, the last definition in the
+    // database will have changed, but we still need to point to the
+    // same definition_names[dn].  So we do not decrement dn.
     lex->db.last_definition = (utf8lex_definition_t *)
       &(lex->db.regex_definitions[rd]);
+    lex->db.num_definition_names ++;
+    lex->db.num_definitions ++;
   }
   else if (definition_type == UTF8LEX_DEFINITION_TYPE_MULTI)
   {
     lex->db.multi_definitions[md].multi_type = multi_type;
+
+    // If a previous definition with the same name already exists, remove it.
+    // In this case, we'll inadvertently also remove our own multi-definition
+    // that we added in advance.  So we'll have to add it back again.
+    error = utf8lex_remove_definition(lex,
+                                      lex->db.multi_definitions[md].base.name);
+    if (error != UTF8LEX_OK)
+    {
+      fprintf(stderr, "ERROR 20.5 in utf8lex_generate_definition() [%d.%d]: error %d from ut8flex_remove_definition()\n", state->loc[UTF8LEX_UNIT_LINE].start + 1, state->loc[UTF8LEX_UNIT_CHAR].start, error);
+      UTF8LEX_DEBUG("EXIT utf8lex_generate_definition()");
+      return error;
+    }
+    // Add the definition to the database.
+    // Note that if we removed any definitions, the last definition in the
+    // database will have changed, but we still need to point to the
+    // same definition_names[dn].  So we do not decrement dn.
+    lex->db.last_definition = (utf8lex_definition_t *)
+      &(lex->db.multi_definitions[md]);
+    lex->db.num_definition_names ++;
+    lex->db.num_definitions ++;
   }
   else
   {

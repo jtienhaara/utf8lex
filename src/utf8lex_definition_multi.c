@@ -535,6 +535,7 @@ static utf8lex_error_t utf8lex_multi_definition_to_str(
   }
   else if (self->definition_type != UTF8LEX_DEFINITION_TYPE_MULTI)
   {
+    UTF8LEX_DEBUG("EXIT utf8lex_multi_definition_to_str()");
     return UTF8LEX_ERROR_DEFINITION_TYPE;
   }
 
@@ -730,7 +731,7 @@ static utf8lex_error_t utf8lex_lex_multi(
     utf8lex_definition_t *definition = reference->definition_or_null;
     if (definition == NULL)
     {
-      UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
+      UTF8LEX_DEBUG("EXIT utf8lex_lex_multi() reference");
       // Trace post.
       if (state->settings.is_tracing == true)
       {

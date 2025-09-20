@@ -68,7 +68,7 @@ static utf8lex_error_t utf8lex_generate_write_rules(
 
   line_bytes = snprintf(line, max_bytes,
                         "static utf8lex_cat_definition_t YY_CAT_DEFINITIONS[%d];\n",
-                        UTF8LEX_NUM_CATEGORIES);
+                        db->num_cat_definitions);
   if (line_bytes >= max_bytes) {
     fprintf(stderr, "ERROR 26 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
     UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
@@ -307,7 +307,7 @@ static utf8lex_error_t utf8lex_generate_write_rules(
     {
       // Start cat
       // --------------------
-      if (cd >= UTF8LEX_NUM_CATEGORIES)
+      if (cd >= db->num_cat_definitions)
       {
         fprintf(stderr, "ERROR 56 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_STATE\n", /* line */ 0, /* char */ 0);
         UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
@@ -317,7 +317,7 @@ static utf8lex_error_t utf8lex_generate_write_rules(
       line_bytes = snprintf(line, max_bytes,
                             "    // Definition # %d: %s (cat)\n",
                             infinite_loop_protector,
-                            db->cat_definitions[cd].base.name);
+                            definition->name);
       if (line_bytes >= max_bytes) {
         fprintf(stderr, "ERROR 57 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
         UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
@@ -376,7 +376,7 @@ static utf8lex_error_t utf8lex_generate_write_rules(
 
       line_bytes = snprintf(line, max_bytes,
                             "                \"%s\",  // name\n",
-                            db->cat_definitions[cd].base.name);
+                            definition->name);
       if (line_bytes >= max_bytes) {
         fprintf(stderr, "ERROR 65 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
         UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
@@ -390,11 +390,13 @@ static utf8lex_error_t utf8lex_generate_write_rules(
         return UTF8LEX_ERROR_FILE_WRITE;
       }
 
+      utf8lex_cat_definition_t *cat_definition =
+        (utf8lex_cat_definition_t *) definition;
       // TODO create a cat enum to full cat enum string function
       // TDOO e.g. UTF8LEX_CAT_LETTER_LOWER -> "UTF8LEX_CAT_LETTER_LOWER"
       line_bytes = snprintf(line, max_bytes,
                             "                (utf8lex_cat_t) %d,  // cat\n",
-                            db->cat_definitions[cd].cat);
+                            cat_definition->cat);
       if (line_bytes >= max_bytes) {
         fprintf(stderr, "ERROR 67 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
         UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
@@ -409,7 +411,7 @@ static utf8lex_error_t utf8lex_generate_write_rules(
 
       line_bytes = snprintf(line, max_bytes,
                             "                %d,  // min\n",
-                            db->cat_definitions[cd].min);
+                            cat_definition->min);
       if (line_bytes >= max_bytes) {
         fprintf(stderr, "ERROR 69 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
         UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
@@ -424,7 +426,7 @@ static utf8lex_error_t utf8lex_generate_write_rules(
 
       line_bytes = snprintf(line, max_bytes,
                             "                %d);  // max\n",
-                            db->cat_definitions[cd].max);
+                            cat_definition->max);
       if (line_bytes >= max_bytes) {
         fprintf(stderr, "ERROR 71 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
         UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
@@ -478,7 +480,7 @@ static utf8lex_error_t utf8lex_generate_write_rules(
       line_bytes = snprintf(line, max_bytes,
                             "    // Definition # %d: %s (literal)\n",
                             infinite_loop_protector,
-                            db->literal_definitions[ld].base.name);
+                            definition->name);
       if (line_bytes >= max_bytes) {
         fprintf(stderr, "ERROR 77 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
         UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
@@ -537,7 +539,7 @@ UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
 
       line_bytes = snprintf(line, max_bytes,
                             "                \"%s\",  // name\n",
-                            db->literal_definitions[ld].base.name);
+                            definition->name);
       if (line_bytes >= max_bytes) {
         fprintf(stderr, "ERROR 85 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
 UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
@@ -550,9 +552,11 @@ UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
         return UTF8LEX_ERROR_FILE_WRITE;
       }
 
+      utf8lex_literal_definition_t *literal_definition =
+        (utf8lex_literal_definition_t *) definition;
       error = utf8lex_printable_str(printable_str,
                                     2 * UTF8LEX_LITERAL_REGEX_MAX_BYTES,
-                                    db->literal_definitions[ld].str,
+                                    literal_definition->str,
                                     UTF8LEX_PRINTABLE_ALL);
       if (error != UTF8LEX_OK)
       {
@@ -615,7 +619,7 @@ UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
       line_bytes = snprintf(line, max_bytes,
                             "    // Definition # %d: %s (multi)\n",
                             infinite_loop_protector,
-                            db->multi_definitions[md].base.name);
+                            definition->name);
       if (line_bytes >= max_bytes) {
         fprintf(stderr, "ERROR 93 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
         UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
@@ -674,7 +678,7 @@ UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
 
       line_bytes = snprintf(line, max_bytes,
                             "                \"%s\",  // name\n",
-                            db->multi_definitions[md].base.name);
+                            definition->name);
       if (line_bytes >= max_bytes) {
         fprintf(stderr, "ERROR 101 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
 UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
@@ -687,8 +691,10 @@ UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
         return UTF8LEX_ERROR_FILE_WRITE;
       }
 
+      utf8lex_multi_definition_t *multi_definition =
+        (utf8lex_multi_definition_t *) definition;
       // TODO allow nested multi definitions e.g. A B (X | D) etc.
-      if (db->multi_definitions[md].parent != NULL)
+      if (multi_definition->parent != NULL)
       {
         fprintf(stderr, "ERROR 103 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_NOT_IMPLEMENTED\n", /* line */ 0, /* char */ 0);
 UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
@@ -708,12 +714,12 @@ UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
         return UTF8LEX_ERROR_FILE_WRITE;
       }
 
-      if (db->multi_definitions[md].multi_type == UTF8LEX_MULTI_TYPE_SEQUENCE)
+      if (multi_definition->multi_type == UTF8LEX_MULTI_TYPE_SEQUENCE)
       {
         line_bytes = snprintf(line, max_bytes,
                               "                UTF8LEX_MULTI_TYPE_SEQUENCE);  // multi_type\n");
       }
-      else if (db->multi_definitions[md].multi_type == UTF8LEX_MULTI_TYPE_OR)
+      else if (multi_definition->multi_type == UTF8LEX_MULTI_TYPE_OR)
       {
         line_bytes = snprintf(line, max_bytes,
                               "                UTF8LEX_MULTI_TYPE_OR);  // multi_type\n");
@@ -759,7 +765,7 @@ UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
       }
 
       strcpy(previous, "NULL");
-      utf8lex_reference_t *reference = db->multi_definitions[md].references;
+      utf8lex_reference_t *reference = multi_definition->references;
       for (int ref_infinite = 0;
            ref_infinite < UTF8LEX_REFERENCES_LENGTH_MAX;
            ref_infinite ++)
@@ -768,7 +774,7 @@ UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
         {
           break;
         }
-        else if (md >= db->num_references)
+        else if (ref >= db->num_references)
         {
           fprintf(stderr, "ERROR 112 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_STATE\n", /* line */ 0, /* char */ 0);
           UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
@@ -940,7 +946,7 @@ UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
       line_bytes = snprintf(line, max_bytes,
                             "    // Definition # %d: %s (regex)\n",
                             infinite_loop_protector,
-                            db->regex_definitions[rd].base.name);
+                            definition->name);
       if (line_bytes >= max_bytes) {
         fprintf(stderr, "ERROR 133 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
         UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
@@ -999,7 +1005,7 @@ UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
 
       line_bytes = snprintf(line, max_bytes,
                             "                \"%s\",  // name\n",
-                            db->regex_definitions[rd].base.name);
+                            definition->name);
       if (line_bytes >= max_bytes) {
         fprintf(stderr, "ERROR 141 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
         UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
@@ -1012,9 +1018,11 @@ UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
         return UTF8LEX_ERROR_FILE_WRITE;
       }
 
+      utf8lex_regex_definition_t *regex_definition =
+        (utf8lex_regex_definition_t *) definition;
       error = utf8lex_printable_str(printable_str,
                                     2 * UTF8LEX_LITERAL_REGEX_MAX_BYTES,
-                                    db->regex_definitions[rd].pattern,
+                                    regex_definition->pattern,
                                     UTF8LEX_PRINTABLE_ALL);
       if (error != UTF8LEX_OK)
       {
@@ -1101,15 +1109,6 @@ UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
 UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
     return UTF8LEX_ERROR_INFINITE_LOOP;
   }
-  else if (cd != UTF8LEX_NUM_CATEGORIES
-           || ld != db->num_literal_definitions
-           || md != db->num_multi_definitions
-           || rd != db->num_regex_definitions)
-  {
-    fprintf(stderr, "ERROR 152 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_STATE\n", /* line */ 0, /* char */ 0);
-UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
-    return UTF8LEX_ERROR_STATE;
-  }
 
 
   // Resolve multi-definitions:
@@ -1134,12 +1133,32 @@ UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
     return UTF8LEX_ERROR_FILE_WRITE;
   }
 
-  for (int md = 0; md < db->num_multi_definitions; md ++)
+  //
+  // Generate multi-definition resolver code:
+  //
+  definition = db->definitions_db;
+  md = 0;
+  for (int infinite_loop_protector = 0;
+       infinite_loop_protector < db->num_definitions;
+       infinite_loop_protector ++)
   {
+    if (definition == NULL)
+    {
+      fprintf(stderr, "ERROR 155.5 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_NULL_POINTER\n", /* line */ 0, /* char */ 0);
+      UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
+      return UTF8LEX_ERROR_NULL_POINTER;
+    }
+
+    if (definition->definition_type != UTF8LEX_DEFINITION_TYPE_MULTI)
+    {
+      definition = definition->next;
+      continue;
+    }
+
     line_bytes = snprintf(line, max_bytes,
                           "    // # %d %s:\n",
                           md,
-                          db->multi_definitions[md].base.name);
+                          definition->name);
     if (line_bytes >= max_bytes) {
       fprintf(stderr, "ERROR 156 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
       UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
@@ -1418,7 +1437,7 @@ UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
       return UTF8LEX_ERROR_FILE_WRITE;
     }
     line_bytes = snprintf(line, max_bytes,
-                          "        fprintf(stderr, \"ERROR utf8lex No such definition [%%d.%%d]: %%s\\n\",\n");
+                          "        fprintf(stderr, \"ERROR utf8lex Cannot resolve reference definition [%%d.%%d]: %%s\\n\",\n");
     if (line_bytes >= max_bytes) {
       fprintf(stderr, "ERROR 163.18 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
       UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
@@ -1522,6 +1541,18 @@ UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
       UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
       return UTF8LEX_ERROR_FILE_WRITE;
     }
+
+    definition = definition->next;
+    md ++;
+    // Continue generating multi-definition resolver code.
+  }
+
+  if (definition != NULL)
+  {
+    // The definitions db has a loop in it somewhere, somehow.
+    fprintf(stderr, "ERROR 165.5 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_INFINITE_LOOP\n", /* line */ 0, /* char */ 0);
+UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
+    return UTF8LEX_ERROR_INFINITE_LOOP;
   }
 
 
@@ -1586,7 +1617,7 @@ UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
 
     line_bytes = snprintf(line, max_bytes,
                           "    // Rule # %d: %s\n",
-                          rn,
+                          rule->id,
                           rule->name);
     if (line_bytes >= max_bytes) {
       fprintf(stderr, "ERROR 173 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
@@ -1601,7 +1632,7 @@ UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
     }
 
     line_bytes = snprintf(line, max_bytes,
-                          "    error = utf8lex_definition_find_by_id(\n");
+                          "    error = utf8lex_definition_find(\n");
     if (line_bytes >= max_bytes) {
       fprintf(stderr, "ERROR 175 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
       UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
@@ -1629,8 +1660,7 @@ UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
     }
 
     line_bytes = snprintf(line, max_bytes,
-                          "                (uint32_t) %u,  // id (\"%s\")\n",
-                          (unsigned int) rule->definition->id,
+                          "                \"%s\",  // name\n",
                           rule->definition->name);
     if (line_bytes >= max_bytes) {
       fprintf(stderr, "ERROR 179 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_BAD_LENGTH\n", /* line */ 0, /* char */ 0);
@@ -1787,6 +1817,9 @@ UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
       return UTF8LEX_ERROR_FILE_WRITE;
     }
 
+    //
+    // Now this rule becomes the previous one in the chain:
+    //
     line_bytes = snprintf(previous, UTF8LEX_NAME_LENGTH_MAX + 16,
                           "&(YY_RULES[%d])",
                           rn);
@@ -2504,15 +2537,32 @@ static utf8lex_error_t utf8lex_generate_parse(
 
   // Resolve all the multi-definitions from the definitions section
   // (if any).
-  int num_multi_definitions = lex.db.num_multi_definitions;
-  for (int md = 0; md < num_multi_definitions; md ++)
+  utf8lex_definition_t *definition = lex.db.definitions_db;
+  for (int infinite_loop_protector = 0;
+       infinite_loop_protector < lex.db.num_definitions;
+       infinite_loop_protector ++)
   {
+    if (definition == NULL)
+    {
+      fprintf(stderr, "ERROR 155.5 in utf8lex_generate_write_rules() [%d.%d]: UTF8LEX_ERROR_NULL_POINTER\n", /* line */ 0, /* char */ 0);
+      UTF8LEX_DEBUG("EXIT utf8lex_generate_write_rules()");
+      return UTF8LEX_ERROR_NULL_POINTER;
+    }
+
+    if (definition->definition_type != UTF8LEX_DEFINITION_TYPE_MULTI)
+    {
+      definition = definition->next;
+      continue;
+    }
+
+    utf8lex_multi_definition_t *multi_definition =
+      (utf8lex_multi_definition_t *) definition;
     error = utf8lex_multi_definition_resolve(
-                &(lex.db.multi_definitions[md]),  // self,
+                multi_definition,  // self,
                 lex.db.definitions_db);  // db
     if (error == UTF8LEX_ERROR_NOT_FOUND) {
       utf8lex_reference_t *unresolved_reference =
-        lex.db.multi_definitions[md].references;
+        multi_definition->references;
       for (int infinite_loop_protector = 0;
            infinite_loop_protector < UTF8LEX_REFERENCES_LENGTH_MAX;
            infinite_loop_protector ++)
@@ -2527,7 +2577,7 @@ static utf8lex_error_t utf8lex_generate_parse(
         unresolved_reference = unresolved_reference->next;
       }
       if (unresolved_reference != NULL) {
-        fprintf(stderr, "ERROR utf8lex No such definition [%d.%d]: %s\n",
+        fprintf(stderr, "ERROR utf8lex Unresolved reference definition [%d.%d]: %s\n",
                 state_pointer->loc[UTF8LEX_UNIT_LINE].start + 1,
                 state_pointer->loc[UTF8LEX_UNIT_CHAR].start,
                 unresolved_reference->definition_name);
@@ -2539,6 +2589,9 @@ static utf8lex_error_t utf8lex_generate_parse(
       UTF8LEX_DEBUG("EXIT utf8lex_generate_parse()");
       return error;
     }
+
+    definition = definition->next;
+    // Continue resolving multi-definitions.
   }
 
 

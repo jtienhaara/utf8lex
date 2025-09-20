@@ -38,3 +38,30 @@ static utf8lex_buffer_t YY_BUFFER;
 static utf8lex_string_t YY_STRING;
 
 static utf8lex_error_t yy_rules_init();
+
+// ------------------------------------------------------------------------
+// Externally available functions:
+// ------------------------------------------------------------------------
+
+// Settings for lexing.
+// (If not called, defaults will be used.)
+extern utf8lex_error_t yylex_settings(
+        utf8lex_settings_t *settings
+        );
+
+// Begin lexing.
+extern utf8lex_error_t yylex_start(
+        unsigned char *path
+        );
+
+// Lex with utf8 locations (including grapheme # etc).
+extern int yyutf8lex(
+        utf8lex_token_t *token_or_null,
+        utf8lex_lloc_t *location_or_null
+        );
+
+// Traditional yylex(), with no location tracking.
+extern int yylex();
+
+// Finish lexing.
+extern utf8lex_error_t yylex_end();

@@ -22,7 +22,7 @@
 #include <fcntl.h>  // For open(), unlink()
 #include <inttypes.h>  // For uint32_t
 #include <stdbool.h>  // For bool, true, false
-#include <string.h>  // For strlen(), strcpy(), strcat, strncpy
+#include <string.h>  // For strlen(), strcpy(), strcat, strncpy, snprintf
 #include <unistd.h>  // For write()
 
 #include "utf8lex.h"
@@ -45,7 +45,9 @@ static utf8lex_error_t utf8lex_generate_init_db(
 
   // Definitions and rules from the .l file (not including pre-defined
   // cat definitions):
+  db->num_definition_names = (uint32_t) 0;
   db->num_definitions = (uint32_t) 0;
+  db->num_cat_definitions = (uint32_t) 0;
   db->num_literal_definitions = (uint32_t) 0;
   db->num_regex_definitions = (uint32_t) 0;
   db->num_multi_definitions = (uint32_t) 0;
@@ -60,7 +62,7 @@ static utf8lex_error_t utf8lex_generate_init_db(
   db->last_definition = NULL;
   db->last_rule = NULL;
 
-  // Go through only the explicitly defined categories, don't define
+  // Go through only the default categories, don't define
   // new ones here (like X | Y):
   for (int c = 0; c < UTF8LEX_NUM_CATEGORIES; c ++)
   {
@@ -96,6 +98,7 @@ static utf8lex_error_t utf8lex_generate_init_db(
       // First definition in the database.
       db->definitions_db = db->last_definition;
     }
+    db->num_cat_definitions ++;
     db->num_definitions ++;
   }
 
@@ -118,20 +121,17 @@ static utf8lex_error_t utf8lex_generate_clear_db(
 
   utf8lex_error_t error;
 
-  // Go through only the explicitly defined categories.
-  for (int c = 0; c < UTF8LEX_NUM_CATEGORIES; c ++)
+  // Definitions and rules from the .l file (not including pre-defined
+  // cat definitions):
+  for (uint32_t cd = (uint32_t) 0; cd < db->num_cat_definitions; cd ++)
   {
-    utf8lex_cat_t cat = UTF8LEX_CATEGORIES[c];
-    error = utf8lex_cat_definition_clear(&(db->cat_definitions[c].base));
+    error = utf8lex_cat_definition_clear(&(db->cat_definitions[cd].base));
     if (error != UTF8LEX_OK)
     {
       UTF8LEX_DEBUG("EXIT utf8lex_generate_clear_db()");
       return error;
     }
   }
-
-  // Definitions and rules from the .l file (not including pre-defined
-  // cat definitions):
   for (uint32_t ld = (uint32_t) 0; ld < db->num_literal_definitions; ld ++)
   {
     error = utf8lex_literal_definition_clear(&(db->literal_definitions[ld].base));
@@ -178,7 +178,9 @@ static utf8lex_error_t utf8lex_generate_clear_db(
     }
   }
 
+  db->num_definition_names = (uint32_t) 0;
   db->num_definitions = (uint32_t) 0;
+  db->num_cat_definitions = (uint32_t) 0;
   db->num_literal_definitions = (uint32_t) 0;
   db->num_regex_definitions = (uint32_t) 0;
   db->num_multi_definitions = (uint32_t) 0;
@@ -1140,7 +1142,14 @@ static utf8lex_error_t utf8lex_generate_read_to_eol(
   // Trace post.
   if (state->settings.is_tracing == true)
   {
-    utf8lex_trace_post("Read to EOL", state, UTF8LEX_OK);
+    unsigned char token_str[256];
+    snprintf(token_str,
+             line_token_pointer->length_bytes,
+             "%s",
+             line_token_pointer->str->bytes + line_token_pointer->start_byte);
+    unsigned char trace[256];
+    snprintf(trace, 256, "Read to EOL ('%s')", token_str);
+    utf8lex_trace_post(trace, state, error);
   }
 
   return UTF8LEX_OK;

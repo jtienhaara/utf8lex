@@ -1,0 +1,2 @@
+Test for deleting a previous definition with the same name.
+LotsOfSpace>>>                  <<<ShouldShowUpAs1TokenBetweenEveryhingElse.

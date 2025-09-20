@@ -121,7 +121,9 @@ static utf8lex_error_t yylex_from_template(
     {
       // State has not yet been initialized.
       fprintf(stderr,
-              "ERROR utf8lex: Failed with error code: %d %s\n",
+              "ERROR utf8lex: Failed at [%d.%d] with error code: %d %s\n",
+              state.loc[UTF8LEX_UNIT_LINE].start + 1,
+              state.loc[UTF8LEX_UNIT_CHAR].start,
               (int) error,
               error_string.bytes);
     }
@@ -140,7 +142,9 @@ static utf8lex_error_t yylex_from_template(
       off_t offset = (off_t) state.loc[UTF8LEX_UNIT_BYTE].start;
       unsigned char *bad_string = &state.buffer->str->bytes[offset];
       fprintf(stderr,
-              "ERROR utf8lex %s: Failed with error code: %d %s: \"%s\"\n",
+              "ERROR utf8lex %s: Failed at [%d.%d] with error code: %d %s: \"%s\"\n",
+              state.loc[UTF8LEX_UNIT_LINE].start + 1,
+              state.loc[UTF8LEX_UNIT_CHAR].start,
               state_string.bytes,
               (int) error,
               error_string.bytes,

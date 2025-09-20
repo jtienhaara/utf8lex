@@ -132,7 +132,9 @@ int main(int argc, unsigned char *argv[])
     }
     else if (lex_result == YYerror)
     {
-      fprintf(stderr, "ERROR %d\n",
+      fprintf(stderr, "ERROR at [%d.%d] with error code: %d\n",
+              location.start_line + 1,
+              location.start_char,
               lex_result);
     }
     else if (lex_result < 0)
