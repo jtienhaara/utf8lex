@@ -223,7 +223,8 @@ utf8lex_error_t yylex_start(
   // Initialize the lexing state:
   error = utf8lex_state_init(&YY_STATE,     // self
                              &YY_SETTINGS,  // settings
-                             &YY_BUFFER);   // buffer
+                             &YY_BUFFER,    // buffer
+                             0);            // stack_depth
   if (error != UTF8LEX_OK)
   {
     return yylex_print_error(error);

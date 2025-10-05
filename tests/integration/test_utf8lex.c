@@ -258,7 +258,8 @@ static utf8lex_error_t test_utf8lex(
   error = utf8lex_state_init(
               state,     // self
               NULL,      // settings
-              &buffer);  // buffer
+              &buffer,   // buffer
+              0);        // stack_depth
   if (error != UTF8LEX_OK)
   {
     printf("  test_utf8lex: FAILED\n");

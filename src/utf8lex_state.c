@@ -119,7 +119,8 @@ utf8lex_error_t utf8lex_state_location_copy_string(
 utf8lex_error_t utf8lex_state_init(
         utf8lex_state_t *self,
         utf8lex_settings_t *settings,
-        utf8lex_buffer_t *buffer
+        utf8lex_buffer_t *buffer,
+        uint32_t stack_depth  // 0 for the toplevel state; +ive for lexing multis.
         )
 {
   UTF8LEX_DEBUG("ENTER utf8lex_state_init()");
@@ -142,6 +143,7 @@ utf8lex_error_t utf8lex_state_init(
         &(self->settings));  // to
   }
 
+  self->stack_depth = stack_depth;
   self->num_tracing_indents = (uint32_t) 0;
 
   self->buffer = buffer;

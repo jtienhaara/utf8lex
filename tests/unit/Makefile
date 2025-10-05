@@ -54,7 +54,8 @@ SOURCE_FILES ?= \
 	test_utf8lex_printable_str.c \
 	test_utf8lex_read.c \
 	test_utf8lex_rule.c \
-	test_utf8lex_string.c
+	test_utf8lex_string.c \
+	test_utf8lex_token.c
 
 OBJECT_FILES = \
 	$(patsubst %.c,$(TEST_BUILD_DIR)/%.o,$(SOURCE_FILES))

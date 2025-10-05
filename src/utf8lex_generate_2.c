@@ -218,10 +218,10 @@ utf8lex_error_t utf8lex_generate_definition(
           .to = UTF8LEX_LEX_STATE_MULTI_OR },
         { .from = (char *) utf8lex_lex_state_names[UTF8LEX_LEX_STATE_MULTI_ID],
           .rule = &(lex->rule_open),
-          .to = UTF8LEX_LEX_STATE_RULE },  // DEF1 REF1 {rule}
+          .to = UTF8LEX_LEX_STATE_RULE },  // SINGLEDEF1 {rule}
         { .from = (char *) utf8lex_lex_state_names[UTF8LEX_LEX_STATE_MULTI_ID],
           .rule = &(lex->newline),
-          .to = UTF8LEX_LEX_STATE_COMPLETE },  // DEF1 REF1 (pointless but OK)
+          .to = UTF8LEX_LEX_STATE_COMPLETE },  // SINGLEDEF1 (pointless but OK)
         { .from = (char *) utf8lex_lex_state_names[UTF8LEX_LEX_STATE_MULTI_ID],
           .rule = NULL,
           .to = UTF8LEX_LEX_STATE_ERROR }
@@ -239,10 +239,10 @@ utf8lex_error_t utf8lex_generate_definition(
           .to = UTF8LEX_LEX_STATE_MULTI_OR },
         { .from = (char *) utf8lex_lex_state_names[UTF8LEX_LEX_STATE_MULTI_ID_SPACE],
           .rule = &(lex->rule_open),
-          .to = UTF8LEX_LEX_STATE_RULE },  // DEF1 REF1 {rule}
+          .to = UTF8LEX_LEX_STATE_RULE },  // SINGLEDEF1 {rule}
         { .from = (char *) utf8lex_lex_state_names[UTF8LEX_LEX_STATE_MULTI_ID_SPACE],
           .rule = &(lex->newline),
-          .to = UTF8LEX_LEX_STATE_COMPLETE },  // DEF1 REF1 (pointless but OK)
+          .to = UTF8LEX_LEX_STATE_COMPLETE },  // SINGLEDEF1 (pointless but OK)
         { .from = (char *) utf8lex_lex_state_names[UTF8LEX_LEX_STATE_MULTI_ID_SPACE],
           .rule = NULL,
           .to = UTF8LEX_LEX_STATE_ERROR }

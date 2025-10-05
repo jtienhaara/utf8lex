@@ -2319,7 +2319,8 @@ static utf8lex_error_t utf8lex_generate_parse(
   error = utf8lex_state_init(
               state_pointer,  // self
               settings,       // settings
-              lex_file);      // buffer
+              lex_file,       // buffer
+              0);             // stack_depth
   if (error != UTF8LEX_OK)
   {
     UTF8LEX_DEBUG("EXIT utf8lex_generate_parse()");
@@ -2787,11 +2788,64 @@ static utf8lex_error_t utf8lex_generate_parse(
         return error;
       }
 
+      //
+      // Special cases:
+      // We found a multi-definition with only 1 reference:
+      //
+      //     ID {...rule code...}\n
+      //     ID\n
+      //
+      // In these cases, we point directly to the definition
+      // from the definitions section, and free up the unneeded multi-def.
+      //
+      // For example:
+      //
+      //     ID: /^[a-zA-Z_][a-zA-Z_0-9]*$/
+      //     %%
+      //     ID {...rule code...}
+      //
+      // In the definitions section before the '%%", ID is a regex.
+      //
+      // In the rules section after the "%%" is a multi-definition
+      // with exactly 1 reference, so we replace the multi-definition
+      // with a direct reference to the regex definition "ID".
+      //
+      utf8lex_definition_t *rule_definition = lex.db.last_definition;
+      if (lex.db.last_definition->definition_type == UTF8LEX_DEFINITION_TYPE_MULTI)
+      {
+        utf8lex_multi_definition_t *multi = (utf8lex_multi_definition_t *)
+          lex.db.last_definition;
+        if (multi->references != NULL
+            && multi->references->prev == NULL
+            && multi->references->next == NULL
+            && multi->references->min == 1
+            && multi->references->max == 1
+            && multi->references->definition_or_null != NULL)
+        {
+          rule_definition = multi->references->definition_or_null;
+          error = utf8lex_multi_definition_clear((utf8lex_definition_t *)
+                                                 multi);
+          if (error != UTF8LEX_OK)
+          {
+            fprintf(stderr, "ERROR 259.2 in utf8lex_generate_parse() [%d.%d]: UTF8LEX_ERROR_TOKEN\n",
+                    state_pointer->loc[UTF8LEX_UNIT_LINE].start + 1,
+                    state_pointer->loc[UTF8LEX_UNIT_CHAR].start);
+            UTF8LEX_DEBUG("EXIT utf8lex_generate_parse()");
+            return UTF8LEX_ERROR_TOKEN;
+          }
+
+          lex.db.num_definitions --;
+          lex.db.num_definition_names --;
+          lex.db.num_multi_definitions --;
+          lex.db.last_definition = multi->base.prev;
+        }
+      }
+
       error = utf8lex_rule_init(
                   &(lex.db.rules[r]),  // self
                   lex.db.last_rule,  // prev
                   lex.db.rule_names[r],  // name
-                  lex.db.last_definition,  // definition
+                  rule_definition,  // definition (either new, or single ref)
                   lex.db.rule_code[r],  // code
                   strlen(lex.db.rule_code[r]));  // code_length_bytes
       if (error != UTF8LEX_OK)

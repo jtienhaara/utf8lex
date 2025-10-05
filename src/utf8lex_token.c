@@ -121,22 +121,20 @@ utf8lex_error_t utf8lex_token_init(
   self->start_byte = start_byte;  // Bytes offset into str where token starts.
   self->length_bytes = length_bytes;  // # bytes in token.
   self->str = state->buffer->str;  // The buffer's string.
-  // Absolute locations:
   for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
        unit < UTF8LEX_UNIT_MAX;
        unit ++)
   {
-    // Absolute location from the absolute state:
     self->loc[unit].start = token_loc[unit].start;
     // Length of the token:
     self->loc[unit].length = token_loc[unit].length;
-    // Possible reset (both relative buffer and absolute state)
-    // start locations (for chars, graphemes only) after this token:
+    // Possible reset to start locations after this token.
     self->loc[unit].after = token_loc[unit].after;
     // Hash of the token (unsigned long, can wrap to 0):
     self->loc[unit].hash = token_loc[unit].hash;
   }
 
+  self->num_sub_tokens = 0;
   self->sub_tokens = NULL;
   self->parent_or_null = NULL;
 
@@ -154,7 +152,9 @@ utf8lex_error_t utf8lex_token_copy(
 
   if (from == NULL
       || to == NULL
-      || state == NULL)
+      || state == NULL
+      || state->buffer == NULL
+      || state->buffer->str == NULL)
   {
     UTF8LEX_DEBUG("EXIT utf8lex_token_copy()");
     return UTF8LEX_ERROR_NULL_POINTER;
@@ -172,29 +172,46 @@ utf8lex_error_t utf8lex_token_copy(
     return error;
   }
 
-  // Now we need to take ownership of any / all sub-tokens,
-  // and add them.
-  utf8lex_sub_token_t *sub_token = from->sub_tokens;
+  // Now copy from's sub-tokens, if any.
+  utf8lex_sub_token_t *from_sub_token = from->sub_tokens;
+  utf8lex_sub_token_t *prev_sub_token = NULL;  // Previous to's sub-token.
   bool is_infinite_loop = true;
   for (int infinite_loop_protector = 0;
        infinite_loop_protector < UTF8LEX_SUB_TOKENS_LENGTH_MAX;
        infinite_loop_protector ++)
   {
-    if (sub_token == NULL)
+    if (from_sub_token == NULL)
     {
       is_infinite_loop = false;
       break;
     }
 
+    // Allocate a new sub-token.
+    if (state->num_used_sub_tokens >= UTF8LEX_SUB_TOKENS_LENGTH_MAX)
+    {
+      // No more sub-tokens in the toplevel state, we can't
+      // allocate any more.
+      UTF8LEX_DEBUG("EXIT utf8lex_token_copy()");
+      return UTF8LEX_ERROR_SUB_TOKENS_EXHAUSTED;
+    }
+    utf8lex_sub_token_t *to_sub_token =
+      &(state->sub_tokens[state->num_used_sub_tokens]);
+    state->num_used_sub_tokens ++;
+
+    // Is this the first new sub-token for to's chain?
+    to->num_sub_tokens ++;
     if (to->sub_tokens == NULL)
     {
-      to->sub_tokens = sub_token;
-      from->sub_tokens = NULL;
+      to->sub_tokens = to_sub_token;
     }
 
-    sub_token->token.parent_or_null = to;
+    utf8lex_sub_token_copy(from_sub_token, to_sub_token, prev_sub_token, state);
 
-    sub_token = sub_token->next;
+    to_sub_token->token.parent_or_null = to;
+
+    prev_sub_token = to_sub_token;
+
+    from_sub_token = from_sub_token->next;
   }
 
   if (is_infinite_loop)
@@ -267,6 +284,7 @@ utf8lex_error_t utf8lex_token_clear(
     return UTF8LEX_ERROR_INFINITE_LOOP;
   }
 
+  self->num_sub_tokens = 0;
   self->sub_tokens = NULL;
   self->parent_or_null = NULL;
 

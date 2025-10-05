@@ -18,6 +18,12 @@
 # limitations under the License.
 #
 
+#
+# make build DEBUG=true to turn on debugging flags
+# and turn off compiler optimizations.
+#
+DEBUG ?= 
+
 .PHONY: all
 all: templates build test examples
 
@@ -39,7 +45,7 @@ debian-container: build-debian-container
 	    --rm \
 	    --volume `pwd`:/utf8lex:rw \
 	    utf8lex-debian:latest \
-	    bash -c 'make clean && make all'
+	    bash -c 'make clean && make all DEBUG=$(DEBUG)'
 
 .PHONY: debian-container-re-version
 debian-container-re-version: build-debian-container
@@ -57,7 +63,7 @@ debian-container-debug: build-debian-container
 	    -i --tty \
 	    --volume `pwd`:/utf8lex:rw \
 	    utf8lex-debian:latest \
-	    bash -c 'make clean && make templates && make build && make all && echo "***** No core dump, no debug *****" || make debug'
+	    bash -c 'make clean && make templates && make build DEBUG=true && make all DEBUG=true && echo "***** No core dump, no debug *****" || make debug'
 
 .PHONY: templates
 templates:
@@ -65,9 +71,9 @@ templates:
 	    && make templates
 
 .PHONY: build
-build:
+build: templates
 	cd src \
-	    && make build
+	    && make build DEBUG=$(DEBUG)
 
 .PHONY: test
 test: unit_tests integration_tests
@@ -75,19 +81,19 @@ test: unit_tests integration_tests
 .PHONY: unit_tests
 unit_tests:
 	cd tests/unit \
-	    && make build \
+	    && make build DEBUG=$(DEBUG) \
 	    && make run
 
 .PHONY: integration_tests
 integration_tests:
 	cd tests/integration \
-	    && make build \
+	    && make build DEBUG=$(DEBUG) \
 	    && make run
 
 .PHONY: examples
 examples:
 	cd examples \
-	    && make build \
+	    && make build DEBUG=$(DEBUG) \
 	    && make run
 
 .PHONY: re-version
@@ -98,7 +104,7 @@ re-version:
 .PHONY: debug
 debug:
 	cd tests/integration \
-	    && make build \
+	    && make build DEBUG=true \
 	    && make debug
 
 .PHONY: clean

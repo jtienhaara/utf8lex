@@ -26,6 +26,12 @@ ORIGINAL_DIR = $(PWD)
 BUILD_DIR ?= ../build
 
 #
+# make build DEBUG=true to turn on debugging flags
+# and turn off compiler optimizations.
+#
+DEBUG ?=
+
+#
 # Make sure the path we use to load shared libraries is absolute, not relative:
 #
 UTF8LEX_LIBRARY_DIR = $(subst $(PWD)//,/,$(PWD)/$(BUILD_DIR))
@@ -35,8 +41,11 @@ UTF8LEX_LIBRARY_PATH = $(if $(LD_LIBRARY_PATH),$(UTF8LEX_LIBRARY_DIR):$(LD_LIBRA
 # Parameters for gcc compiling .c into .o files, .o files into exes, etc:
 #
 CC = gcc
+ifndef DEBUG
 CFLAGS = -Werror -fPIC -O2
-# CFLAGS = -Werror -fPIC -O2 --debug
+else
+CFLAGS = -Werror -fPIC -O0 --debug
+endif
 
 #
 # Dynamically linked library:

@@ -42,6 +42,12 @@ Types of changes:
 ## [Unreleased]
 
 
+## [0.0.6] - 2025-10-05
+
+### Changed
+- [14 - Fix: Stack-allocations for multi-definitions](https://github.com/jtienhaara/utf8lex/issues/14)
+
+
 ## [0.0.5] - 2025-09-20
 
 ### Changed
