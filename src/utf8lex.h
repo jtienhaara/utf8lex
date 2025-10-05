@@ -132,6 +132,7 @@ enum _ENUM_utf8lex_error
   UTF8LEX_ERROR_BUFFER_INITIALIZED,  // Buffer has non-NULL str->bytes.
   UTF8LEX_ERROR_CHAIN_INSERT,  // Can't insert links into the chain, only append
   UTF8LEX_ERROR_CAT,  // Invalid cat (category id) NONE < cat < MAX / not found.
+  UTF8LEX_ERROR_DEFINITION_MISMATCH,  // e.g. sub_token.def!=sub_token_token.def
   UTF8LEX_ERROR_DEFINITION_TYPE,  // definition_type mismatch (eg cat / regex).
   UTF8LEX_ERROR_EMPTY_DEFINITION,  // Literals cannot be "", multis cannot be []
   UTF8LEX_ERROR_MAX_LENGTH,  // Too many (rules, definitions, ...) in database.
@@ -139,6 +140,7 @@ enum _ENUM_utf8lex_error
   UTF8LEX_ERROR_NOT_FOUND,  // ..._find() did not match any objects.
   UTF8LEX_ERROR_NOT_IMPLEMENTED,  // Feature not implemented in utf8lex, fix me!
   UTF8LEX_ERROR_REGEX,  // Matching against a regular expression failed.
+  UTF8LEX_ERROR_SUB_TOKENS_EXHAUSTED,  // No more sub-tokens for multi lexing.
   UTF8LEX_ERROR_UNIT,  // Invalid unit must be NONE < unit < MAX.
   UTF8LEX_ERROR_UNRESOLVED_DEFINITION,  // Multi definitions must be resove()d.
   UTF8LEX_ERROR_INFINITE_LOOP,  // Aborted, possible infinite loop detected.
@@ -149,6 +151,7 @@ enum _ENUM_utf8lex_error
   UTF8LEX_ERROR_BAD_AFTER,  // After is neither reset (-1) nor valid new start.
   UTF8LEX_ERROR_BAD_HASH,  // Hash is incorrect.
   UTF8LEX_ERROR_BAD_ID,  // Rule, definition and sub-token ids must be > 0.
+  UTF8LEX_ERROR_BAD_INDEX,  // For find, index must be >= 0.
   UTF8LEX_ERROR_BAD_MIN,  // Min must be 0 or greater.
   UTF8LEX_ERROR_BAD_MAX,  // Max must be >= min, or -1 for no limit.
   UTF8LEX_ERROR_BAD_MULTI_TYPE,  // Multi type must be sequence, OR, etc.
@@ -249,6 +252,24 @@ extern utf8lex_error_t utf8lex_error_string(
 extern utf8lex_error_t utf8lex_string(
         utf8lex_string_t *self,
         int max_length_bytes,
+        unsigned char *content
+        );
+
+// Compares the utf8lex_string_t at a specific start position and length
+// to the specified content, with strcmp-style result stored in
+// the specified int pointer.
+extern utf8lex_error_t utf8lex_strcmp(
+        utf8lex_string_t *self,
+        utf8lex_location_t loc[UTF8LEX_UNIT_MAX],
+        unsigned char *content,
+        int *strcmp_result_pointer
+        );
+
+// Copies the utf8lex_string_t at a specific start position and length
+// to the specified content.
+extern utf8lex_error_t utf8lex_strcpy(
+        utf8lex_string_t *self,
+        utf8lex_location_t loc[UTF8LEX_UNIT_MAX],
         unsigned char *content
         );
 
@@ -414,7 +435,7 @@ extern utf8lex_error_t utf8lex_parse_cat(
 
 struct _STRUCT_utf8lex_definition_type
 {
-  char *name;  // Such as "CATEGORY", "LITERAL" or "REGEX".
+  char *name;  // Such as "CATEGORY", "LITERAL", "MULTI" or "REGEX".
 
   // During lexing, utf8lex_lex() will invoke this definition_type's
   // lex() function to determine 1) whether the text in the lexing
@@ -777,7 +798,7 @@ struct _STRUCT_utf8lex_rule
 
   uint32_t id;
   unsigned char *name;
-  utf8lex_definition_t *definition;  // Such as cat, literal, regex.
+  utf8lex_definition_t *definition;  // Such as cat, literal, multi, regex.
   unsigned char *code;
   size_t code_length_bytes;
 };
@@ -847,7 +868,8 @@ struct _STRUCT_utf8lex_token
   // A multi-definition referencing ELEMENT* will generate 0 or more
   // sub-tokens for the ELEMENT reference.
   //
-  utf8lex_sub_token_t *sub_tokens;  // Can be NULL.
+  int num_sub_tokens;               // Either 0, or 2 or more sub-tokens
+  utf8lex_sub_token_t *sub_tokens;  // (eg for a UTF8LEX_MULTI_TYPE_SEQUENCE).
   utf8lex_token_t *parent_or_null;  // If this is a sub-token.
 };
 
@@ -896,21 +918,42 @@ struct _STRUCT_utf8lex_sub_token
   //
   //     FLOAT DIGIT* (DOT DIGIT+)?
   //
+  // Note that any multi-definition that matches only 1 sub-token will
+  // throw it away, since the whole token matches the definition.
+  // So all OR multi-definitions have 0 sub-tokens:
+  //
+  //     HSPACE | VSPACE
+  //
+  // Whether HSPACE is matched or VSPACE is matched, the whole token
+  // matches the definition, so there's no need to use up resources
+  // for a sub-token.
+  //
   // NOT thread-safe.  Do not share a utf8lex_sub_token across threads.
   //
   uint32_t id;  // id of this sub-token == id of the matched definition.
   unsigned char *name;  // sub-token name == name of the matched definition.
 
+  utf8lex_rule_t rule;
   utf8lex_token_t token;
 
   utf8lex_sub_token_t *next;  
   utf8lex_sub_token_t *prev;
 };
 
+// Copies the content from the specified token, but changes the sub-token's
+// state.
 extern utf8lex_error_t utf8lex_sub_token_init(
         utf8lex_sub_token_t *self,
         utf8lex_sub_token_t *prev,
-        utf8lex_token_t *token_to_copy,
+        utf8lex_definition_t *definition,
+        utf8lex_token_t *token,
+        utf8lex_state_t *from_state,  // The state of the specified token.
+        utf8lex_state_t *to_state  // The state of this sub-token.
+        );
+extern utf8lex_error_t utf8lex_sub_token_copy(
+        utf8lex_sub_token_t *from,
+        utf8lex_sub_token_t *to,
+        utf8lex_sub_token_t *to_prev,  // Can be NULL.
         utf8lex_state_t *state
         );
 extern utf8lex_error_t utf8lex_sub_token_clear(
@@ -920,11 +963,13 @@ extern utf8lex_error_t utf8lex_sub_token_clear(
 extern utf8lex_error_t utf8lex_sub_token_find(
         utf8lex_sub_token_t *first_sub_token,  // Database to search
         unsigned char *name,
+        int index,  // The N'th matching sub-token (0, 1, 2, ...).
         utf8lex_sub_token_t **found_pointer  // Mutable.
         );
 extern utf8lex_error_t utf8lex_sub_token_find_by_id(
         utf8lex_sub_token_t *first_sub_token,  // Database to search
         uint32_t id,
+        int index,  // The N'th matching sub-token (0, 1, 2, ...).
         utf8lex_sub_token_t **found_pointer  // Mutable.
         );
 
@@ -976,6 +1021,8 @@ struct _STRUCT_utf8lex_state
   utf8lex_settings_t settings;  // Such as output file, tracing, etc.
   uint32_t num_tracing_indents;  // Used only when settings.is_tracing == true.
 
+  uint32_t stack_depth;  // 0+, for lexing multi-defs (1 state per stack frame).
+
   // Tokens matching multi-definitions have component sub-tokens
   // matching the children of the multi-definition.
   // NOT thread-safe -- do not share a utf8lex_state_t across threads.
@@ -986,7 +1033,8 @@ struct _STRUCT_utf8lex_state
 extern utf8lex_error_t utf8lex_state_init(
         utf8lex_state_t *self,
         utf8lex_settings_t *settings,  // Can be NULL to set defaults.
-        utf8lex_buffer_t *buffer
+        utf8lex_buffer_t *buffer,
+        uint32_t stack_depth  // 0 for the toplevel state; +ive for lexing multis.
         );
 extern utf8lex_error_t utf8lex_state_clear(
         utf8lex_state_t *self

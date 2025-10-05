@@ -19,7 +19,7 @@
  */
 
 #include <stdio.h>
-#include <string.h>  // For strlen()
+#include <string.h>  // For strlen(), strncmp(), memcpy
 
 #include "utf8lex.h"
 
@@ -105,4 +105,81 @@ utf8lex_error_t utf8lex_string(
       content);  // bytes
   UTF8LEX_DEBUG("EXIT utf8lex_string()");
   return error;
+}
+
+
+// Compare the utf8lex_string_t at a specific start position and length
+// to the specified content, with strcmp-style result stored in
+// the specified int pointer.
+utf8lex_error_t utf8lex_strcmp(
+        utf8lex_string_t *self,
+        utf8lex_location_t loc[UTF8LEX_UNIT_MAX],
+        unsigned char *content,
+        int *strcmp_result_pointer
+        )
+{
+  if (content == NULL
+      || self == NULL
+      || self->bytes == NULL
+      || strcmp_result_pointer == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  int start = loc[UTF8LEX_UNIT_BYTE].start;
+  int length = loc[UTF8LEX_UNIT_BYTE].length;
+  if (start < 0
+      || start >= self->length_bytes)
+  {
+    return UTF8LEX_ERROR_BAD_START;
+  }
+  else if (length < 0
+           || (start + length) > self->length_bytes)
+  {
+    return UTF8LEX_ERROR_BAD_LENGTH;
+  }
+
+  unsigned char *ptr = (unsigned char *) self->bytes + (off_t) start;
+  *strcmp_result_pointer = strncmp(content,
+                                   ptr,
+                                   (size_t) length);
+
+  return UTF8LEX_OK;
+}
+
+
+// Copies the utf8lex_string_t at a specific start position and length
+// to the specified content.
+utf8lex_error_t utf8lex_strcpy(
+        utf8lex_string_t *self,
+        utf8lex_location_t loc[UTF8LEX_UNIT_MAX],
+        unsigned char *content
+        )
+{
+  if (self == NULL
+      || self->bytes == NULL
+      || content == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  int start = loc[UTF8LEX_UNIT_BYTE].start;
+  int length = loc[UTF8LEX_UNIT_BYTE].length;
+  if (start < 0
+      || start >= self->length_bytes)
+  {
+    return UTF8LEX_ERROR_BAD_START;
+  }
+  else if (length < 0
+           || (start + length) > self->length_bytes)
+  {
+    return UTF8LEX_ERROR_BAD_LENGTH;
+  }
+
+  unsigned char *ptr = (unsigned char *) self->bytes + (off_t) start;
+  memcpy(content,
+          ptr,
+          (size_t) length);
+
+  return UTF8LEX_OK;
 }

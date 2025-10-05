@@ -115,6 +115,10 @@ utf8lex_error_t utf8lex_error_string(
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
                                  "UTF8LEX_ERROR_CAT");
     break;
+  case UTF8LEX_ERROR_DEFINITION_MISMATCH:
+    num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
+                                 "UTF8LEX_ERROR_DEFINITION_MISMATCH");
+    break;
   case UTF8LEX_ERROR_DEFINITION_TYPE:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
                                  "UTF8LEX_ERROR_DEFINITION_TYPE");
@@ -142,6 +146,10 @@ utf8lex_error_t utf8lex_error_string(
   case UTF8LEX_ERROR_REGEX:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
                                  "UTF8LEX_ERROR_REGEX");
+    break;
+  case UTF8LEX_ERROR_SUB_TOKENS_EXHAUSTED:
+    num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
+                                 "UTF8LEX_ERROR_SUB_TOKENS_EXHAUSTED");
     break;
   case UTF8LEX_ERROR_UNIT:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
@@ -178,6 +186,10 @@ utf8lex_error_t utf8lex_error_string(
   case UTF8LEX_ERROR_BAD_ID:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
                                  "UTF8LEX_ERROR_BAD_ID");
+    break;
+  case UTF8LEX_ERROR_BAD_INDEX:
+    num_bytes_written = snprintf(str->bytes, str->max_length_bytes,
+                                 "UTF8LEX_ERROR_BAD_INDEX");
     break;
   case UTF8LEX_ERROR_BAD_MIN:
     num_bytes_written = snprintf(str->bytes, str->max_length_bytes,

@@ -107,7 +107,7 @@ typedef struct _STRUCT_utf8lex_test_expression
 
 
 // NUMBER, ID, EQUALS3, EQUALS, PLUS, MINUS, SPACE:
-static utf8lex_error_t test_utf8lex_db_init(
+static utf8lex_error_t db_init(
         utf8lex_test_db_t *db
         )
 {
@@ -272,7 +272,7 @@ static utf8lex_error_t test_utf8lex_db_init(
   return UTF8LEX_OK;
 }
 
-static utf8lex_error_t test_utf8lex_db_clear(
+static utf8lex_error_t db_clear(
         utf8lex_test_db_t *db
         )
 {
@@ -370,7 +370,7 @@ static utf8lex_error_t test_utf8lex_db_clear(
 }
 
 
-static utf8lex_error_t test_utf8lex_find_prev(
+static utf8lex_error_t find_prev(
         utf8lex_test_db_t *db,
         utf8lex_multi_definition_t *parent,
         utf8lex_definition_t **prev_definition_pointer
@@ -420,7 +420,7 @@ static utf8lex_error_t test_utf8lex_find_prev(
 
 
 // OPERATOR = EQUALS3 | EQUALS | PLUS | MINUS
-static utf8lex_error_t test_utf8lex_create_operator(
+static utf8lex_error_t create_operator(
         utf8lex_test_db_t *db,
         utf8lex_multi_definition_t *parent,  // Or NULL for toplevel definition.
         utf8lex_test_operator_t *operator
@@ -435,7 +435,7 @@ static utf8lex_error_t test_utf8lex_create_operator(
   utf8lex_definition_t *prev_definition = NULL;
   utf8lex_error_t error = UTF8LEX_OK;
 
-  error = test_utf8lex_find_prev(db, parent, &prev_definition);
+  error = find_prev(db, parent, &prev_definition);
   if (error != UTF8LEX_OK) { return error; }
 
   printf("  Building multi-definition 'operator':\n");  fflush(stdout);
@@ -512,7 +512,7 @@ static utf8lex_error_t test_utf8lex_create_operator(
 
 
 // DECLARATION = ID SPACE ID
-static utf8lex_error_t test_utf8lex_create_declaration(
+static utf8lex_error_t create_declaration(
         utf8lex_test_db_t *db,
         utf8lex_multi_definition_t *parent,  // Or NULL for toplevel definition.
         utf8lex_test_declaration_t *declaration
@@ -527,7 +527,7 @@ static utf8lex_error_t test_utf8lex_create_declaration(
   utf8lex_definition_t *prev_definition = NULL;
   utf8lex_error_t error = UTF8LEX_OK;
 
-  error = test_utf8lex_find_prev(db, parent, &prev_definition);
+  error = find_prev(db, parent, &prev_definition);
   if (error != UTF8LEX_OK) { return error; }
 
   printf("  Building multi-definition 'declaration':\n");  fflush(stdout);
@@ -610,7 +610,7 @@ static utf8lex_error_t test_utf8lex_create_operand(
   utf8lex_definition_t *prev_definition = NULL;
   utf8lex_error_t error = UTF8LEX_OK;
 
-  error = test_utf8lex_find_prev(db, parent, &prev_definition);
+  error = find_prev(db, parent, &prev_definition);
   if (error != UTF8LEX_OK) { return error; }
 
   printf("  Building multi-definition 'operand':\n");  fflush(stdout);
@@ -668,7 +668,7 @@ static utf8lex_error_t test_utf8lex_create_operand(
 }
 
 
-static utf8lex_error_t test_utf8lex_init_state(
+static utf8lex_error_t init_state(
         utf8lex_state_t *state,
         utf8lex_buffer_t *buffer,
         utf8lex_string_t *str,
@@ -690,6 +690,7 @@ static utf8lex_error_t test_utf8lex_init_state(
                               true);  // is_eof
   if (error != UTF8LEX_OK) { return error; }
 
+  utf8lex_settings_t settings;
   error = utf8lex_state_init(state,    // self
                              NULL,     // settings
                              buffer,   // buffer
@@ -700,7 +701,7 @@ static utf8lex_error_t test_utf8lex_init_state(
 }
 
 
-static utf8lex_error_t test_utf8lex_clear_state(
+static utf8lex_error_t clear_state(
         utf8lex_state_t *state
         )
 {
@@ -728,20 +729,424 @@ static utf8lex_error_t test_utf8lex_clear_state(
   return UTF8LEX_OK;
 }
 
+static utf8lex_error_t expect_token(
+        unsigned char *test_name,
+        int recursion_depth,
+        int sub_token_index,
+        utf8lex_rule_t *expected_rule,
+        utf8lex_definition_t *expected_definition,
+        unsigned char *expected_content,
+        int expected_start_byte,
+        int expected_start_char,
+        int expected_start_grapheme,
+        int expected_start_line,
+        int expected_length_byte,
+        int expected_length_char,
+        int expected_length_grapheme,
+        int expected_length_line,
+        utf8lex_token_t *actual_token
+        )
+{
+  if (expected_rule == NULL
+      || expected_definition == NULL
+      || (recursion_depth == 0 && expected_content == NULL)
+      || actual_token == NULL)
+  {
+    return UTF8LEX_ERROR_NULL_POINTER;
+  }
+
+  int num_errors = 0;
+  char expected_name[256];
+  char actual_name[256];
+
+  // Check rule:
+  if (expected_rule != actual_token->rule)
+  {
+    if (expected_rule == NULL) { strcpy(expected_name, "NULL"); }
+    else { strcpy(expected_name, expected_rule->name); }
+    if (actual_token->rule == NULL) { strcpy(actual_name, "NULL"); }
+    else { strcpy(actual_name, actual_token->rule->name); }
+    fprintf(stderr, "ERROR %s [%d][%d]: Incorrect token at [%d.%d]: expected rule '%s', found rule '%s'\n",
+            test_name,
+            recursion_depth,
+            sub_token_index,
+            actual_token->loc[UTF8LEX_UNIT_LINE].start + 1,
+            actual_token->loc[UTF8LEX_UNIT_CHAR].start,
+            expected_name,
+            actual_name);
+    num_errors ++;
+  }
+
+  // Check definition:
+  if (expected_definition != actual_token->definition)
+  {
+    if (expected_definition == NULL) { strcpy(expected_name, "NULL"); }
+    else { strcpy(expected_name, expected_definition->name); }
+    if (actual_token->definition == NULL) { strcpy(actual_name, "NULL"); }
+    else { strcpy(actual_name, actual_token->definition->name); }
+    fprintf(stderr, "ERROR %s [%d][%d]: Incorrect token at [%d.%d]: expected definition '%s', found definition '%s'\n",
+            test_name,
+            recursion_depth,
+            sub_token_index,
+            actual_token->loc[UTF8LEX_UNIT_LINE].start + 1,
+            actual_token->loc[UTF8LEX_UNIT_CHAR].start,
+            expected_name,
+            actual_name);
+    num_errors ++;
+  }
+
+  // Check location starts:
+  if (expected_start_byte != actual_token->loc[UTF8LEX_UNIT_BYTE].start)
+  {
+    fprintf(stderr, "ERROR %s [%d][%d]: Incorrect %s token location at [%d.%d]: expected start byte %d, but found: %d\n",
+            test_name,
+            recursion_depth,
+            sub_token_index,
+            expected_definition->name,
+            actual_token->loc[UTF8LEX_UNIT_LINE].start + 1,
+            actual_token->loc[UTF8LEX_UNIT_CHAR].start,
+            expected_start_byte,
+            actual_token->loc[UTF8LEX_UNIT_BYTE].start);
+    num_errors ++;
+  }
+  if (expected_start_char != actual_token->loc[UTF8LEX_UNIT_CHAR].start)
+  {
+    fprintf(stderr, "ERROR %s [%d][%d]: Incorrect %s token location at [%d.%d]: expected start char %d, but found: %d\n",
+            test_name,
+            recursion_depth,
+            sub_token_index,
+            expected_definition->name,
+            actual_token->loc[UTF8LEX_UNIT_LINE].start + 1,
+            actual_token->loc[UTF8LEX_UNIT_CHAR].start,
+            expected_start_char,
+            actual_token->loc[UTF8LEX_UNIT_CHAR].start);
+    num_errors ++;
+  }
+  if (expected_start_grapheme != actual_token->loc[UTF8LEX_UNIT_GRAPHEME].start)
+  {
+    fprintf(stderr, "ERROR %s [%d][%d]: Incorrect %s token location at [%d.%d]: expected start grapheme %d, but found: %d\n",
+            test_name,
+            recursion_depth,
+            sub_token_index,
+            expected_definition->name,
+            actual_token->loc[UTF8LEX_UNIT_LINE].start + 1,
+            actual_token->loc[UTF8LEX_UNIT_CHAR].start,
+            expected_start_grapheme,
+            actual_token->loc[UTF8LEX_UNIT_GRAPHEME].start);
+    num_errors ++;
+  }
+  if (expected_start_line != actual_token->loc[UTF8LEX_UNIT_LINE].start)
+  {
+    fprintf(stderr, "ERROR %s [%d][%d]: Incorrect %s token location at [%d.%d]: expected start line %d, but found: %d\n",
+            test_name,
+            recursion_depth,
+            sub_token_index,
+            expected_definition->name,
+            actual_token->loc[UTF8LEX_UNIT_LINE].start + 1,
+            actual_token->loc[UTF8LEX_UNIT_CHAR].start,
+            expected_start_line,
+            actual_token->loc[UTF8LEX_UNIT_LINE].start);
+    num_errors ++;
+  }
+
+  // Check location lengths:
+  if (expected_length_byte >= 0
+      && expected_length_byte != actual_token->loc[UTF8LEX_UNIT_BYTE].length)
+  {
+    fprintf(stderr, "ERROR %s [%d][%d]: Incorrect %s token location at [%d.%d]: expected byte length %d, but found: %d\n",
+            test_name,
+            recursion_depth,
+            sub_token_index,
+            expected_definition->name,
+            actual_token->loc[UTF8LEX_UNIT_LINE].start + 1,
+            actual_token->loc[UTF8LEX_UNIT_CHAR].start,
+            expected_length_byte,
+            actual_token->loc[UTF8LEX_UNIT_BYTE].length);
+    num_errors ++;
+  }
+  if (expected_length_char >= 0
+      && expected_length_char != actual_token->loc[UTF8LEX_UNIT_CHAR].length)
+  {
+    fprintf(stderr, "ERROR %s [%d][%d]: Incorrect %s token location at [%d.%d]: expected char length %d, but found: %d\n",
+            test_name,
+            recursion_depth,
+            sub_token_index,
+            expected_definition->name,
+            actual_token->loc[UTF8LEX_UNIT_LINE].start + 1,
+            actual_token->loc[UTF8LEX_UNIT_CHAR].start,
+            expected_length_char,
+            actual_token->loc[UTF8LEX_UNIT_CHAR].length);
+    num_errors ++;
+  }
+  if (expected_length_grapheme >= 0
+      && expected_length_grapheme != actual_token->loc[UTF8LEX_UNIT_GRAPHEME].length)
+  {
+    fprintf(stderr, "ERROR %s [%d][%d]: Incorrect %s token location at [%d.%d]: expected grapheme length %d, but found: %d\n",
+            test_name,
+            recursion_depth,
+            sub_token_index,
+            expected_definition->name,
+            actual_token->loc[UTF8LEX_UNIT_LINE].start + 1,
+            actual_token->loc[UTF8LEX_UNIT_CHAR].start,
+            expected_length_grapheme,
+            actual_token->loc[UTF8LEX_UNIT_GRAPHEME].length);
+    num_errors ++;
+  }
+  if (expected_length_line >= 0
+      && expected_length_line != actual_token->loc[UTF8LEX_UNIT_LINE].length)
+  {
+    fprintf(stderr, "ERROR %s [%d][%d]: Incorrect %s token location at [%d.%d]: expected line length %d, but found: %d\n",
+            test_name,
+            recursion_depth,
+            sub_token_index,
+            expected_definition->name,
+            actual_token->loc[UTF8LEX_UNIT_LINE].start + 1,
+            actual_token->loc[UTF8LEX_UNIT_CHAR].start,
+            expected_length_line,
+            actual_token->loc[UTF8LEX_UNIT_LINE].length);
+    num_errors ++;
+  }
+
+  // Check content:
+  if (expected_content != NULL)
+  {
+    int strcmp;
+    if ((expected_content == NULL && actual_token->str != NULL)
+        || (expected_content != NULL && actual_token->str == NULL)
+        || utf8lex_strcmp(actual_token->str, actual_token->loc,
+                          expected_content, &strcmp) != UTF8LEX_OK
+        || strcmp != 0)
+    {
+      if (expected_content == NULL) { strcpy(expected_name, "NULL"); }
+      else { strcpy(expected_name, expected_content); }
+      utf8lex_error_t error =
+        utf8lex_strcpy(actual_token->str, actual_token->loc, actual_name);
+      if (error != UTF8LEX_OK)
+      {
+        return error;
+      }
+      fprintf(stderr, "ERROR %s [%d][%d]: Incorrect %s token at [%d.%d]: expected content '%s', found content '%s'\n",
+              test_name,
+              recursion_depth,
+              sub_token_index,
+              expected_definition->name,
+              actual_token->loc[UTF8LEX_UNIT_LINE].start + 1,
+              actual_token->loc[UTF8LEX_UNIT_CHAR].start,
+              expected_name,
+              actual_name);
+      num_errors ++;
+    }
+  }
+
+  // If the rule has a sequence multi-definition, then check sub-tokens.
+  // (Or multi-definitions do not have sub-tokens.)
+  utf8lex_definition_t *top_definition = actual_token->rule->definition;
+  if (top_definition->definition_type == UTF8LEX_DEFINITION_TYPE_MULTI
+      && ((utf8lex_multi_definition_t *) top_definition)->multi_type == UTF8LEX_MULTI_TYPE_SEQUENCE)
+  {
+    utf8lex_multi_definition_t *multi = (utf8lex_multi_definition_t *)
+      top_definition;
+    // Can go into an infinite loop via recursion.  :/
+    bool is_infinite_loop = true;
+    utf8lex_reference_t *reference = multi->references;
+    utf8lex_location_t sub_loc[UTF8LEX_UNIT_MAX] = {
+      { .start = 0, .length = 0, .after = 0, .hash = 0 },  // byte
+      { .start = 0, .length = 0, .after = 0, .hash = 0 },  // char
+      { .start = 0, .length = 0, .after = 0, .hash = 0 },  // grapheme
+      { .start = 0, .length = 0, .after = 0, .hash = 0 }  // line
+    };
+    int num_sub_tokens = 0;
+    for (int infinite_loop = 0;
+         infinite_loop < UTF8LEX_REFERENCES_LENGTH_MAX;
+         infinite_loop ++)
+    {
+      if (reference == NULL)
+      {
+        is_infinite_loop = false;
+        break;
+      }
+
+      int nth = 0;
+      utf8lex_reference_t *maybe_same_name = multi->references;
+      for (int find_nth = 0; find_nth < infinite_loop; find_nth ++)
+      {
+        if (strcmp(reference->definition_name,
+                   maybe_same_name->definition_name) == 0)
+        {
+          nth ++;
+        }
+        maybe_same_name = maybe_same_name->next;
+      }
+
+      utf8lex_definition_t *sub_definition = reference->definition_or_null;
+      utf8lex_sub_token_t *found_sub_token;
+      utf8lex_error_t error = utf8lex_sub_token_find(
+          actual_token->sub_tokens,  // first_sub_token
+          sub_definition->name,  // name
+          nth,  // index
+          &found_sub_token);  // found_pointer
+      // A "sequence" multi-definition can have 2 or more matched definitions
+      // with the same name in the sequence, such as "ID OPERATOR ID".
+      // An "or" multi-definition can only have exactly 1 matched definition.
+      // After the toplevel recursion, we stop trying to track the name
+      // that an "or" resolves to, because we're tired.
+      // This test framework is kludgy.  You should fix it!
+      if (recursion_depth > 0  // Don't pay attention to "or"s in nested multis
+          || multi->multi_type == UTF8LEX_MULTI_TYPE_SEQUENCE  // Find all subs
+          || (multi->multi_type == UTF8LEX_MULTI_TYPE_OR  // Only find 1 sub
+              && sub_definition == expected_definition))  // Only find 1 sub
+      {
+        // We should be able to find this sub-token.
+        if (error != UTF8LEX_OK)
+        {
+          fprintf(stderr, "ERROR %s [%d][%d]: Can't find token \"%s\"'s expected \"%s\" sub-token # %d at [%d.%d]: '%s'\n",
+                  test_name,
+                  recursion_depth,
+                  sub_token_index,
+                  expected_definition->name,
+                  sub_definition->name,
+                  nth,
+                  actual_token->loc[UTF8LEX_UNIT_LINE].start + 1,
+                  actual_token->loc[UTF8LEX_UNIT_CHAR].start,
+                  sub_definition->name);
+          num_errors ++;
+          reference = reference->next;
+          continue;
+        }
+
+        sub_loc[UTF8LEX_UNIT_BYTE].start =
+          found_sub_token->token.loc[UTF8LEX_UNIT_BYTE].start
+          + found_sub_token->token.loc[UTF8LEX_UNIT_BYTE].length;
+        sub_loc[UTF8LEX_UNIT_CHAR].start =
+          found_sub_token->token.loc[UTF8LEX_UNIT_CHAR].start
+          + found_sub_token->token.loc[UTF8LEX_UNIT_CHAR].length;
+        sub_loc[UTF8LEX_UNIT_GRAPHEME].start =
+          found_sub_token->token.loc[UTF8LEX_UNIT_GRAPHEME].start
+          + found_sub_token->token.loc[UTF8LEX_UNIT_GRAPHEME].length;
+        sub_loc[UTF8LEX_UNIT_LINE].start =
+          found_sub_token->token.loc[UTF8LEX_UNIT_LINE].start
+          + found_sub_token->token.loc[UTF8LEX_UNIT_LINE].length;
+        num_sub_tokens ++;
+        if (error != UTF8LEX_OK)
+        {
+          // We've already printed error(s) while recursing, just count.
+          num_errors ++;
+        }
+      }
+      else
+      {
+        // We should not be able to find this sub-token.
+        if (error == UTF8LEX_OK)
+        {
+          fprintf(stderr, "ERROR %s [%d][%d]: found token \"%s\"'s unexpected sub-token at [%d.%d]: '%s'\n",
+                  test_name,
+                  recursion_depth,
+                  sub_token_index,
+                  expected_definition->name,
+                  found_sub_token->token.loc[UTF8LEX_UNIT_LINE].start + 1,
+                  found_sub_token->token.loc[UTF8LEX_UNIT_CHAR].start,
+                  sub_definition->name);
+          num_errors ++;
+        }
+      }
+
+      reference = reference->next;
+    }
+
+    if (expected_length_byte >= 0
+        && (expected_start_byte + expected_length_byte)
+        != sub_loc[UTF8LEX_UNIT_BYTE].start)
+    {
+      fprintf(stderr, "ERROR %s [%d][%d]: total byte length of token \"%s\"'s %d sub-tokens does not match expected byte length of token at [%d.%d]: expected %d but found %d\n",
+              test_name,
+              recursion_depth,
+              sub_token_index,
+              expected_definition->name,
+              num_sub_tokens,
+              actual_token->loc[UTF8LEX_UNIT_LINE].start + 1,
+              actual_token->loc[UTF8LEX_UNIT_CHAR].start,
+              expected_start_byte + expected_length_byte,
+              sub_loc[UTF8LEX_UNIT_BYTE].start);
+      num_errors ++;
+    }
+    if (expected_length_char >= 0
+        && (expected_start_char + expected_length_char)
+        != sub_loc[UTF8LEX_UNIT_CHAR].start)
+    {
+      fprintf(stderr, "ERROR %s [%d][%d]: total char length of token \"%s\"'s %d sub-tokens does not match expected char length of token at [%d.%d]: expected %d but found %d\n",
+              test_name,
+              recursion_depth,
+              sub_token_index,
+              expected_definition->name,
+              num_sub_tokens,
+              actual_token->loc[UTF8LEX_UNIT_LINE].start + 1,
+              actual_token->loc[UTF8LEX_UNIT_CHAR].start,
+              expected_start_char + expected_length_char,
+              sub_loc[UTF8LEX_UNIT_CHAR].start);
+      num_errors ++;
+    }
+    if (expected_length_grapheme >= 0
+        && (expected_start_grapheme + expected_length_grapheme)
+        != sub_loc[UTF8LEX_UNIT_GRAPHEME].start)
+    {
+      fprintf(stderr, "ERROR %s [%d][%d]: total grapheme length of token \"%s\"'s %d sub-tokens does not match expected grapheme length of token at [%d.%d]: expected %d but found %d\n",
+              test_name,
+              recursion_depth,
+              sub_token_index,
+              expected_definition->name,
+              num_sub_tokens,
+              actual_token->loc[UTF8LEX_UNIT_LINE].start + 1,
+              actual_token->loc[UTF8LEX_UNIT_CHAR].start,
+              expected_start_grapheme + expected_length_grapheme,
+              sub_loc[UTF8LEX_UNIT_GRAPHEME].start);
+      num_errors ++;
+    }
+    if (expected_length_line >= 0
+        && (expected_start_line + expected_length_line)
+        != sub_loc[UTF8LEX_UNIT_LINE].start)
+    {
+      fprintf(stderr, "ERROR %s [%d][%d]: total line length of token \"%s\"'s %d sub-tokens does not match expected line length of token at [%d.%d]: expected %d but found %d\n",
+              test_name,
+              recursion_depth,
+              sub_token_index,
+              expected_definition->name,
+              num_sub_tokens,
+              actual_token->loc[UTF8LEX_UNIT_LINE].start + 1,
+              actual_token->loc[UTF8LEX_UNIT_CHAR].start,
+              expected_start_line + expected_length_line,
+              sub_loc[UTF8LEX_UNIT_LINE].start);
+      num_errors ++;
+    }
+
+    if (is_infinite_loop == true)
+    {
+      return UTF8LEX_ERROR_INFINITE_LOOP;
+    }
+  }
+
+  if (num_errors > 0)
+  {
+    fflush(stderr);
+    return UTF8LEX_NO_MATCH;
+  }
+
+  return UTF8LEX_OK;
+}
+
 // OPERATOR = EQUALS3 | EQUALS | PLUS | MINUS
 static utf8lex_error_t test_utf8lex_operator()
 {
   utf8lex_error_t error = UTF8LEX_OK;
 
   utf8lex_test_db_t db;
-  error = test_utf8lex_db_init(&db);
+  error = db_init(&db);
   if (error != UTF8LEX_OK)
   {
     return error;
   }
 
   utf8lex_test_operator_t operator;
-  error = test_utf8lex_create_operator(
+  error = create_operator(
               &db,  // db
               NULL,  // parent
               &operator);  // operator
@@ -772,10 +1177,10 @@ static utf8lex_error_t test_utf8lex_operator()
   to_lex = "===";  // EQUALS3
   printf("  Lexing '%s' with 'operator' definition:\n",
          to_lex);
-  error == test_utf8lex_init_state(&state,  // state
-                                   &buffer,  // buffer
-                                   &str,  // str
-                                   to_lex);
+  error == init_state(&state,  // state
+                      &buffer,  // buffer
+                      &str,  // str
+                      to_lex);
   if (error != UTF8LEX_OK) { return error; }
 
   error = utf8lex_lex(&lex_rule,  // first_rule
@@ -797,16 +1202,33 @@ static utf8lex_error_t test_utf8lex_operator()
     return error;
   }
 
-  error = test_utf8lex_clear_state(&state);  // state
+  // Check the token and sub-tokens:
+  // OPERATOR = EQUALS3 | EQUALS | PLUS | MINUS
+  // Matched EQUALS3
+  {
+    error =
+      expect_token("test_utf8lex_operator()",  // test_name
+                   0,  // recursion_depth
+                   0,  // sub_token_index
+                   &lex_rule,  // expected_rule
+                   operator.ref_equals3.definition_or_null,  // expected_definition
+                   to_lex,  // expected_content
+                   0, 0, 0, 0,  // expected_start_[byte, char, grapheme, line]
+                   3, 3, 3, 0,  // expected_length_[byte, char, grapheme, line]
+                   &token);  // actual_token
+    if (error != UTF8LEX_OK) { return error; }
+  }
+
+  error = clear_state(&state);  // state
   if (error != UTF8LEX_OK) { return error; }
 
   to_lex = "=";  // EQUALS
   printf("  Lexing '%s' with 'operator' definition:\n",
          to_lex);
-  error == test_utf8lex_init_state(&state,  // state
-                                   &buffer,  // buffer
-                                   &str,  // str
-                                   to_lex);
+  error == init_state(&state,  // state
+                      &buffer,  // buffer
+                      &str,  // str
+                      to_lex);
   if (error != UTF8LEX_OK) { return error; }
 
   error = utf8lex_lex(&lex_rule,  // first_rule
@@ -828,16 +1250,33 @@ static utf8lex_error_t test_utf8lex_operator()
     return error;
   }
 
-  error = test_utf8lex_clear_state(&state);  // state
+  // Check the token and sub-tokens:
+  // OPERATOR = EQUALS3 | EQUALS | PLUS | MINUS
+  // Matched EQUALS
+  {
+    error =
+      expect_token("test_utf8lex_operator()",  // test_name
+                   0,  // recursion_depth
+                   0,  // sub_token_index
+                   &lex_rule,  // expected_rule
+                   operator.ref_equals.definition_or_null,  // expected_definition
+                   to_lex,  // expected_content
+                   0, 0, 0, 0,  // expected_start_[byte, char, grapheme, line]
+                   1, 1, 1, 0,  // expected_length_[byte, char, grapheme, line]
+                   &token);  // actual_token
+    if (error != UTF8LEX_OK) { return error; }
+  }
+
+  error = clear_state(&state);  // state
   if (error != UTF8LEX_OK) { return error; }
 
   to_lex = "+";  // PLUS
   printf("  Lexing '%s' with 'operator' definition:\n",
          to_lex);
-  error == test_utf8lex_init_state(&state,  // state
-                                   &buffer,  // buffer
-                                   &str,  // str
-                                   to_lex);
+  error == init_state(&state,  // state
+                      &buffer,  // buffer
+                      &str,  // str
+                      to_lex);
   if (error != UTF8LEX_OK) { return error; }
 
   error = utf8lex_lex(&lex_rule,  // first_rule
@@ -859,16 +1298,33 @@ static utf8lex_error_t test_utf8lex_operator()
     return error;
   }
 
-  error = test_utf8lex_clear_state(&state);  // state
+  // Check the token and sub-tokens:
+  // OPERATOR = EQUALS3 | EQUALS | PLUS | MINUS
+  // Matched PLUS
+  {
+    error =
+      expect_token("test_utf8lex_operator()",  // test_name
+                   0,  // recursion_depth
+                   0,  // sub_token_index
+                   &lex_rule,  // expected_rule
+                   operator.ref_plus.definition_or_null,  // expected_definition
+                   to_lex,  // expected_content
+                   0, 0, 0, 0,  // expected_start_[byte, char, grapheme, line]
+                   1, 1, 1, 0,  // expected_length_[byte, char, grapheme, line]
+                   &token);  // actual_token
+    if (error != UTF8LEX_OK) { return error; }
+  }
+
+  error = clear_state(&state);  // state
   if (error != UTF8LEX_OK) { return error; }
 
   to_lex = "-";  // MINUS
   printf("  Lexing '%s' with 'operator' definition:\n",
          to_lex);
-  error == test_utf8lex_init_state(&state,  // state
-                                   &buffer,  // buffer
-                                   &str,  // str
-                                   to_lex);
+  error == init_state(&state,  // state
+                      &buffer,  // buffer
+                      &str,  // str
+                      to_lex);
   if (error != UTF8LEX_OK) { return error; }
 
   error = utf8lex_lex(&lex_rule,  // first_rule
@@ -890,16 +1346,33 @@ static utf8lex_error_t test_utf8lex_operator()
     return error;
   }
 
-  error = test_utf8lex_clear_state(&state);  // state
+  // Check the token and sub-tokens:
+  // OPERATOR = EQUALS3 | EQUALS | PLUS | MINUS
+  // Matched MINUS
+  {
+    error =
+      expect_token("test_utf8lex_operator()",  // test_name
+                   0,  // recursion_depth
+                   0,  // sub_token_index
+                   &lex_rule,  // expected_rule
+                   operator.ref_minus.definition_or_null,  // expected_definition
+                   to_lex,  // expected_content
+                   0, 0, 0, 0,  // expected_start_[byte, char, grapheme, line]
+                   1, 1, 1, 0,  // expected_length_[byte, char, grapheme, line]
+                   &token);  // actual_token
+    if (error != UTF8LEX_OK) { return error; }
+  }
+
+  error = clear_state(&state);  // state
   if (error != UTF8LEX_OK) { return error; }
 
   to_lex = "foobar";  // no match.
   printf("  Lexing '%s' with 'operator' definition:\n",
          to_lex);
-  error == test_utf8lex_init_state(&state,  // state
-                                   &buffer,  // buffer
-                                   &str,  // str
-                                   to_lex);
+  error == init_state(&state,  // state
+                      &buffer,  // buffer
+                      &str,  // str
+                      to_lex);
   if (error != UTF8LEX_OK) { return error; }
 
   error = utf8lex_lex(&lex_rule,  // first_rule
@@ -921,7 +1394,7 @@ static utf8lex_error_t test_utf8lex_operator()
     return error;
   }
 
-  error = test_utf8lex_clear_state(&state);  // state
+  error = clear_state(&state);  // state
   if (error != UTF8LEX_OK) { return error; }
 
 
@@ -930,7 +1403,7 @@ static utf8lex_error_t test_utf8lex_operator()
   if (error != UTF8LEX_OK) { return error; }
 
   // Clean up the db:
-  error = test_utf8lex_db_clear(&db);
+  error = db_clear(&db);
   if (error != UTF8LEX_OK)
   {
     return error;
@@ -946,14 +1419,14 @@ static utf8lex_error_t test_utf8lex_declaration()
   utf8lex_error_t error = UTF8LEX_OK;
 
   utf8lex_test_db_t db;
-  error = test_utf8lex_db_init(&db);
+  error = db_init(&db);
   if (error != UTF8LEX_OK)
   {
     return error;
   }
 
   utf8lex_test_declaration_t declaration;
-  error = test_utf8lex_create_declaration(
+  error = create_declaration(
               &db,  // db
               NULL,  // parent
               &declaration);  // declaration
@@ -970,6 +1443,7 @@ static utf8lex_error_t test_utf8lex_declaration()
 
   utf8lex_rule_t lex_rule;
   utf8lex_token_t token;
+  utf8lex_token_t expected_token;
 
   printf("  Setting up rule for 'declaration' definition:\n");
   error = utf8lex_rule_init(&lex_rule,  // self
@@ -984,10 +1458,10 @@ static utf8lex_error_t test_utf8lex_declaration()
   to_lex = "int   count";  // ID SPACE ID
   printf("  Lexing '%s' with 'declaration' definition:\n",
          to_lex);
-  error == test_utf8lex_init_state(&state,  // state
-                                   &buffer,  // buffer
-                                   &str,  // str
-                                   to_lex);
+  error == init_state(&state,  // state
+                      &buffer,  // buffer
+                      &str,  // str
+                      to_lex);
   if (error != UTF8LEX_OK) { return error; }
 
   error = utf8lex_lex(&lex_rule,  // first_rule
@@ -1009,16 +1483,34 @@ static utf8lex_error_t test_utf8lex_declaration()
     return error;
   }
 
-  error = test_utf8lex_clear_state(&state);  // state
+  // Check the token and sub-tokens:
+  // DECLARATION = ID SPACE ID
+  // Matched the whole sequence.
+  {
+    error =
+      expect_token("test_utf8lex_declaration()",  // test_name
+                   0,  // recursion_depth
+                   0,  // sub_token_index
+                   &lex_rule,  // expected_rule
+                   (utf8lex_definition_t *)
+                   &(declaration.declaration_definition),  // expected_definition
+                   to_lex,  // expected_content
+                   0, 0, 0, 0,  // expected_start_[byte, char, grapheme, line]
+                   11, 11, 11, 0,  // expected_length_[byte, char, grapheme, line]
+                   &token);  // actual_token
+    if (error != UTF8LEX_OK) { return error; }
+  }
+
+  error = clear_state(&state);  // state
   if (error != UTF8LEX_OK) { return error; }
 
   to_lex = "foobar";  // no match.
   printf("  Lexing '%s' with 'declaration' definition:\n",
          to_lex);
-  error == test_utf8lex_init_state(&state,  // state
-                                   &buffer,  // buffer
-                                   &str,  // str
-                                   to_lex);
+  error == init_state(&state,  // state
+                      &buffer,  // buffer
+                      &str,  // str
+                      to_lex);
   if (error != UTF8LEX_OK) { return error; }
 
   error = utf8lex_lex(&lex_rule,  // first_rule
@@ -1040,7 +1532,7 @@ static utf8lex_error_t test_utf8lex_declaration()
     return error;
   }
 
-  error = test_utf8lex_clear_state(&state);  // state
+  error = clear_state(&state);  // state
   if (error != UTF8LEX_OK) { return error; }
 
 
@@ -1049,7 +1541,7 @@ static utf8lex_error_t test_utf8lex_declaration()
   if (error != UTF8LEX_OK) { return error; }
 
   // Clean up the db:
-  error = test_utf8lex_db_clear(&db);
+  error = db_clear(&db);
   if (error != UTF8LEX_OK)
   {
     return error;
@@ -1065,7 +1557,7 @@ static utf8lex_error_t test_utf8lex_operand()
   utf8lex_error_t error = UTF8LEX_OK;
 
   utf8lex_test_db_t db;
-  error = test_utf8lex_db_init(&db);
+  error = db_init(&db);
   if (error != UTF8LEX_OK)
   {
     return error;
@@ -1089,6 +1581,7 @@ static utf8lex_error_t test_utf8lex_operand()
 
   utf8lex_rule_t lex_rule;
   utf8lex_token_t token;
+  utf8lex_token_t expected_token;
 
   printf("  Setting up rule for 'operand' definition:\n");
   error = utf8lex_rule_init(&lex_rule,  // self
@@ -1103,10 +1596,10 @@ static utf8lex_error_t test_utf8lex_operand()
   to_lex = "1132";  // NUMBER
   printf("  Lexing '%s' with 'operand' definition:\n",
          to_lex);
-  error == test_utf8lex_init_state(&state,  // state
-                                   &buffer,  // buffer
-                                   &str,  // str
-                                   to_lex);
+  error == init_state(&state,  // state
+                      &buffer,  // buffer
+                      &str,  // str
+                      to_lex);
   if (error != UTF8LEX_OK) { return error; }
 
   error = utf8lex_lex(&lex_rule,  // first_rule
@@ -1128,16 +1621,33 @@ static utf8lex_error_t test_utf8lex_operand()
     return error;
   }
 
-  error = test_utf8lex_clear_state(&state);  // state
+  // Check the token and sub-tokens:
+  // OPERAND = NUMBER | ID
+  // Matched NUMBER.
+  {
+    error =
+      expect_token("test_utf8lex_operand()",  // test_name
+                   0,  // recursion_depth
+                   0,  // sub_token_index
+                   &lex_rule,  // expected_rule
+                   operand.ref_number.definition_or_null,  // expected_definition
+                   to_lex,  // expected_content
+                   0, 0, 0, 0,  // expected_start_[byte, char, grapheme, line]
+                   4, 4, 4, 0,  // expected_length_[byte, char, grapheme, line]
+                   &token);  // actual_token
+    if (error != UTF8LEX_OK) { return error; }
+  }
+
+  error = clear_state(&state);  // state
   if (error != UTF8LEX_OK) { return error; }
 
   to_lex = "xyz";  // ID
   printf("  Lexing '%s' with 'operand' definition:\n",
          to_lex);
-  error == test_utf8lex_init_state(&state,  // state
-                                   &buffer,  // buffer
-                                   &str,  // str
-                                   to_lex);
+  error == init_state(&state,  // state
+                      &buffer,  // buffer
+                      &str,  // str
+                      to_lex);
   if (error != UTF8LEX_OK) { return error; }
 
   error = utf8lex_lex(&lex_rule,  // first_rule
@@ -1159,16 +1669,33 @@ static utf8lex_error_t test_utf8lex_operand()
     return error;
   }
 
-  error = test_utf8lex_clear_state(&state);  // state
+  // Check the token and sub-tokens:
+  // OPERAND = NUMBER | ID
+  // Matched ID.
+  {
+    error =
+      expect_token("test_utf8lex_operand()",  // test_name
+                   0,  // recursion_depth
+                   0,  // sub_token_index
+                   &lex_rule,  // expected_rule
+                   operand.ref_id.definition_or_null,  // expected_definition
+                   to_lex,  // expected_content
+                   0, 0, 0, 0,  // expected_start_[byte, char, grapheme, line]
+                   3, 3, 3, 0,  // expected_length_[byte, char, grapheme, line]
+                   &token);  // actual_token
+    if (error != UTF8LEX_OK) { return error; }
+  }
+
+  error = clear_state(&state);  // state
   if (error != UTF8LEX_OK) { return error; }
 
   to_lex = "+";  // no match.
   printf("  Lexing '%s' with 'operand' definition:\n",
          to_lex);
-  error == test_utf8lex_init_state(&state,  // state
-                                   &buffer,  // buffer
-                                   &str,  // str
-                                   to_lex);
+  error == init_state(&state,  // state
+                      &buffer,  // buffer
+                      &str,  // str
+                      to_lex);
   if (error != UTF8LEX_OK) { return error; }
 
   error = utf8lex_lex(&lex_rule,  // first_rule
@@ -1190,7 +1717,7 @@ static utf8lex_error_t test_utf8lex_operand()
     return error;
   }
 
-  error = test_utf8lex_clear_state(&state);  // state
+  error = clear_state(&state);  // state
   if (error != UTF8LEX_OK) { return error; }
 
 
@@ -1199,7 +1726,7 @@ static utf8lex_error_t test_utf8lex_operand()
   if (error != UTF8LEX_OK) { return error; }
 
   // Clean up the db:
-  error = test_utf8lex_db_clear(&db);
+  error = db_clear(&db);
   if (error != UTF8LEX_OK)
   {
     return error;
@@ -1216,7 +1743,7 @@ static utf8lex_error_t test_utf8lex_expression()
   utf8lex_error_t error = UTF8LEX_OK;
 
   utf8lex_test_db_t db;
-  error = test_utf8lex_db_init(&db);
+  error = db_init(&db);
   if (error != UTF8LEX_OK)
   {
     return error;
@@ -1238,14 +1765,14 @@ static utf8lex_error_t test_utf8lex_expression()
   // Nest the child multi-definitions inside expression:
   // DECLARATION = ID SPACE ID
   utf8lex_test_declaration_t declaration;
-  error = test_utf8lex_create_declaration(
+  error = create_declaration(
               &db,  // db
               &(expression.expression_definition),  // parent
               &declaration);  // declaration
   if (error != UTF8LEX_OK) { return error; }
   // OPERATOR = EQUALS3 | EQUALS | PLUS | MINUS
   utf8lex_test_operator_t operator;
-  error = test_utf8lex_create_operator(
+  error = create_operator(
               &db,  // db
               &(expression.expression_definition),  // parent
               &operator);  // operator
@@ -1305,6 +1832,7 @@ static utf8lex_error_t test_utf8lex_expression()
 
   utf8lex_rule_t lex_rule;
   utf8lex_token_t token;
+  utf8lex_token_t expected_token;
 
   printf("  Setting up rule for 'expression' definition:\n");
   error = utf8lex_rule_init(&lex_rule,  // self
@@ -1319,10 +1847,10 @@ static utf8lex_error_t test_utf8lex_expression()
   to_lex = "string     first_name===42";  // DECLARATION OPERATOR OPERAND
   printf("  Lexing '%s' with 'expression' definition:\n",
          to_lex);
-  error == test_utf8lex_init_state(&state,  // state
-                                   &buffer,  // buffer
-                                   &str,  // str
-                                   to_lex);
+  error == init_state(&state,  // state
+                      &buffer,  // buffer
+                      &str,  // str
+                      to_lex);
   if (error != UTF8LEX_OK) { return error; }
 
   error = utf8lex_lex(&lex_rule,  // first_rule
@@ -1344,16 +1872,35 @@ static utf8lex_error_t test_utf8lex_expression()
     return error;
   }
 
-  error = test_utf8lex_clear_state(&state);  // state
+  // Check the token and sub-tokens:
+  // EXPRESSION = DECLARATION OPERATOR OPERAND
+  //     = ( ID SPACE ID ) ( EQUALS3 | EQUALS | PLUS | MINUS ) ( NUMBER | ID )
+  // Matched DECLARATION OPERATOR OPERAND.
+  {
+    error =
+      expect_token("test_utf8lex_expression()",  // test_name
+                   0,  // recursion_depth
+                   0,  // sub_token_index
+                   &lex_rule,  // expected_rule
+                   (utf8lex_definition_t *)
+                   &(expression.expression_definition),  // expected_definition
+                   to_lex,  // expected_content
+                   0, 0, 0, 0,  // expected_start_[byte, char, grapheme, line]
+                   26, 26, 26, 0,  // expected_length_[byte, char, grapheme, line]
+                   &token);  // actual_token
+    if (error != UTF8LEX_OK) { return error; }
+  }
+
+  error = clear_state(&state);  // state
   if (error != UTF8LEX_OK) { return error; }
 
   to_lex = "int counter+999";  // DECLARATION OPERATOR OPERAND
   printf("  Lexing '%s' with 'expression' definition:\n",
          to_lex);
-  error == test_utf8lex_init_state(&state,  // state
-                                   &buffer,  // buffer
-                                   &str,  // str
-                                   to_lex);
+  error == init_state(&state,  // state
+                      &buffer,  // buffer
+                      &str,  // str
+                      to_lex);
   if (error != UTF8LEX_OK) { return error; }
 
   error = utf8lex_lex(&lex_rule,  // first_rule
@@ -1375,16 +1922,35 @@ static utf8lex_error_t test_utf8lex_expression()
     return error;
   }
 
-  error = test_utf8lex_clear_state(&state);  // state
+  // Check the token and sub-tokens:
+  // EXPRESSION = DECLARATION OPERATOR OPERAND
+  //     = ( ID SPACE ID ) ( EQUALS3 | EQUALS | PLUS | MINUS ) ( NUMBER | ID )
+  // Matched DECLARATION OPERATOR OPERAND.
+  {
+    error =
+      expect_token("test_utf8lex_expression()",  // test_name
+                   0,  // recursion_depth
+                   0,  // sub_token_index
+                   &lex_rule,  // expected_rule
+                   (utf8lex_definition_t *)
+                   &(expression.expression_definition),  // expected_definition
+                   to_lex,  // expected_content
+                   0, 0, 0, 0,  // expected_start_[byte, char, grapheme, line]
+                   15, 15, 15, 0,  // expected_length_[byte, char, grapheme, line]
+                   &token);  // actual_token
+    if (error != UTF8LEX_OK) { return error; }
+  }
+
+  error = clear_state(&state);  // state
   if (error != UTF8LEX_OK) { return error; }
 
   to_lex = "foobar +";  // no match.
   printf("  Lexing '%s' with 'expression' definition:\n",
          to_lex);
-  error == test_utf8lex_init_state(&state,  // state
-                                   &buffer,  // buffer
-                                   &str,  // str
-                                   to_lex);
+  error == init_state(&state,  // state
+                      &buffer,  // buffer
+                      &str,  // str
+                      to_lex);
   if (error != UTF8LEX_OK) { return error; }
 
   error = utf8lex_lex(&lex_rule,  // first_rule
@@ -1406,7 +1972,7 @@ static utf8lex_error_t test_utf8lex_expression()
     return error;
   }
 
-  error = test_utf8lex_clear_state(&state);  // state
+  error = clear_state(&state);  // state
   if (error != UTF8LEX_OK) { return error; }
 
 
@@ -1415,7 +1981,7 @@ static utf8lex_error_t test_utf8lex_expression()
   if (error != UTF8LEX_OK) { return error; }
 
   // Clean up the db:
-  error = test_utf8lex_db_clear(&db);
+  error = db_clear(&db);
   if (error != UTF8LEX_OK)
   {
     return error;
@@ -1430,7 +1996,7 @@ int main(
         char *argv[]
         )
 {
-  printf("Testing utf8lex_definition_multi...\n");  fflush(stdout);
+  printf("Testing utf8lex_token...\n");  fflush(stdout);
 
   // Test a logical "OR" multi-definition:
   // OPERATOR = EQUALS3 | EQUALS | PLUS | MINUS
@@ -1460,7 +2026,7 @@ int main(
 
   if (error == UTF8LEX_OK)
   {
-    printf("SUCCESS Testing utf8lex_definition_multi.\n");  fflush(stdout);
+    printf("SUCCESS Testing utf8lex_token.\n");  fflush(stdout);
     fflush(stdout);
     fflush(stderr);
     return 0;
@@ -1477,7 +2043,7 @@ int main(
                          error);
 
     fprintf(stderr,
-            "ERROR test_utf8lex_definition_multi: Failed with error code: %d %s\n",
+            "ERROR test_utf8lex_token: Failed with error code: %d %s [%d]\n",
             (int) error,
             error_string.bytes);
 

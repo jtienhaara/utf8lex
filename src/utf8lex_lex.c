@@ -100,6 +100,24 @@ utf8lex_error_t utf8lex_lex(
       utf8lex_trace_rule_pre(rule, state);
     }
 
+    // Initialize the token to empty.
+    token_pointer->rule = NULL;
+    token_pointer->definition = NULL;
+    token_pointer->start_byte = -1;
+    token_pointer->length_bytes = 0;
+    token_pointer->str = NULL;
+    for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
+         unit < UTF8LEX_UNIT_MAX;
+         unit ++)
+    {
+      token_pointer->loc[unit].start = -1;
+      token_pointer->loc[unit].length = 0;
+      token_pointer->loc[unit].after = -1;
+      token_pointer->loc[unit].hash = 0;
+    }
+    token_pointer->sub_tokens = NULL;
+    token_pointer->parent_or_null = NULL;
+
     // Call the definition_type's lexer.  On successful tokenization,
     // it will set the absolute offset and lengths of the token
     // (and optionally update the lengths stored in the buffer

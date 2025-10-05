@@ -670,7 +670,7 @@ static utf8lex_error_t utf8lex_lex_multi(
     if (state->settings.is_tracing == true)
     {
       utf8lex_trace_definition_post(rule->definition,
-                                    "Lex (references)",
+                                    "Lex (multi no references)",
                                     state,
                                     token_pointer,
                                     UTF8LEX_ERROR_EMPTY_DEFINITION);
@@ -684,15 +684,69 @@ static utf8lex_error_t utf8lex_lex_multi(
   // the entire multi-definition has been completely matched.
   utf8lex_state_t multi_state;
   utf8lex_buffer_t multi_buffer;
+  utf8lex_settings_t multi_settings;
   utf8lex_error_t error = utf8lex_buffer_init(&multi_buffer,  // self
                                               NULL,  // prev
                                               state->buffer->str,  // str
                                               state->buffer->is_eof);  // is_eof
-  error = utf8lex_state_init(&multi_state,        // self
-                             &(state->settings),  // settings
-                             &multi_buffer);      // buffer
+  if (error != UTF8LEX_OK)
+  {
+    UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
+    // Trace post.
+    if (state->settings.is_tracing == true)
+    {
+      utf8lex_trace_definition_post(rule->definition,
+                                    "Lex (multi buffer init)",
+                                    state,
+                                    token_pointer,
+                                    error);
+    }
+    return error;
+  }
+  error = utf8lex_settings_copy(&(state->settings), &multi_settings);
+  if (error != UTF8LEX_OK)
+  {
+    utf8lex_buffer_clear(&multi_buffer);
+    UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
+    // Trace post.
+    if (state->settings.is_tracing == true)
+    {
+      utf8lex_trace_definition_post(rule->definition,
+                                    "Lex (multi settings copy)",
+                                    state,
+                                    token_pointer,
+                                    error);
+    }
+    return error;
+  }
+  error = utf8lex_state_init(&multi_state,             // self
+                             &multi_settings,          // settings
+                             &multi_buffer,            // buffer
+                             state->stack_depth + 1);  // stack_depth
+  if (error != UTF8LEX_OK)
+  {
+    utf8lex_buffer_clear(&multi_buffer);
+    utf8lex_settings_clear(&multi_settings);
+    UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
+    // Trace post.
+    if (state->settings.is_tracing == true)
+    {
+      utf8lex_trace_definition_post(rule->definition,
+                                    "Lex (multi state init)",
+                                    state,
+                                    token_pointer,
+                                    error);
+    }
+    return error;
+  }
   multi_state.num_tracing_indents = state->num_tracing_indents;
 
+  utf8lex_rule_t child_rule;
+  utf8lex_token_t child_token;
+
+  // Tracks the location of the whole token, across all sub-tokens
+  // (start always remains the same, but length, after and hash are
+  // updated for each matching sub-token).
   utf8lex_location_t sequence_loc[UTF8LEX_UNIT_MAX];
   for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
        unit < UTF8LEX_UNIT_MAX;
@@ -714,12 +768,32 @@ static utf8lex_error_t utf8lex_lex_multi(
     sequence_loc[unit].hash = (unsigned long) 0;
   }
 
+  // Initialize the child_token so it's not full of junk
+  // (lexing with it will overwrite these initial values).
+  child_token.rule = NULL;
+  child_token.definition = NULL;
+  child_token.start_byte = -1;
+  child_token.length_bytes = -1;
+  child_token.str = NULL;
+  for (utf8lex_unit_t unit = UTF8LEX_UNIT_NONE + (utf8lex_unit_t) 1;
+       unit < UTF8LEX_UNIT_MAX;
+       unit ++)
+  {
+    child_token.loc[unit].start = -1;
+    child_token.loc[unit].length = -1;
+    child_token.loc[unit].after = -1;
+    child_token.loc[unit].hash = -1;
+  }
+  child_token.sub_tokens = NULL;
+  child_token.parent_or_null = NULL;
+
   utf8lex_reference_t *reference = multi->references;
   uint32_t infinite_loop = UTF8LEX_REFERENCES_LENGTH_MAX;
   bool is_infinite_loop = true;
   utf8lex_definition_t *matching_definition = NULL;
   utf8lex_sub_token_t *first_sub_token = NULL;
   utf8lex_sub_token_t *prev_sub_token = NULL;
+  int num_sub_tokens = 0;
   for (uint32_t r = 0; r < infinite_loop; r ++)
   {
     if (reference == NULL)
@@ -731,38 +805,37 @@ static utf8lex_error_t utf8lex_lex_multi(
     utf8lex_definition_t *definition = reference->definition_or_null;
     if (definition == NULL)
     {
+      utf8lex_state_clear(&multi_state);
+
       UTF8LEX_DEBUG("EXIT utf8lex_lex_multi() reference");
       // Trace post.
       if (state->settings.is_tracing == true)
       {
         utf8lex_trace_definition_post(rule->definition,
-                                      "Lex (definition)",
+                                      "Lex (multi reference definition null)",
                                       state,
                                       token_pointer,
                                       UTF8LEX_ERROR_UNRESOLVED_DEFINITION);
       }
-
-      utf8lex_state_clear(&multi_state);
       return UTF8LEX_ERROR_UNRESOLVED_DEFINITION;
     }
     else if (definition->definition_type == NULL)
     {
+      utf8lex_state_clear(&multi_state);
+
       UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
       // Trace post.
       if (state->settings.is_tracing == true)
       {
         utf8lex_trace_definition_post(rule->definition,
-                                      "Lex (type)",
+                                      "Lex (multi definition type null)",
                                       state,
                                       token_pointer,
                                       UTF8LEX_ERROR_NULL_POINTER);
       }
-
-      utf8lex_state_clear(&multi_state);
       return UTF8LEX_ERROR_NULL_POINTER;
     }
 
-    utf8lex_rule_t child_rule;
     error = utf8lex_rule_init(
         &child_rule,  // self
         NULL,  // prev
@@ -770,7 +843,6 @@ static utf8lex_error_t utf8lex_lex_multi(
         definition,  // definition
         "",  // code
         (size_t) 0);  // code_length_bytes
-    utf8lex_token_t child_token;
 
     int max = reference->max;
     if (max == -1)
@@ -790,18 +862,20 @@ static utf8lex_error_t utf8lex_lex_multi(
       }
       else if (error != UTF8LEX_OK)
       {
+        child_rule.definition = NULL;  // definition is toplevel, don't clear.
+        utf8lex_rule_clear(&child_rule);
+        utf8lex_state_clear(&multi_state);
+
         UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
         // Trace post.
         if (state->settings.is_tracing == true)
         {
           utf8lex_trace_definition_post(rule->definition,
-                                        "Lex (child lex)",
+                                        "Lex (multi child lex)",
                                         state,
                                         token_pointer,
                                         error);
         }
-
-        utf8lex_state_clear(&multi_state);
         return error;
       }
 
@@ -809,29 +883,56 @@ static utf8lex_error_t utf8lex_lex_multi(
       child_token.definition = definition;
 
       // Create a sub-token for the matching child.
-      uint32_t st = state->num_used_sub_tokens;
-      utf8lex_sub_token_t *sub_token = &(state->sub_tokens[st]);
-      st ++;
-      state->num_used_sub_tokens = st;
-      error = utf8lex_sub_token_init(
-              sub_token,  // self
-              prev_sub_token,  // prev
-              &child_token,  // token_to_copy
-              &multi_state);  // state
-      if (error != UTF8LEX_OK)
+      if (state->num_used_sub_tokens >= UTF8LEX_SUB_TOKENS_LENGTH_MAX)
       {
+        // No more sub-tokens in the toplevel state, we can't
+        // allocate any more.
+        child_rule.definition = NULL;  // definition is toplevel, don't clear.
+        utf8lex_rule_clear(&child_rule);
+        utf8lex_token_clear(&child_token);
+        utf8lex_state_clear(&multi_state);
         UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
         // Trace post.
         if (state->settings.is_tracing == true)
         {
           utf8lex_trace_definition_post(rule->definition,
-                                        "Lex (sub-token)",
+                                        "Lex (multi too many sub-tokens)",
+                                        state,
+                                        token_pointer,
+                                        UTF8LEX_ERROR_SUB_TOKENS_EXHAUSTED);
+        }
+        return UTF8LEX_ERROR_SUB_TOKENS_EXHAUSTED;
+      }
+      utf8lex_sub_token_t *sub_token =
+        &(state->sub_tokens[state->num_used_sub_tokens]);
+      state->num_used_sub_tokens ++;
+      num_sub_tokens ++;
+      // Initialize the sub-token, and let it steal our lexed child token's
+      // sub-tokens, if any.
+      error = utf8lex_sub_token_init(
+              sub_token,  // self
+              prev_sub_token,  // prev
+              child_rule.definition,  // definition
+              &child_token,  // token
+              &multi_state,  // from_state
+              state);  // to_state
+      if (error != UTF8LEX_OK)
+      {
+        child_rule.definition = NULL;  // definition is toplevel, don't clear.
+        utf8lex_rule_clear(&child_rule);
+        utf8lex_token_clear(&child_token);
+        utf8lex_state_clear(&multi_state);
+
+        UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
+        // Trace post.
+        if (state->settings.is_tracing == true)
+        {
+          utf8lex_trace_definition_post(rule->definition,
+                                        "Lex (multi sub-token init)",
                                         state,
                                         token_pointer,
                                         error);
         }
-
-        utf8lex_state_clear(&multi_state);
         return error;
       }
       sub_token->token.parent_or_null = token_pointer;
@@ -869,110 +970,127 @@ static utf8lex_error_t utf8lex_lex_multi(
 
     if (m == UTF8LEX_REFERENCES_LENGTH_MAX)
     {
+      child_rule.definition = NULL;  // definition is toplevel, don't clear.
+      utf8lex_rule_clear(&child_rule);
+      utf8lex_token_clear(&child_token);
+      utf8lex_state_clear(&multi_state);
+
       UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
       // Trace post.
       if (state->settings.is_tracing == true)
       {
         utf8lex_trace_definition_post(rule->definition,
-                                      "Lex (max refs)",
+                                      "Lex (multi max refs)",
                                       state,
                                       token_pointer,
                                       UTF8LEX_ERROR_INFINITE_LOOP);
       }
-
-      utf8lex_state_clear(&multi_state);
       return UTF8LEX_ERROR_INFINITE_LOOP;
     }
     else if (m < reference->min
              && multi->multi_type == UTF8LEX_MULTI_TYPE_OR)
     {
+      // Didn't match.
       // Carry on searching for a definition that matches the incoming text.
       if (reference->next == NULL)
       {
+        child_rule.definition = NULL;  // definition is toplevel, don't clear.
+        utf8lex_rule_clear(&child_rule);
+        utf8lex_token_clear(&child_token);
+        utf8lex_state_clear(&multi_state);
+
         UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
         // Trace post.
         if (state->settings.is_tracing == true)
         {
           utf8lex_trace_definition_post(rule->definition,
-                                        "Lex (no more references)",
+                                        "Lex (multi min OR sub-tokens)",
                                         state,
                                         token_pointer,
                                         UTF8LEX_NO_MATCH);
         }
-
-        utf8lex_state_clear(&multi_state);
         return UTF8LEX_NO_MATCH;
       }
 
       reference = reference->next;
+      num_sub_tokens = 0;
       continue;
     }
     else if (m < reference->min)
     {
+      child_rule.definition = NULL;  // definition is toplevel, don't clear.
+      utf8lex_rule_clear(&child_rule);
+      utf8lex_token_clear(&child_token);
+      utf8lex_state_clear(&multi_state);
+
       UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
       // Trace post.
       if (state->settings.is_tracing == true)
       {
         utf8lex_trace_definition_post(rule->definition,
-                                      "Lex (min)",
+                                      "Lex (multi min sub-tokens)",
                                       state,
                                       token_pointer,
                                       UTF8LEX_NO_MATCH);
       }
-
-      utf8lex_state_clear(&multi_state);
       return UTF8LEX_NO_MATCH;
     }
     else if (multi->multi_type == UTF8LEX_MULTI_TYPE_OR)
     {
       is_infinite_loop = false;
       matching_definition = definition;
+      child_rule.definition = NULL;  // definition is toplevel, don't clear.
+      utf8lex_rule_clear(&child_rule);
+      utf8lex_token_clear(&child_token);
       break;
     }
     else if (multi->multi_type == UTF8LEX_MULTI_TYPE_SEQUENCE)
     {
       if (matching_definition == NULL)
       {
-        // Tie the token to the first definition in the sequence
-        // (even though there might be 2 or more definitions in sequence).
-        matching_definition = definition;
+        // Tie the token to the toplevel sequence multi-definition, rather than
+        // to a single child definition.
+        matching_definition = rule->definition;
       }
       // Continue matching the sequence
     }
+
+    child_rule.definition = NULL;  // definition is toplevel, don't clear.
+    utf8lex_rule_clear(&child_rule);
+    utf8lex_token_clear(&child_token);
 
     reference = reference->next;
   }
 
   if (is_infinite_loop == true)
   {
+    utf8lex_state_clear(&multi_state);
+
     UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
     // Trace post.
     if (state->settings.is_tracing == true)
     {
       utf8lex_trace_definition_post(rule->definition,
-                                    "Lex (infinite)",
+                                    "Lex (multi infinite references)",
                                     state,
                                     token_pointer,
                                     UTF8LEX_ERROR_INFINITE_LOOP);
     }
-
-    utf8lex_state_clear(&multi_state);
     return UTF8LEX_ERROR_INFINITE_LOOP;
   }
   else if (matching_definition == NULL)
   {
+    utf8lex_state_clear(&multi_state);
     UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
     // Trace post.
     if (state->settings.is_tracing == true)
     {
       utf8lex_trace_definition_post(rule->definition,
-                                    "Lex (multi)",
+                                    "Lex (multi no matching definition)",
                                     state,
                                     token_pointer,
                                     UTF8LEX_ERROR_STATE);
     }
-
-    utf8lex_state_clear(&multi_state);
     return UTF8LEX_ERROR_STATE;
   }
 
@@ -987,6 +1105,32 @@ static utf8lex_error_t utf8lex_lex_multi(
     state->loc[unit].hash = sequence_loc[unit].hash;
   }
 
+  // If we only have 1 sub-token, just free it.
+  if (num_sub_tokens == 1)
+  {
+    error = utf8lex_sub_token_clear(first_sub_token);
+    if (error != UTF8LEX_OK)
+    {
+      utf8lex_state_clear(&multi_state);
+
+      UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
+      // Trace post.
+      if (state->settings.is_tracing == true)
+      {
+        utf8lex_trace_definition_post(rule->definition,
+                                      "Lex (multi token init)",
+                                      state,
+                                      token_pointer,
+                                      error);
+      }
+      return error;
+    }
+
+    state->num_used_sub_tokens --;
+    num_sub_tokens = 0;
+    first_sub_token = NULL;
+  }
+
   error = utf8lex_token_init(
       token_pointer,  // self
       rule,  // rule
@@ -995,35 +1139,37 @@ static utf8lex_error_t utf8lex_lex_multi(
       state);  // For buffer and absolute location.
   if (error != UTF8LEX_OK)
   {
+    utf8lex_state_clear(&multi_state);
+
     UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
     // Trace post.
     if (state->settings.is_tracing == true)
     {
       utf8lex_trace_definition_post(rule->definition,
-                                    "Lex (token)",
+                                    "Lex (multi token init)",
                                     state,
                                     token_pointer,
                                     error);
     }
-
-    utf8lex_state_clear(&multi_state);
     return error;
   }
 
+  token_pointer->num_sub_tokens = num_sub_tokens;
   token_pointer->sub_tokens = first_sub_token;
+
+  utf8lex_state_clear(&multi_state);
 
   UTF8LEX_DEBUG("EXIT utf8lex_lex_multi()");
   // Trace post.
   if (state->settings.is_tracing == true)
   {
     utf8lex_trace_definition_post(rule->definition,
-                                  "Lex",
+                                  "Lex (multi)",
                                   state,
                                   token_pointer,
                                   UTF8LEX_OK);
   }
 
-  utf8lex_state_clear(&multi_state);
   return UTF8LEX_OK;
 }
 
